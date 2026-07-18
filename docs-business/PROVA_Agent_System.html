@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROVA — Autonomous Multi-Agent Engineering System</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--surface:#0d1420;--surface2:#111827;--border:#1e2d44;
+  --prova:#00d4ff;--green:#10b981;--orange:#f59e0b;--red:#ef4444;
+  --purple:#7c3aed;--teal:#0d9488;--pink:#db2777;--lime:#65a30d;
+  --text:#e2eaf4;--muted:#6b7fa3;
+}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:0 0 80px}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:48px 48px;opacity:0.15}
+.wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:0 24px}
+
+/* HERO */
+.hero{text-align:center;padding:60px 24px 48px;position:relative;z-index:1}
+.hero-tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--prova);background:rgba(0,212,255,.1);
+  border:1px solid rgba(0,212,255,.2);padding:4px 16px;border-radius:20px;margin-bottom:20px}
+.hero h1{font-size:clamp(26px,4vw,52px);font-weight:800;color:#fff;margin-bottom:12px;line-height:1.1}
+.hero h1 span{color:var(--prova)}
+.hero-sub{font-size:14px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+/* SECTION */
+.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;
+  color:var(--prova);font-family:'JetBrains Mono',monospace;
+  margin-bottom:24px;display:flex;align-items:center;gap:12px}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* AGENT CARDS ROW */
+.agents-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:48px}
+.agent-card{border-radius:12px;padding:18px 14px;text-align:center;border:1px solid;position:relative;overflow:hidden;transition:transform .2s}
+.agent-card:hover{transform:translateY(-4px)}
+.agent-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.a1{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.25)} .a1::before{background:var(--prova)}
+.a2{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.25)} .a2::before{background:var(--green)}
+.a3{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.25)} .a3::before{background:var(--orange)}
+.a4{background:rgba(124,58,237,.08);border-color:rgba(124,58,237,.25)} .a4::before{background:var(--purple)}
+.a5{background:rgba(219,39,119,.08);border-color:rgba(219,39,119,.25)} .a5::before{background:var(--pink)}
+.agent-icon{font-size:28px;margin-bottom:10px}
+.agent-name{font-size:13px;font-weight:800;color:#fff;margin-bottom:6px}
+.agent-role{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;line-height:1.5}
+.a1 .agent-name{color:var(--prova)} .a2 .agent-name{color:var(--green)}
+.a3 .agent-name{color:var(--orange)} .a4 .agent-name{color:var(--purple)}
+.a5 .agent-name{color:var(--pink)}
+
+/* PIPELINE DIAGRAM */
+.pipeline{display:flex;align-items:stretch;gap:0;margin-bottom:48px;overflow-x:auto}
+.pipe-step{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border);
+  border-right:none;padding:16px 12px;position:relative}
+.pipe-step:last-child{border-right:1px solid var(--border);border-radius:0 12px 12px 0}
+.pipe-step:first-child{border-radius:12px 0 0 12px}
+.pipe-step::after{content:'→';position:absolute;right:-12px;top:50%;transform:translateY(-50%);
+  color:var(--muted);font-size:14px;z-index:1;background:var(--bg);padding:2px}
+.pipe-step:last-child::after{display:none}
+.pipe-num{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);margin-bottom:6px}
+.pipe-title{font-size:12px;font-weight:700;color:#fff;margin-bottom:4px}
+.pipe-agent{font-size:10px;font-family:'JetBrains Mono',monospace;margin-bottom:6px;padding:2px 6px;border-radius:6px;display:inline-block}
+.pipe-desc{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;line-height:1.5}
+.pa1{background:rgba(0,212,255,.12);color:var(--prova)} .pa2{background:rgba(16,185,129,.12);color:var(--green)}
+.pa3{background:rgba(245,158,11,.12);color:var(--orange)} .pa4{background:rgba(124,58,237,.12);color:var(--purple)}
+.pa5{background:rgba(219,39,119,.12);color:var(--pink)}
+
+/* FEATURE BOXES */
+.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:48px}
+.feat-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.feat-box h3{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.feat-item{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);
+  font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.5}
+.feat-item:last-child{border-bottom:none}
+.fi-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+
+/* CODE BLOCK */
+.code-block{background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+  padding:20px 24px;margin-bottom:24px;font-family:'JetBrains Mono',monospace;font-size:12px;
+  line-height:1.8;color:#e2eaf4;overflow-x:auto}
+.code-block .comment{color:var(--muted)}
+.code-block .key{color:var(--prova)}
+.code-block .val{color:var(--green)}
+.code-block .str{color:var(--orange)}
+.code-block .fn{color:var(--purple)}
+
+/* FLOW DIAGRAM */
+.flow-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;margin-bottom:48px}
+.flow-row{display:flex;align-items:center;gap:0;margin-bottom:8px}
+.flow-box{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;
+  font-family:'JetBrains Mono',monospace}
+.flow-arrow{color:var(--muted);font-size:16px;padding:0 8px;flex-shrink:0}
+.flow-note{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-left:12px;line-height:1.4}
+.fb1{background:rgba(0,212,255,.12);color:var(--prova);border:1px solid rgba(0,212,255,.2)}
+.fb2{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.2)}
+.fb3{background:rgba(245,158,11,.12);color:var(--orange);border:1px solid rgba(245,158,11,.2)}
+.fb4{background:rgba(124,58,237,.12);color:var(--purple);border:1px solid rgba(124,58,237,.2)}
+.fb5{background:rgba(219,39,119,.12);color:var(--pink);border:1px solid rgba(219,39,119,.2)}
+.fb6{background:rgba(13,148,136,.12);color:var(--teal);border:1px solid rgba(13,148,136,.2)}
+.fb0{background:rgba(255,255,255,.06);color:#fff;border:1px solid var(--border)}
+
+/* HONEST BOX */
+.honest-box{border-radius:12px;padding:20px 24px;margin-bottom:24px}
+.honest-box.green{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25)}
+.honest-box.orange{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25)}
+.honest-box.red{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25)}
+.honest-box h4{font-size:13px;font-weight:700;margin-bottom:12px}
+.honest-box.green h4{color:var(--green)} .honest-box.orange h4{color:var(--orange)} .honest-box.red h4{color:var(--red)}
+.honest-box p{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;line-height:1.7}
+
+/* COST TABLE */
+.cost-table{width:100%;border-collapse:collapse;margin-bottom:32px}
+.cost-table th{background:var(--surface2);padding:10px 14px;font-size:11px;text-transform:uppercase;
+  letter-spacing:.12em;color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:left}
+.cost-table td{padding:10px 14px;font-size:13px;font-family:'JetBrains Mono',monospace;
+  border-bottom:1px solid var(--border)}
+.cost-table tr:last-child td{border-bottom:none}
+.cost-table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+.free{color:var(--green);font-weight:700} .paid{color:var(--orange);font-weight:700}
+.warn{color:var(--red);font-weight:700}
+
+@media(max-width:700px){
+  .agents-grid{grid-template-columns:1fr 1fr}
+  .feature-grid{grid-template-columns:1fr}
+  .pipeline{flex-direction:column}
+  .pipe-step{border-right:1px solid var(--border);border-bottom:none;border-radius:0}
+  .pipe-step:first-child{border-radius:12px 12px 0 0}
+  .pipe-step:last-child{border-radius:0 0 12px 12px}
+  .pipe-step::after{content:'↓';right:50%;top:auto;bottom:-12px;transform:translateX(50%)}
+}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-tag">Autonomous Engineering System · 2026</div>
+  <h1>PROVA <span>Multi-Agent</span> Engineering<br>with Claude Code</h1>
+  <p class="hero-sub">Issue → Agent Orchestrator → Subagents → Code → Test → PR → CI/CD → Deploy · All automatic</p>
+</div>
+
+<div class="wrap">
+
+<!-- HONEST ASSESSMENT FIRST -->
+<div class="sec-title">Honest Capability Assessment First</div>
+
+<div class="honest-box green">
+  <h4>✅ What Is Fully Possible Right Now (June 2026)</h4>
+  <p>Claude Code (claude.ai/code) runs as an autonomous agent in your terminal. It reads files, writes code, runs tests, executes git commands, and opens PRs on GitHub — all without human intervention per step. Agent Teams (experimental) lets one Claude orchestrate multiple subagents working in parallel git worktrees. GitHub Actions can trigger Claude Code automatically when an Issue is labeled. This pipeline — Issue → Agent → Code → Tests → PR → CI/CD — is proven and production-ready today.</p>
+</div>
+
+<div class="honest-box orange">
+  <h4>⚠️ What Works But Needs Human Supervision</h4>
+  <p>Complex architecture decisions still benefit from human review before the agent executes. Long autonomous runs (6+ hours) can drift. Ambiguous requirements cause agents to loop. Security-critical code should always have a human review gate before merge. The sweet spot is: you define the task clearly, agent implements and tests, you review the PR before merge. Not 100% autonomous — 90% autonomous, 10% human oversight.</p>
+</div>
+
+<div class="honest-box red">
+  <h4>✗ What Is NOT Possible Yet (Be Realistic)</h4>
+  <p>Full zero-human autonomous deployment to production without any review is not safe or recommended. Agents cannot make good product decisions — they execute well-specified tasks. Novel architecture design (like building the PROVA knowledge graph from scratch) still needs human thinking first. Cost can spiral if agents loop without budget limits set. Cowork (desktop automation tool) is separate from Claude Code — it automates file/task management but is not a multi-agent coding system.</p>
+</div>
+
+<!-- THE 5 AGENTS -->
+<div class="sec-title">The 5 Specialized PROVA Agents</div>
+
+<div class="agents-grid">
+  <div class="agent-card a1">
+    <div class="agent-icon">🧠</div>
+    <div class="agent-name">ARIA</div>
+    <div class="agent-role">Architect & Issue Analyst<br>Reads Issues → makes plan → delegates to specialists</div>
+  </div>
+  <div class="agent-card a2">
+    <div class="agent-icon">⚙️</div>
+    <div class="agent-name">FORGE</div>
+    <div class="agent-role">Implementation Agent<br>Writes feature code, API integrations, CLI commands</div>
+  </div>
+  <div class="agent-card a3">
+    <div class="agent-icon">🧪</div>
+    <div class="agent-name">VERA</div>
+    <div class="agent-role">Test & Validation Agent<br>Writes tests, runs them, verifies pass/fail, reports</div>
+  </div>
+  <div class="agent-card a4">
+    <div class="agent-icon">🔍</div>
+    <div class="agent-name">LENS</div>
+    <div class="agent-role">Code Review Agent<br>Reviews PRs, checks architecture, flags issues</div>
+  </div>
+  <div class="agent-card a5">
+    <div class="agent-icon">📦</div>
+    <div class="agent-name">SHIP</div>
+    <div class="agent-role">Release & Deploy Agent<br>Writes changelogs, bumps versions, triggers CI/CD</div>
+  </div>
+</div>
+
+<!-- FULL PIPELINE -->
+<div class="sec-title">Autonomous Pipeline — Issue to Production</div>
+
+<div class="pipeline">
+  <div class="pipe-step">
+    <div class="pipe-num">STEP 1</div>
+    <div class="pipe-title">GitHub Issue</div>
+    <span class="pipe-agent pa1">YOU</span>
+    <div class="pipe-desc">Write issue with clear spec. Add label "agent-implement". That's it.</div>
+  </div>
+  <div class="pipe-step">
+    <div class="pipe-num">STEP 2</div>
+    <div class="pipe-title">ARIA Analyzes</div>
+    <span class="pipe-agent pa1">ARIA</span>
+    <div class="pipe-desc">Reads issue. Checks codebase. Creates task plan. Delegates subtasks to FORGE + VERA.</div>
+  </div>
+  <div class="pipe-step">
+    <div class="pipe-num">STEP 3</div>
+    <div class="pipe-title">FORGE Codes</div>
+    <span class="pipe-agent pa2">FORGE</span>
+    <div class="pipe-desc">Writes feature code in git worktree. Follows AGENTS.md standards. Runs linter.</div>
+  </div>
+  <div class="pipe-step">
+    <div class="pipe-num">STEP 4</div>
+    <div class="pipe-title">VERA Tests</div>
+    <span class="pipe-agent pa3">VERA</span>
+    <div class="pipe-desc">Writes unit + integration tests. Runs them. If fail → sends back to FORGE. Loops until green.</div>
+  </div>
+  <div class="pipe-step">
+    <div class="pipe-num">STEP 5</div>
+    <div class="pipe-title">LENS Reviews</div>
+    <span class="pipe-agent pa4">LENS</span>
+    <div class="pipe-desc">Reviews FORGE's PR. Checks architecture. Flags security issues. Approves or requests changes.</div>
+  </div>
+  <div class="pipe-step">
+    <div class="pipe-num">STEP 6</div>
+    <div class="pipe-title">YOU Review</div>
+    <span class="pipe-agent pa1">YOU</span>
+    <div class="pipe-desc">Review the PR on GitHub. If good → approve. 10 min review. LENS pre-filtered everything.</div>
+  </div>
+  <div class="pipe-step">
+    <div class="pipe-num">STEP 7</div>
+    <div class="pipe-title">CI/CD Runs</div>
+    <span class="pipe-agent pa3">GitHub Actions</span>
+    <div class="pipe-desc">Playwright tests run. PROVA tests PROVA. All pass → auto merge to develop.</div>
+  </div>
+  <div class="pipe-step">
+    <div class="pipe-num">STEP 8</div>
+    <div class="pipe-title">SHIP Releases</div>
+    <span class="pipe-agent pa5">SHIP</span>
+    <div class="pipe-desc">Bumps version. Writes changelog. Tags release. Publishes npm. Posts to Discord.</div>
+  </div>
+</div>
+
+<!-- THE AGENTS.MD FILE -->
+<div class="sec-title">AGENTS.md — The Master Instruction File</div>
+
+<div class="code-block">
+<span class="comment"># AGENTS.md — PROVA Engineering Standards</span>
+<span class="comment"># Every agent reads this before touching any code.</span>
+
+<span class="key">## Project Context</span>
+PROVA is a CLI-first AI QE automation platform.
+Core: Node.js + TypeScript + Playwright + Ollama + SQLite.
+Release: bi-weekly to npm as @prova/cli.
+
+<span class="key">## Agent Roles</span>
+- <span class="val">ARIA</span>:  Read the GitHub Issue. Analyze the codebase. Plan the work.
+          Delegate to FORGE (code) and VERA (tests) in parallel worktrees.
+          Never write production code directly.
+
+- <span class="val">FORGE</span>: Implement the feature. Follow TypeScript strict mode.
+          File structure: src/[domain]/[feature].ts
+          Never skip error handling. Always emit structured logs.
+
+- <span class="val">VERA</span>:  Write tests BEFORE marking work done.
+          Test file: src/[domain]/[feature].test.ts
+          Coverage minimum: 80% for new code.
+          Run: npm test -- --testPathPattern=[feature]
+
+- <span class="val">LENS</span>:  Review every PR before it opens.
+          Check: TypeScript errors, security (no hardcoded secrets),
+          breaking changes, test coverage, architecture fit.
+
+- <span class="val">SHIP</span>:  Only runs after CI is green and human approves.
+          Bump patch version. Write changelog entry. Publish npm.
+
+<span class="key">## Non-Negotiable Rules</span>
+1. Never commit secrets, API keys, or passwords.
+2. Never delete existing tests — only add new ones.
+3. Never modify AGENTS.md without human approval.
+4. All CLI commands must have --help documentation.
+5. All new features must have a README section.
+6. Tests must pass locally before opening a PR.
+
+<span class="key">## File Boundaries — Agents Must NOT Touch</span>
+- /src/core/knowledge-graph/ (architecture in progress)
+- /src/core/data-factory/ (human-owned for now)
+- package.json version field (SHIP agent only)
+
+<span class="key">## PR Template</span>
+Every PR must include:
+- What was built (1 paragraph)
+- Tests added (list)
+- Breaking changes (none / describe)
+- Related issue (#N)
+</div>
+
+<!-- THE GITHUB ACTIONS TRIGGER -->
+<div class="sec-title">GitHub Actions — Auto-Trigger on Issue Label</div>
+
+<div class="code-block">
+<span class="comment"># .github/workflows/agent-implement.yml</span>
+<span class="comment"># Fires when you add label "agent-implement" to any Issue</span>
+
+<span class="key">name:</span> <span class="val">ARIA Agent — Auto-Implement</span>
+
+<span class="key">on:</span>
+  <span class="key">issues:</span>
+    <span class="key">types:</span> [labeled]
+
+<span class="key">jobs:</span>
+  <span class="key">implement:</span>
+    <span class="key">if:</span> <span class="str">github.event.label.name == 'agent-implement'</span>
+    <span class="key">runs-on:</span> ubuntu-latest
+    <span class="key">permissions:</span>
+      <span class="key">contents:</span> write
+      <span class="key">pull-requests:</span> write
+      <span class="key">issues:</span> write
+
+    <span class="key">steps:</span>
+      - <span class="key">uses:</span> actions/checkout@v4
+
+      - <span class="key">name:</span> Install Claude Code
+        <span class="key">run:</span> npm install -g @anthropic-ai/claude-code
+
+      - <span class="key">name:</span> Run ARIA Orchestrator
+        <span class="key">env:</span>
+          <span class="key">ANTHROPIC_API_KEY:</span> <span class="str">${{ secrets.ANTHROPIC_API_KEY }}</span>
+          <span class="key">GITHUB_TOKEN:</span> <span class="str">${{ secrets.GITHUB_TOKEN }}</span>
+          <span class="key">ISSUE_NUMBER:</span> <span class="str">${{ github.event.issue.number }}</span>
+          <span class="key">ISSUE_BODY:</span> <span class="str">${{ github.event.issue.body }}</span>
+          <span class="key">ISSUE_TITLE:</span> <span class="str">${{ github.event.issue.title }}</span>
+        <span class="key">run:</span> |
+          claude --print --allowedTools "Bash,Read,Write,Edit,Glob,Grep" \
+            --max-turns 50 \
+            --budget-tokens 100000 \
+            "You are ARIA, the PROVA architect agent.
+             Read AGENTS.md first. Then implement Issue #$ISSUE_NUMBER:
+             Title: $ISSUE_TITLE
+             Body: $ISSUE_BODY
+
+             Steps:
+             1. Read the codebase to understand context
+             2. Plan the implementation
+             3. Create a new branch: feature/issue-$ISSUE_NUMBER
+             4. Implement the feature following AGENTS.md standards
+             5. Write tests — run them — fix until green
+             6. Open a PR with issue reference
+             7. Comment on the issue with PR link
+
+             Do NOT modify AGENTS.md or core/ directory.
+             Do NOT commit secrets.
+             When done: git push and open PR via GitHub CLI."
+</div>
+
+<!-- MULTI-AGENT PARALLEL -->
+<div class="sec-title">Multi-Agent Parallel Execution — Agent Teams</div>
+
+<div class="flow-wrap">
+  <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:20px">How Agent Teams works for PROVA bi-weekly sprint</div>
+
+  <div class="flow-row">
+    <div class="flow-box fb1">YOU: Write 4 Issues</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box fb0">Add label: agent-implement</div>
+    <div class="flow-note">Takes 15 minutes. Describe each feature clearly.<br>AGENTS.md tells agents exactly how to implement.</div>
+  </div>
+  <div style="height:12px"></div>
+  <div class="flow-row">
+    <div class="flow-box fb1">ARIA reads all 4</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box fb0">Creates 4 git worktrees</div>
+    <div class="flow-note">Each worktree is isolated. Agents work in parallel.<br>No merge conflicts during development.</div>
+  </div>
+  <div style="height:12px"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+    <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace;font-weight:700">FORGE-1</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;font-family:'JetBrains Mono',monospace">Implements<br>Feature A</div>
+    </div>
+    <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace;font-weight:700">FORGE-2</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;font-family:'JetBrains Mono',monospace">Implements<br>Feature B</div>
+    </div>
+    <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;font-weight:700">VERA-1</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;font-family:'JetBrains Mono',monospace">Tests<br>Feature A</div>
+    </div>
+    <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;font-weight:700">VERA-2</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;font-family:'JetBrains Mono',monospace">Tests<br>Feature B</div>
+    </div>
+  </div>
+  <div class="flow-row">
+    <div class="flow-box fb4">LENS reviews all 4 PRs</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box fb1">YOU review in 30 min</div>
+    <div class="flow-note">LENS pre-filters everything. You only see clean PRs.<br>Approve with one click. Merge to develop.</div>
+  </div>
+  <div style="height:12px"></div>
+  <div class="flow-row">
+    <div class="flow-box fb6">GitHub Actions: Playwright tests run</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box fb5">SHIP: npm publish v1.x.x</div>
+    <div class="flow-note">PROVA tests PROVA. Bi-weekly release ships automatically.<br>Changelog written by SHIP. Discord notification sent.</div>
+  </div>
+  <div style="height:16px;border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+    <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--green)">
+      ⏱ Total time YOU spend: ~45 minutes per bi-weekly sprint (writing issues + reviewing PRs)<br>
+      🤖 Total agent work: 6-12 hours of parallel implementation, testing, reviewing, releasing
+    </div>
+  </div>
+</div>
+
+<!-- WHAT EACH AGENT ACTUALLY DOES -->
+<div class="sec-title">What Each Agent Actually Does — Concrete Examples</div>
+
+<div class="feature-grid">
+  <div class="feat-box">
+    <h3 style="color:var(--prova)">🧠 ARIA — The Orchestrator</h3>
+    <div class="feat-item"><span class="fi-icon">📋</span>Reads GitHub Issue title + body + comments</div>
+    <div class="feat-item"><span class="fi-icon">🔎</span>Scans src/ to understand current architecture</div>
+    <div class="feat-item"><span class="fi-icon">📝</span>Creates implementation plan in issue comment</div>
+    <div class="feat-item"><span class="fi-icon">🌿</span>Creates git branch: feature/issue-[N]</div>
+    <div class="feat-item"><span class="fi-icon">🤖</span>Spawns FORGE and VERA as subagents</div>
+    <div class="feat-item"><span class="fi-icon">🔗</span>Merges subagent work. Opens final PR.</div>
+  </div>
+  <div class="feat-box">
+    <h3 style="color:var(--green)">⚙️ FORGE — The Builder</h3>
+    <div class="feat-item"><span class="fi-icon">📁</span>Creates new TypeScript files in correct directories</div>
+    <div class="feat-item"><span class="fi-icon">🔧</span>Implements CLI commands with --help docs</div>
+    <div class="feat-item"><span class="fi-icon">🔌</span>Writes Playwright integration code</div>
+    <div class="feat-item"><span class="fi-icon">🛡️</span>Runs TypeScript compiler — fixes all errors</div>
+    <div class="feat-item"><span class="fi-icon">🔍</span>Runs ESLint — fixes all warnings</div>
+    <div class="feat-item"><span class="fi-icon">📚</span>Updates README with new feature docs</div>
+  </div>
+  <div class="feat-box">
+    <h3 style="color:var(--orange)">🧪 VERA — The Validator</h3>
+    <div class="feat-item"><span class="fi-icon">✍️</span>Writes unit tests for every new function</div>
+    <div class="feat-item"><span class="fi-icon">🧩</span>Writes integration tests with Playwright</div>
+    <div class="feat-item"><span class="fi-icon">▶️</span>Runs: npm test — watches for failures</div>
+    <div class="feat-item"><span class="fi-icon">🔄</span>Sends failing tests back to FORGE with context</div>
+    <div class="feat-item"><span class="fi-icon">✅</span>Loops until 100% green — never skips</div>
+    <div class="feat-item"><span class="fi-icon">📊</span>Reports coverage numbers in PR description</div>
+  </div>
+  <div class="feat-box">
+    <h3 style="color:var(--purple)">🔍 LENS — The Reviewer</h3>
+    <div class="feat-item"><span class="fi-icon">🔐</span>Scans for hardcoded secrets or API keys</div>
+    <div class="feat-item"><span class="fi-icon">🏗️</span>Checks architecture fits PROVA patterns</div>
+    <div class="feat-item"><span class="fi-icon">💥</span>Identifies breaking changes in CLI contracts</div>
+    <div class="feat-item"><span class="fi-icon">📋</span>Verifies AGENTS.md standards are followed</div>
+    <div class="feat-item"><span class="fi-icon">💬</span>Posts review comments on GitHub PR inline</div>
+    <div class="feat-item"><span class="fi-icon">✅</span>Approves or requests changes — blocks merge if needed</div>
+  </div>
+</div>
+
+<!-- COST TABLE -->
+<div class="sec-title">Cost to Run the Entire Agent System</div>
+
+<table class="cost-table">
+  <tr><th>Cost Item</th><th>Tool</th><th>Cost</th><th>Notes</th></tr>
+  <tr>
+    <td>Claude Code per session</td><td>Anthropic API (claude-sonnet-4-6)</td>
+    <td class="paid">$3-8 / sprint</td>
+    <td>~100k tokens per feature implementation. 4 features = $12-32/sprint</td>
+  </tr>
+  <tr>
+    <td>GitHub Actions minutes</td><td>GitHub Free tier</td>
+    <td class="free">$0</td>
+    <td>2,000 free min/month. Agent runs + CI/CD fits easily</td>
+  </tr>
+  <tr>
+    <td>Agent orchestration framework</td><td>Claude Code CLI (npm)</td>
+    <td class="free">$0</td>
+    <td>Open source, free to install and run</td>
+  </tr>
+  <tr>
+    <td>GitHub repo + PR automation</td><td>GitHub Free</td>
+    <td class="free">$0</td>
+    <td>Free tier covers unlimited repos + Actions</td>
+  </tr>
+  <tr>
+    <td>Local AI (VERA running tests)</td><td>Ollama + Llama 3.1 8B</td>
+    <td class="free">$0</td>
+    <td>Test analysis runs locally. Zero API cost.</td>
+  </tr>
+  <tr>
+    <td>Cursor IDE (your work)</td><td>Cursor Pro</td>
+    <td class="paid">$20/month</td>
+    <td>For the human review + architecture decisions</td>
+  </tr>
+  <tr style="font-weight:700">
+    <td>TOTAL — bi-weekly sprint (4 features)</td><td>—</td>
+    <td class="paid">$32-52/sprint</td>
+    <td>= $64-104/month for continuous autonomous development</td>
+  </tr>
+</table>
+
+<!-- THE REAL FLOW FOR PROVA SPECIFICALLY -->
+<div class="sec-title">Concrete Example — Adding API Testing to PROVA</div>
+
+<div class="code-block">
+<span class="comment">YOU write this GitHub Issue:</span>
+
+<span class="key">Title:</span> <span class="str">[FEATURE] Add API testing — qe-tool run --type api</span>
+<span class="key">Label:</span> agent-implement
+
+<span class="key">Body:</span>
+Add REST API testing capability to the PROVA CLI.
+
+<span class="key">Acceptance Criteria:</span>
+- qe-tool run --url https://api.example.com --type api --flow api-test.yaml
+- YAML format: method, endpoint, headers, body, assertions (status, json-path, headers)
+- Assert: status code, response body JSON path, response headers, response time
+- Support: GET, POST, PUT, PATCH, DELETE
+- Output: same HTML report format as browser tests
+- Tests must cover all HTTP methods and assertion types
+
+<span class="key">Technical context:</span>
+- Use Playwright's APIRequestContext (already installed)
+- File location: src/runners/api-runner.ts
+- Test file: src/runners/api-runner.test.ts
+- Follow existing patterns in src/runners/browser-runner.ts
+
+---
+<span class="comment">ARIA reads this in 30 seconds and responds in the issue:</span>
+
+<span class="fn">ARIA → Issue comment:</span>
+"Implementation plan:
+ 1. Create src/runners/api-runner.ts using Playwright APIRequestContext
+ 2. Create src/schemas/api-test.schema.ts for YAML validation
+ 3. Wire --type api flag in CLI (src/cli/run.ts)
+ 4. Add reporting integration (src/reporters/api-report.ts)
+ 5. Write tests for all HTTP methods + assertion types
+ Delegating to FORGE and VERA now. ETA: 45-60 minutes."
+
+<span class="fn">FORGE:</span> Creates api-runner.ts, wires CLI, implements all methods
+<span class="fn">VERA:</span>  Writes 18 tests, runs them, all green
+<span class="fn">LENS:</span>  Reviews PR — approves, notes 1 minor style issue (FORGE fixes it)
+<span class="fn">PR opened:</span> "feat: Add API testing (#12)" — clean, documented, tested
+
+<span class="fn">YOU:</span>  Review PR in 10 minutes. Merge. Done.
+<span class="fn">GitHub Actions:</span> Full Playwright suite runs. All pass. Deploy.
+<span class="fn">SHIP:</span> npm publish @prova/cli@0.4.0 — changelog written.
+</div>
+
+<!-- LIMITATIONS — HONEST -->
+<div class="sec-title">What Still Needs You — The Human Role</div>
+
+<div class="feature-grid">
+  <div class="feat-box">
+    <h3 style="color:var(--orange)">⚠️ You Must Still Do These</h3>
+    <div class="feat-item"><span class="fi-icon">🎯</span>Write clear Issue specs with acceptance criteria</div>
+    <div class="feat-item"><span class="fi-icon">🏗️</span>All major architecture decisions (knowledge graph design, etc)</div>
+    <div class="feat-item"><span class="fi-icon">👁️</span>Final PR review before merge (10-20 min per PR)</div>
+    <div class="feat-item"><span class="fi-icon">💬</span>Customer conversations and feedback interpretation</div>
+    <div class="feat-item"><span class="fi-icon">🔐</span>Production deployment approval (human gate always)</div>
+    <div class="feat-item"><span class="fi-icon">📋</span>Maintaining AGENTS.md as the system evolves</div>
+  </div>
+  <div class="feat-box">
+    <h3 style="color:var(--green)">✅ Agents Handle Autonomously</h3>
+    <div class="feat-item"><span class="fi-icon">⚙️</span>Feature implementation from clear spec</div>
+    <div class="feat-item"><span class="fi-icon">🧪</span>Writing and running all tests until green</div>
+    <div class="feat-item"><span class="fi-icon">🌿</span>Branch creation, commits, PR opening</div>
+    <div class="feat-item"><span class="fi-icon">🔍</span>Code review and security scanning</div>
+    <div class="feat-item"><span class="fi-icon">📝</span>Documentation and README updates</div>
+    <div class="feat-item"><span class="fi-icon">📦</span>Version bumping and npm publishing after approval</div>
+  </div>
+</div>
+
+<p style="text-align:center;font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:32px;padding-top:24px;border-top:1px solid var(--border)">
+  PROVA Agent System · June 2026 · Claude Code + GitHub Actions + Git Worktrees · $32-52 per bi-weekly sprint
+</p>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROVA vs Selenium — Feature Comparison 2026</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--surface:#0d1420;--surface2:#111827;--border:#1e2d44;
+  --prova:#00d4ff;--prova-dim:rgba(0,212,255,0.12);
+  --sel:#1A6B44;--sel-dim:rgba(26,107,68,0.15);
+  --green:#10b981;--red:#ef4444;--orange:#f97316;--purple:#7c3aed;
+  --text:#e2eaf4;--muted:#6b7fa3;--white:#ffffff;
+}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:0 0 60px}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:48px 48px;opacity:0.2}
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:0 24px}
+.hero{text-align:center;padding:56px 24px 40px;position:relative;z-index:1}
+.hero-tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--prova);background:var(--prova-dim);border:1px solid rgba(0,212,255,.2);padding:4px 16px;border-radius:20px;margin-bottom:20px}
+.hero h1{font-size:clamp(26px,4vw,46px);font-weight:800;line-height:1.1;color:#fff;margin-bottom:10px}
+.hero h1 .p{color:var(--prova)} .hero h1 .s{color:#22c55e}
+.hero-sub{font-size:14px;color:var(--muted);font-family:'JetBrains Mono',monospace;font-weight:300}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px}
+.leg-card{border-radius:12px;padding:20px 24px;display:flex;align-items:center;gap:16px}
+.leg-card.p{background:var(--prova-dim);border:1px solid rgba(0,212,255,.25)}
+.leg-card.s{background:var(--sel-dim);border:1px solid rgba(26,107,68,.4)}
+.leg-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.leg-card.p .leg-dot{background:var(--prova)} .leg-card.s .leg-dot{background:#22c55e}
+.leg-name{font-size:18px;font-weight:800;color:#fff}
+.leg-desc{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px}
+.scores{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:40px}
+.score-card{border-radius:14px;padding:24px;text-align:center}
+.score-card.p{background:var(--prova-dim);border:1px solid rgba(0,212,255,.3)}
+.score-card.s{background:var(--sel-dim);border:1px solid rgba(26,107,68,.4)}
+.score-card.r{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3)}
+.score-card.g{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3)}
+.score-num{font-size:42px;font-weight:800;line-height:1}
+.score-card.p .score-num{color:var(--prova)} .score-card.s .score-num{color:#22c55e}
+.score-card.r .score-num{color:var(--red)} .score-card.g .score-num{color:var(--green)}
+.score-label{font-size:12px;font-weight:700;color:#fff;margin-top:6px}
+.score-sub{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:4px}
+.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.2em;color:var(--prova);
+  font-family:'JetBrains Mono',monospace;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.comp-table{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:40px}
+.ct-header{display:grid;grid-template-columns:2fr 1.2fr 1.2fr .9fr;background:var(--surface2);border-bottom:1px solid var(--border)}
+.ct-header>div{padding:14px 16px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;font-family:'JetBrains Mono',monospace}
+.ct-header .ph{color:var(--prova)} .ct-header .sh{color:#22c55e} .ct-header .wh{color:var(--muted)}
+.ct-group-header{padding:10px 16px;background:rgba(255,255,255,0.03);border-bottom:1px solid var(--border);
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--purple);font-family:'JetBrains Mono',monospace}
+.ct-row{display:grid;grid-template-columns:2fr 1.2fr 1.2fr .9fr;border-bottom:1px solid var(--border);transition:background .15s}
+.ct-row:last-child{border-bottom:none} .ct-row:hover{background:rgba(255,255,255,0.02)}
+.ct-cell{padding:13px 16px;font-size:12px;font-family:'JetBrains Mono',monospace;display:flex;align-items:flex-start;flex-direction:column;gap:4px}
+.feat-name{font-weight:500;color:#fff;font-size:13px} .feat-note{font-size:10px;color:var(--muted);line-height:1.5}
+.rating-wrap{display:flex;flex-direction:column;gap:6px;width:100%}
+.rating-label{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)}
+.rating-score{font-weight:700;font-size:13px}
+.p-score{color:var(--prova)} .s-score{color:#22c55e}
+.bar-bg{height:6px;background:var(--border);border-radius:3px;overflow:hidden;width:100%}
+.bar-fill{height:100%;border-radius:3px}
+.bar-p{background:linear-gradient(90deg,#00d4ff,#0ea5e9)}
+.bar-s{background:linear-gradient(90deg,#22c55e,#16a34a)}
+.winner{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;
+  font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.win-prova{background:rgba(0,212,255,.15);color:var(--prova);border:1px solid rgba(0,212,255,.25)}
+.win-selenium{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25)}
+.win-tie{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border)}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:40px}
+.summary-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.summary-box h3{font-size:13px;font-weight:700;margin-bottom:14px;color:#fff}
+.s-item{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);
+  font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text);line-height:1.5}
+.s-item:last-child{border-bottom:none} .s-icon{flex-shrink:0;font-size:14px;margin-top:1px}
+.verdict{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px;position:relative;overflow:hidden;margin-bottom:40px}
+.verdict::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--prova),var(--purple),#22c55e)}
+.verdict h2{font-size:20px;font-weight:800;color:#fff;margin-bottom:12px}
+.verdict p{font-size:13px;color:var(--muted);font-family:'JetBrains Mono',monospace;line-height:1.8;margin-bottom:16px}
+.use-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px}
+.use-card{border-radius:10px;padding:16px}
+.use-card.p{background:var(--prova-dim);border:1px solid rgba(0,212,255,.2)}
+.use-card.s{background:var(--sel-dim);border:1px solid rgba(34,197,94,.2)}
+.use-card h4{font-size:12px;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;font-family:'JetBrains Mono',monospace}
+.use-card.p h4{color:var(--prova)} .use-card.s h4{color:#22c55e}
+.use-card li{font-size:11px;color:var(--text);font-family:'JetBrains Mono',monospace;line-height:1.7;list-style:none;padding:2px 0}
+.use-card.p li::before{content:'→';color:var(--prova);margin-right:6px}
+.use-card.s li::before{content:'→';color:#22c55e;margin-right:6px}
+.tax-box{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:24px;margin-bottom:32px}
+.tax-box h3{color:var(--red);font-size:16px;font-weight:800;margin-bottom:16px}
+.tax-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(239,68,68,.15);font-size:13px}
+.tax-row:last-child{border-bottom:none;margin-top:8px;padding-top:16px;font-weight:800;font-size:16px;color:var(--red)}
+.tax-label{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:12px}
+.tax-val{font-weight:700;color:var(--red)}
+@media(max-width:640px){
+  .legend,.scores,.summary-grid,.use-grid{grid-template-columns:1fr}
+  .scores{grid-template-columns:1fr 1fr}
+  .ct-header,.ct-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-tag">Traditional vs AI-Native · Feature Comparison 2026</div>
+  <h1><span class="p">PROVA</span> vs <span class="s">Selenium</span></h1>
+  <p class="hero-sub">40-feature comparison · World's most-used traditional QE tool vs AI-native platform · 26.12% market share vs 0% (but building)</p>
+</div>
+<div class="wrap">
+
+<div class="legend">
+  <div class="leg-card p"><div class="leg-dot"></div><div><div class="leg-name">PROVA</div><div class="leg-desc">AI-native · knowledge graph · zero-code · 4-source intelligence · built 2026</div></div></div>
+  <div class="leg-card s"><div class="leg-dot"></div><div><div class="leg-name">Selenium</div><div class="leg-desc">Open source · code-first · manual everything · 26.12% market share · founded 2004</div></div></div>
+</div>
+
+<div class="scores">
+  <div class="score-card p"><div class="score-num">10.0</div><div class="score-label">PROVA Score</div><div class="score-sub">40 features · AI-native platform</div></div>
+  <div class="score-card s"><div class="score-num">2.5</div><div class="score-label">Selenium Score</div><div class="score-sub">40 features · Traditional framework</div></div>
+  <div class="score-card r"><div class="score-num">$216k</div><div class="score-label">Selenium Annual Tax</div><div class="score-sub">Hidden maintenance cost per 10-eng team</div></div>
+  <div class="score-card g"><div class="score-num">$0</div><div class="score-label">PROVA License Cost</div><div class="score-sub">Open source · local LLM · zero API fees</div></div>
+</div>
+
+<!-- MAINTENANCE TAX -->
+<div class="tax-box">
+  <h3>💸 The $216,600 Annual Selenium Maintenance Tax</h3>
+  <div class="tax-row"><span class="tax-label">Selector maintenance (75-100 broken/release, 30-90 min each)</span><span class="tax-val">~$45,000</span></div>
+  <div class="tax-row"><span class="tax-label">Flaky test triage (20-30% test flakiness rate, industry average)</span><span class="tax-val">~$38,000</span></div>
+  <div class="tax-row"><span class="tax-label">Framework setup + Grid infrastructure + plugin updates</span><span class="tax-val">~$62,000</span></div>
+  <div class="tax-row"><span class="tax-label">Developer bottleneck — non-technical QA cannot contribute</span><span class="tax-val">~$71,600</span></div>
+  <div class="tax-row"><span class="tax-label" style="color:#fff;font-size:15px">TOTAL ANNUAL HIDDEN COST (10-engineer team)</span><span class="tax-val" style="font-size:20px">$216,600</span></div>
+</div>
+
+<div class="sec-title">Feature-by-Feature Breakdown · 40 Categories · 8 Groups</div>
+<div class="comp-table">
+  <div class="ct-header">
+    <div>Feature</div><div class="ph">PROVA Score</div><div class="sh">Selenium Score</div><div class="wh">Winner</div>
+  </div>
+
+  <!-- GROUP 1 -->
+  <div class="ct-group-header">🤖 Group 1 — Test Creation &amp; Intelligence</div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Test Generation from UI Designs</span><span class="feat-note">Automatically creating tests from Figma or any design tool</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">10 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:100%"></div></div><span class="feat-note">Figma/any tool ingested. Screens become test specs. Prototype flows simulated before code exists. Zero manual authoring.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">No design tool awareness. Every test written manually by a developer. Tests start after code, never before.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Test Generation from Requirements</span><span class="feat-note">JIRA AC auto-converted to BDD test cases</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">JIRA parsed, AC extracted, BDD tests generated automatically. Every requirement has a test.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Requirements manually translated to test code. Developer interprets AC and writes script. No automation.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Codeless Test Authoring</span><span class="feat-note">Non-technical users can create and review tests</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">PROVA Studio: POs, BAs, QA analysts define flows and review tests. No programming knowledge required.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Requires Java, Python, C#, Ruby, or JavaScript. Developers only. Non-technical users completely excluded.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">AI Test Case Generation</span><span class="feat-note">Knowledge graph drives automatic test creation</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">4-source knowledge graph generates tests covering rules, ACs, boundary values, and design intent automatically.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">No AI. No generation. Every test case individually specified and coded by an engineer.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Boundary Value Auto-Generation</span><span class="feat-note">Edge case and threshold tests created automatically</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">DB schema, code rules, and JIRA AC all analyzed. Threshold tests at n-1, n, n+1 generated automatically.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Boundary tests individually coded. Engineers must identify and implement each boundary case manually.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+
+  <!-- GROUP 2 -->
+  <div class="ct-group-header">⚡ Group 2 — Execution &amp; Performance</div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Parallel Execution</span><span class="feat-note">Running multiple flows and accounts simultaneously</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">10+ headless workers natively. Multi-account simultaneous. Background execution. 20-25x speedup.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:50%"></div></div><span class="feat-note">Parallel requires Selenium Grid — complex infrastructure setup. No native worker model. Significant ops overhead.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Test Execution Speed</span><span class="feat-note">Overall test suite run time vs traditional execution</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">20-25x faster via browser warm pool, auth snapshots, app state snapshots, and programmatic data injection.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">4 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:40%"></div></div><span class="feat-note">WebDriver-over-HTTP overhead on every command. Manual waits (sleep/explicit waits). No snapshot engine. Among the slowest frameworks.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Self-Healing Selectors</span><span class="feat-note">Automatically fixing broken locators when UI changes</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">3-layer healing: 5-tier fallback + intent-based resolution via knowledge graph + AI learning loop. Gets smarter over time.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Zero self-healing. Every broken XPath/CSS selector requires manual developer intervention. #1 maintenance cost driver.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Auth State Snapshots</span><span class="feat-note">Saving and restoring login state to skip auth flows</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">Auth captured once, injected in under 100ms for every subsequent worker. Eliminates 4-12 seconds per test.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Login flow must execute for every test. Teams build custom cookie-saving workarounds. No native capability.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Flaky Test Rate</span><span class="feat-note">Percentage of tests producing inconsistent results</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:90%"></div></div><span class="feat-note">Near-zero flakiness via snapshot engine, auto-wait, programmatic injection. No timing-dependent test patterns.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">2 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:20%"></div></div><span class="feat-note">Industry average 20-30% flakiness. "Test fatigue" — teams start ignoring CI failures. A known endemic crisis.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+
+  <!-- GROUP 3 -->
+  <div class="ct-group-header">🧠 Group 3 — Intelligence &amp; Learning</div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">4-Source Knowledge Graph</span><span class="feat-note">GHE code + JIRA + Design + DB as unified intelligence</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">Live, auto-updating intelligence from all 4 sources. Cross-source conflict detection. Rules, screens, flows, data all unified.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">No application intelligence model. Tests are static code. Selenium has no awareness of what it is testing or why.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">AI Learning Loop</span><span class="feat-note">Tool gets smarter from every run — failure patterns, selector evolution</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">Failure patterns stored. Healed selectors promoted. Cross-project learning. PROVA improves every month.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Completely stateless. Each run independent. Past failures inform nothing. Framework learns nothing from usage.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Prototype-to-Production Comparison</span><span class="feat-note">Design baseline vs real app — semantic match score</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">10 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:100%"></div></div><span class="feat-note">Simulated prototype flow captured before code exists. Production compared semantically. Match score per screen.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">No concept of design baseline or prototype comparison. Tests written against existing code, never before code.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">PR-Time Conflict Detection</span><span class="feat-note">Code changes checked against spec + design + DB before merge</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">GHE connector scans every PR. Code vs JIRA vs design vs DB. Conflicts flagged before merge. Bugs caught at PR time.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">No PR analysis. Tests run after merge. Spec conflicts only discovered when a test fails in CI — after code lands.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+
+  <!-- GROUP 4 -->
+  <div class="ct-group-header">🗄️ Group 4 — Data Management</div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Built-In Test Data Store</span><span class="feat-note">Persistent, versioned, self-service — no DBA tickets</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">10 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:100%"></div></div><span class="feat-note">4 data layers. 10+ DB connectors. Self-service in 2 seconds. Role-based profiles. Versioned alongside app.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Selenium does not manage test data. Teams build custom fixtures, use prod data unsafely, or file DBA tickets.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Production Data Clone + AI Anonymization</span><span class="feat-note">Real prod data, safely anonymized for testing</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">AI PII detection. Realistic anonymization (not masking). Cross-table consistency. GDPR/PCI-DSS audit trail.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Teams often use raw production data — major compliance risk. No anonymization capability exists in Selenium.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+
+  <!-- GROUP 5 -->
+  <div class="ct-group-header">🎯 Group 5 — Quality Dimensions</div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Accessibility Testing (A11Y)</span><span class="feat-note">WCAG compliance on every page — automatic</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">axe-core fires on every page visit at zero cost. Design-intent validation from Figma annotations. WCAG score per page.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">1 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:10%"></div></div><span class="feat-note">Can run axe-core manually with custom integration. Requires separate setup per test. No automatic or built-in A11Y.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Analytics Validation (GA4/GTM)</span><span class="feat-note">Testing analytics events fire correctly with correct data</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">Network interceptor captures all analytics events. Schema validated against GTM container. Release gate on analytics.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">No analytics awareness. GA4/GTM events completely untested. This entire category does not exist in Selenium.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Deep Exploratory Testing</span><span class="feat-note">AI agent clicks every element, finds undiscovered bugs</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:90%"></div></div><span class="feat-note">Autonomous AI agent maps and clicks every element. Broken links, double-submit bugs, scroll locks all found.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Exploratory testing is entirely manual. Selenium only covers explicitly scripted paths. Zero autonomous discovery.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+
+  <!-- GROUP 6 -->
+  <div class="ct-group-header">🧵 Group 6 — Traceability &amp; Golden Thread</div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">End-to-End Golden Thread Traceability</span><span class="feat-note">Design → FRD → Prototype → Code → Data → Run → Production</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">10 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:100%"></div></div><span class="feat-note">7-stage chain. Every node linked, versioned, cross-verified, immutable. 100% accuracy across 7 dimensions.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Zero traceability. Test files are independent of requirements. No chain, no versioning, no approval workflow.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">QE + PO Formal Approval Workflow</span><span class="feat-note">Cryptographic sign-off recorded in immutable chain</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">QE Lead + PO sign-off both recorded. Build hash locked. Deployment cannot proceed without both approvals.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Pass/fail in CI is the only signal. No formal approval. No PO involvement. No cryptographic record.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+
+  <!-- GROUP 7 -->
+  <div class="ct-group-header">👥 Group 7 — Multi-Role &amp; Environment</div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">UAT for Product Owners (Non-Technical)</span><span class="feat-note">Business scenario validation with formal sign-off</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">PROVA Studio UAT mode. PO selects scenarios, data auto-loaded, step-by-step with proto comparison, formal sign-off recorded.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Selenium has no UAT mode. Product Owners cannot use it. UAT requires completely separate tools.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Production Health Monitoring (24/7)</span><span class="feat-note">Same test suite monitoring production continuously</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">PROVA Sentinel: 5 layers — heartbeat, synthetic flows, performance, analytics, security. 24/7. Automated rollback.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">0 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:0%"></div></div><span class="feat-note">Selenium is a testing framework. Production monitoring is completely out of scope. Separate APM tools always needed.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+
+  <!-- GROUP 8 -->
+  <div class="ct-group-header">💰 Group 8 — Operations &amp; Cost</div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">License Cost</span><span class="feat-note">Tool licensing fees</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:90%"></div></div><span class="feat-note">$0. Open source core. Local LLM = $0 API fees. Optional cloud LLM via --premium flag only.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">9 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:90%"></div></div><span class="feat-note">$0. Fully open source. The one dimension where Selenium matches PROVA. (Hidden costs are the real story.)</span></div></div>
+    <div class="ct-cell"><span class="winner win-tie">TIED ≈</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Total Cost of Ownership (Annual)</span><span class="feat-note">Real annual cost including hidden maintenance, infrastructure, people</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:90%"></div></div><span class="feat-note">Near-zero maintenance via self-healing + learning loop. $0 licenses. Minimal infrastructure (self-hosted runners).</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">1 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:10%"></div></div><span class="feat-note">$216,600/year hidden maintenance tax for 10-engineer team. Selector maintenance, flakiness triage, framework ops, dev bottleneck.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Test Maintenance Burden</span><span class="feat-note">Engineering hours consumed keeping tests working</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">9.5 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:95%"></div></div><span class="feat-note">Self-healing + learning loop. Maintenance near-zero. Engineers focus on new coverage, not fixing broken tests.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">1 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:10%"></div></div><span class="feat-note">15-25% of initial effort every year, every year. Maintenance scales linearly with suite size. Never gets easier.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+  <div class="ct-row">
+    <div class="ct-cell"><span class="feat-name">Universal CI/CD Integration</span><span class="feat-note">Native configs for all major pipeline tools</span></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score p-score">10 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-p" style="width:100%"></div></div><span class="feat-note">10+ native configs. REST API. JUnit XML. OpenTelemetry emission. Environment-gated pipeline with formal gates.</span></div></div>
+    <div class="ct-cell"><div class="rating-wrap"><div class="rating-label"><span></span><span class="rating-score s-score">7 / 10</span></div><div class="bar-bg"><div class="bar-fill bar-s" style="width:70%"></div></div><span class="feat-note">Integrates via shell commands in any pipeline. Well-established ecosystem. No native configs but universally compatible.</span></div></div>
+    <div class="ct-cell"><span class="winner win-prova">PROVA ✓</span></div>
+  </div>
+
+</div>
+
+<!-- WIN TALLY -->
+<div class="scores">
+  <div class="score-card p"><div class="score-num">38W</div><div class="score-label">PROVA Wins (40 features)</div><div class="score-sub">Wins on 38, ties on 1, loses on 0 (cost tied)</div></div>
+  <div class="score-card s"><div class="score-num">0W · 1T</div><div class="score-label">Selenium Record</div><div class="score-sub">Ties on: license cost only. Zero outright wins.</div></div>
+</div>
+
+<!-- STRENGTHS / GAPS -->
+<div class="sec-title">Strengths &amp; Honest Assessment</div>
+<div class="summary-grid">
+  <div class="summary-box">
+    <h3 style="color:var(--prova)">PROVA — What It Adds Over Selenium</h3>
+    <div class="s-item"><span class="s-icon">🤖</span>Tests generated from design screens before code exists</div>
+    <div class="s-item"><span class="s-icon">🔧</span>Self-healing selectors — zero manual locator maintenance</div>
+    <div class="s-item"><span class="s-icon">🧠</span>Knowledge graph — 4 sources of intelligence unified</div>
+    <div class="s-item"><span class="s-icon">🧵</span>Golden Thread — design to production, fully traced</div>
+    <div class="s-item"><span class="s-icon">👔</span>Non-technical users — POs, BAs, stakeholders all participate</div>
+    <div class="s-item"><span class="s-icon">🗄️</span>Built-in data store — self-service, no DBA, no wait</div>
+    <div class="s-item"><span class="s-icon">💓</span>Production monitoring — PROVA never stops at deployment</div>
+    <div class="s-item"><span class="s-icon">📊</span>Analytics, A11Y, security, performance — all built in</div>
+    <div class="s-item"><span class="s-icon">⚡</span>20-25x faster — snapshot engine eliminates setup overhead</div>
+  </div>
+  <div class="summary-box">
+    <h3 style="color:#22c55e">Selenium — Where It Remains Viable in 2026</h3>
+    <div class="s-item"><span class="s-icon">✓</span>Existing large suites (5,000+ tests) — migration math complex</div>
+    <div class="s-item"><span class="s-icon">✓</span>Regulated environments with approved-framework lists</div>
+    <div class="s-item"><span class="s-icon">✓</span>Polyglot shops (Java + Python + Ruby simultaneously)</div>
+    <div class="s-item"><span class="s-icon">✓</span>Deepest cross-browser protocol compatibility for edge cases</div>
+    <div class="s-item"><span class="s-icon">✓</span>Engineers who prefer full code control and raw framework flexibility</div>
+    <div class="s-item"><span class="s-icon">✓</span>20+ year ecosystem — enormous plugin and integration library</div>
+    <div class="s-item"><span class="s-icon">✓</span>50 million monthly Python downloads — biggest community</div>
+    <div class="s-item"><span class="s-icon">⚠</span>But: $216,600/year maintenance tax compounds every year</div>
+    <div class="s-item"><span class="s-icon">⚠</span>But: 20-30% flakiness rate — teams develop test fatigue</div>
+  </div>
+</div>
+
+<!-- VERDICT -->
+<div class="verdict">
+  <h2>The Verdict — Two Different Eras</h2>
+  <p>Selenium was built for 2004: one developer, one browser, one machine, scripts maintained by hand. It defined the category and it deserves respect for that. In 2026, Selenium still commands 26.12% market share and powers test suites at 49,000+ companies. It is not dead. But behind that market share number lies a $216,600 annual maintenance crisis that grows with every release.</p>
+  <p>PROVA was built for 2026: designs in Figma, requirements in JIRA, code in GitHub, five environments, three roles, 24/7 production monitoring, and the entire organisation participating in quality decisions. The comparison is not PROVA beats Selenium — it is that PROVA and Selenium are not the same category of tool. Selenium is a browser automation framework. PROVA is a quality intelligence platform.</p>
+  <p>For teams starting fresh in 2026, Selenium is the wrong starting point. The maintenance tax begins immediately and compounds forever. For teams with existing Selenium suites, PROVA is the additive layer — run both in parallel, migrate highest-maintenance tests first, eliminate the maintenance crisis incrementally.</p>
+  <div class="use-grid">
+    <div class="use-card p">
+      <h4>Choose PROVA when...</h4>
+      <ul>
+        <li>Starting a new QE automation initiative</li>
+        <li>Non-technical users need to participate in testing</li>
+        <li>Design-to-production traceability is required</li>
+        <li>Test maintenance is consuming QA capacity</li>
+        <li>Analytics, A11Y, and security must be tested</li>
+        <li>Production monitoring is a requirement</li>
+        <li>Flaky test rate is causing CI/CD confidence issues</li>
+        <li>Test data management is a bottleneck</li>
+      </ul>
+    </div>
+    <div class="use-card s">
+      <h4>Keep Selenium when...</h4>
+      <ul>
+        <li>You have 5,000+ existing tests — migration math complex</li>
+        <li>Regulatory approved-framework list includes Selenium</li>
+        <li>Polyglot codebase needs multi-language test bindings</li>
+        <li>Senior engineers prefer raw code control</li>
+        <li>Legacy browser or protocol edge cases require it</li>
+        <li>Migration ROI timeline extends beyond 18 months</li>
+      </ul>
+    </div>
+  </div>
+</div>
+<p style="text-align:center;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding-top:20px">
+  PROVA vs Selenium · June 2026 · Selenium market share: 26.12% (Enlyft) · Maintenance tax: $216,600/yr (Autonoma Tools research)
+</p>
+</div>
+</body>
+</html>
