@@ -47,6 +47,10 @@ All agents communicate via files in the shared folder:
 ## CI/CD Flow
 1. PR opened → GitHub Actions fires
 2. Jobs run in parallel: typecheck + browser tests + API tests + mobile tests + LENS
-3. All pass → label `ready-for-qa` added → Cowork notifies Ajay
-4. Ajay merges → SHIP Routine fires → npm publish
-5. Post-deploy smoke → production health confirmed
+3. LENS clean (no BLOCKER/MAJOR) → label `ready-for-qa` added → nightly-run.ps1
+   auto-merges (squash, branch deleted)
+4. LENS flags issues → one automatic FORGE fix-up pass + re-review → merges if
+   clean, otherwise left open with a comment tagging @ajaygh99 for manual review
+5. Merge to main does NOT publish - SHIP only runs once Ajay writes a
+   releases/vN.N.N-approval.md file, then it publishes to npm on next merge
+6. Post-deploy smoke → production health confirmed

@@ -35,7 +35,8 @@ Schedule: Every other Monday at 08:00 (bi-weekly)
 
 ## Definition of Done
 - All tests pass (browser + API + mobile)
-- LENS review: no BLOCKER or MAJOR items
-- Ajay reviewed and approved PR
-- npm published successfully
+- LENS review: no BLOCKER or MAJOR items (auto-merges if clean, escalates
+  to Ajay by name only if still unclean after one automatic fix-up retry)
+- npm published successfully (separate manual approval step, unaffected
+  by auto-merge)
 ```
