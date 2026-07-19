@@ -49,6 +49,39 @@ qe-tool run --url https://yourapp.com --type browser [options]
 
 **Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
 
+## API Testing (`--type api`)
+
+Sends REST or GraphQL requests via Playwright's `APIRequestContext` — no separate HTTP client.
+
+**Features:**
+- REST: GET, POST, PUT, DELETE
+- GraphQL: query/mutation via `--graphql`
+- Assertions: status code, response time, optional response schema
+- JSON report: `{ status, statusCode, durationMs, responseSummary, error }`
+
+**Usage:**
+```bash
+qe-tool run --url https://api.yourapp.com --type api [options]
+
+# REST POST with a JSON body, expecting a 201
+qe-tool run --url https://api.yourapp.com/posts --type api \
+  --method POST --body '{"title":"foo"}' --expect-status 201
+
+# GraphQL query (--body becomes the GraphQL variables)
+qe-tool run --url https://api.yourapp.com/graphql --type api \
+  --graphql 'query($id: ID!) { user(id: $id) { id name } }' --body '{"id":"1"}'
+```
+
+**Options:**
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--method <method>` | REST method: GET\|POST\|PUT\|DELETE | `GET` |
+| `--body <json>` | JSON request body (REST) or GraphQL variables | — |
+| `--graphql <query>` | GraphQL query/mutation document — switches the request to GraphQL | — |
+| `--expect-status <code>` | Expected HTTP status code | `200` |
+
+**Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
+
 ## GitHub Actions (drop-in)
 
 Copy `.github/workflows/prova-ci.yml` to your repository. Done.

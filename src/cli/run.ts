@@ -6,6 +6,8 @@
 import { Command } from 'commander';
 import { log } from '../core/logger.js';
 import { runBrowserTest } from '../runners/browser-runner.js';
+import { runApiTest } from '../runners/api-runner.js';
+import type { HttpMethod } from '../runners/api-runner.js';
 
 const program = new Command();
 
@@ -27,6 +29,10 @@ program
   .option('--ai',                            'Enable Ollama AI summaries (requires local Ollama)', false)
   .option('--premium',                       'Use cloud LLM instead of local Ollama', false)
   .option('--env <env>',                     'Target environment: dev|qe|uat|staging|prod', 'qe')
+  .option('--method <method>',               'API method (--type api): GET|POST|PUT|DELETE', 'GET')
+  .option('--body <json>',                   'API request body as JSON (--type api): REST body or GraphQL variables')
+  .option('--graphql <query>',               'GraphQL query/mutation document (--type api). Switches the request to GraphQL')
+  .option('--expect-status <code>',          'Expected HTTP status code (--type api)', '200')
   .action(async (opts) => {
     log.info('PROVA starting', { url: opts.url, type: opts.type, env: opts.env });
 
@@ -45,7 +51,46 @@ program
       return;
     }
 
-    // FORGE will implement the remaining runners (api, mobile, all) here
+    if (opts.type === 'api') {
+      let body: unknown;
+      if (opts.body) {
+        try {
+          body = JSON.parse(opts.body) as unknown;
+        } catch {
+          log.error('Invalid JSON provided to --body');
+          process.exitCode = 1;
+          return;
+        }
+      }
+
+      const graphql = opts.graphql
+        ? { query: opts.graphql as string, variables: (body as Record<string, unknown>) ?? {} }
+        : undefined;
+
+      const result = await runApiTest({
+        url: opts.url,
+        method: opts.method as HttpMethod,
+        body: graphql ? undefined : body,
+        graphql,
+        expectedStatus: Number(opts.expectStatus)
+      });
+
+      log.info('Run result', {
+        status: result.status,
+        statusCode: result.statusCode,
+        durationMs: result.durationMs,
+        responseSummary: result.responseSummary
+      });
+
+      if (result.status === 'FAIL') {
+        process.exitCode = 1;
+        return;
+      }
+      log.success('Run complete');
+      return;
+    }
+
+    // FORGE will implement the remaining runners (mobile, all) here
     log.info(`Running ${opts.type} tests against ${opts.url}`);
     log.info('FORGE: Implement src/runners/ and wire them here');
 
