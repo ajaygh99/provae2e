@@ -13,8 +13,12 @@ export type GeneratedTestType = 'browser' | 'api';
 
 /** Options accepted by {@link generateTestsFromSpec}. */
 export interface GenerateTestsOptions {
-  /** Plain-text or Markdown specification file. */
-  specFile: string;
+  /** Plain-text or Markdown specification file. Mutually exclusive with `specText`. */
+  specFile?: string;
+  /** Already-loaded specification text, for example from JIRA. Mutually exclusive with `specFile`. */
+  specText?: string;
+  /** Human-readable source label used in empty-spec errors. */
+  sourceLabel?: string;
   /** Kind of Playwright test to generate. */
   type: GeneratedTestType;
   /** Target URL embedded into every generated test. */
@@ -190,9 +194,19 @@ export async function generateTestsFromSpec(options: GenerateTestsOptions): Prom
       return { ok: false, error: `Invalid target URL "${options.url}": use an absolute http:// or https:// URL` };
     }
 
-    const spec = await readFile(options.specFile, 'utf-8');
+    if (Boolean(options.specFile) === Boolean(options.specText)) {
+      return { ok: false, error: 'Provide exactly one specification source: specFile or specText' };
+    }
+    let spec: string;
+    if (options.specText !== undefined) {
+      spec = options.specText;
+    } else if (options.specFile !== undefined) {
+      spec = await readFile(options.specFile, 'utf-8');
+    } else {
+      return { ok: false, error: 'Provide exactly one specification source: specFile or specText' };
+    }
     if (!spec.trim()) {
-      return { ok: false, error: `Spec file is empty: ${options.specFile}` };
+      return { ok: false, error: `Spec is empty: ${options.sourceLabel ?? options.specFile ?? 'provided text'}` };
     }
     const criteria = extractAcceptanceCriteria(spec);
     if (criteria.length === 0) {

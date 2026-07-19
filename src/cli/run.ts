@@ -21,6 +21,7 @@ import { validateRunOptions } from './validate.js';
 import type { RunOptionsInput } from './validate.js';
 import { generateTestsFromSpec } from '../generators/spec-test-generator.js';
 import type { GeneratedTestType } from '../generators/spec-test-generator.js';
+import { fetchJiraTicketDescription } from '../core/jira-connector.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -32,7 +33,9 @@ export interface RunActionOptions extends RunOptionsInput {
 
 /** Raw CLI values accepted by the `generate` command. */
 export interface GenerateActionOptions {
-  spec: string;
+  spec?: string;
+  jiraTicket?: string;
+  jiraUrl?: string;
   type: string;
   url: string;
   output: string;
@@ -45,8 +48,51 @@ export interface GenerateActionOptions {
  * @param opts - Parsed `generate` command options.
  */
 export async function generateCommand(opts: GenerateActionOptions): Promise<void> {
+  const hasSpec = Boolean(opts.spec);
+  const hasJiraTicket = Boolean(opts.jiraTicket);
+  if (hasSpec === hasJiraTicket) {
+    log.error('Provide exactly one source: --spec <file> or --jira-ticket <KEY>');
+    process.exitCode = 1;
+    return;
+  }
+  if (opts.jiraUrl && !hasJiraTicket) {
+    log.error('--jira-url can only be used with --jira-ticket');
+    process.exitCode = 1;
+    return;
+  }
+
+  let specText: string | undefined;
+  let sourceLabel: string | undefined;
+  if (opts.jiraTicket) {
+    if (!opts.jiraUrl) {
+      log.error('--jira-url <base-url> is required with --jira-ticket');
+      process.exitCode = 1;
+      return;
+    }
+    const apiToken = process.env['JIRA_API_TOKEN'];
+    if (!apiToken) {
+      log.error('JIRA_API_TOKEN environment variable is required with --jira-ticket');
+      process.exitCode = 1;
+      return;
+    }
+    const jiraResult = await fetchJiraTicketDescription({
+      baseUrl: opts.jiraUrl,
+      ticketKey: opts.jiraTicket,
+      apiToken
+    });
+    if (!jiraResult.ok) {
+      log.error(jiraResult.error);
+      process.exitCode = 1;
+      return;
+    }
+    specText = jiraResult.description;
+    sourceLabel = `JIRA ticket ${jiraResult.ticketKey}`;
+  }
+
   const result = await generateTestsFromSpec({
     specFile: opts.spec,
+    specText,
+    sourceLabel,
     type: opts.type as GeneratedTestType,
     url: opts.url,
     outputDir: opts.output
@@ -191,8 +237,10 @@ export function buildProgram(): Command {
 
   program
     .command('generate')
-    .description('Generate Playwright test skeletons from a plain-text or Markdown specification using local Ollama')
-    .requiredOption('--spec <file>', 'Plain-text or Markdown specification file')
+    .description('Generate Playwright test skeletons from a local spec or JIRA ticket using local Ollama')
+    .option('--spec <file>', 'Plain-text or Markdown specification file (mutually exclusive with --jira-ticket)')
+    .option('--jira-ticket <key>', 'JIRA ticket key (mutually exclusive with --spec)')
+    .option('--jira-url <base-url>', 'JIRA base URL; required with --jira-ticket')
     .requiredOption('--type <type>', 'Generated test type: browser|api')
     .requiredOption('--url <url>', 'Target URL for generated tests')
     .option('--output <dir>', 'Directory for generated test files', './generated-tests')
