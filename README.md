@@ -110,6 +110,22 @@ qe-tool run --url https://api.yourapp.com/graphql --type api \
 
 **Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
 
+## HTML Report (`--report`)
+
+Add `--report` to any run (`--type browser|api|mobile`) to generate a self-contained, Allure-style static HTML report — no server required, opens straight from disk.
+
+**Features:**
+- Pass/fail counts and duration per test case
+- Screenshots embedded for failed browser/mobile runs
+- Trend chart across past runs (history persisted alongside the report)
+
+**Usage:**
+```bash
+qe-tool run --url https://yourapp.com --type browser --report
+```
+
+Writes `./allure-report/index.html` (open directly in a browser) and `./allure-report/history.json` (run history powering the trend).
+
 ## GitHub Actions (drop-in)
 
 Copy `.github/workflows/prova-ci.yml` to your repository. Done.

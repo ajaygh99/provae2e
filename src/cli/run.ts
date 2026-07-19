@@ -9,6 +9,12 @@ import { runBrowserTest } from '../runners/browser-runner.js';
 import { runApiTest } from '../runners/api-runner.js';
 import type { HttpMethod } from '../runners/api-runner.js';
 import { runMobileTest } from '../runners/mobile-runner.js';
+import {
+  generateAllureReport,
+  browserResultToCase,
+  apiResultToCase,
+  mobileResultToCase
+} from '../reporters/allure-reporter.js';
 
 const program = new Command();
 
@@ -44,6 +50,10 @@ program
         durationMs: result.durationMs,
         screenshotPath: result.screenshotPath
       });
+      if (opts.report) {
+        const { reportPath } = await generateAllureReport({ runs: [browserResultToCase(result)] });
+        log.info('HTML report generated', { reportPath });
+      }
       if (result.status === 'FAIL') {
         process.exitCode = 1;
         return;
@@ -83,6 +93,11 @@ program
         responseSummary: result.responseSummary
       });
 
+      if (opts.report) {
+        const { reportPath } = await generateAllureReport({ runs: [apiResultToCase(result)] });
+        log.info('HTML report generated', { reportPath });
+      }
+
       if (result.status === 'FAIL') {
         process.exitCode = 1;
         return;
@@ -99,6 +114,10 @@ program
         durationMs: result.durationMs,
         screenshotPath: result.screenshotPath
       });
+      if (opts.report) {
+        const { reportPath } = await generateAllureReport({ runs: [mobileResultToCase(result)] });
+        log.info('HTML report generated', { reportPath });
+      }
       if (result.status === 'FAIL') {
         process.exitCode = 1;
         return;
