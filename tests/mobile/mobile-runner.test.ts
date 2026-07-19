@@ -21,6 +21,11 @@ describe('Mobile Runner', () => {
         res.end('<html><head></head><body>no title here</body></html>');
         return;
       }
+      if (req.url === '/with-target') {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end('<html><head><title>Test Page Title</title></head><body><div data-testid="hero">Hero</div></body></html>');
+        return;
+      }
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end('<html><head><title>Test Page Title</title></head><body>Hello</body></html>');
     });
@@ -106,6 +111,31 @@ describe('Mobile Runner', () => {
     expect(result.status).toBe('FAIL');
     expect(result.error).toBeDefined();
     expect(result.title).toBeUndefined();
+    expect(result.screenshotPath).toBeUndefined();
+  });
+
+  it('resolves a configured selector and reports the tier that succeeded', async () => {
+    const result = await runMobileTest({
+      url: `${baseUrl}/with-target`,
+      device: 'iPhone14',
+      screenshotDir,
+      selector: { testId: 'hero' }
+    });
+
+    expect(result.status).toBe('PASS');
+    expect(result.selectorTier).toBe('data-testid');
+  });
+
+  it('fails without throwing when the configured selector cannot be resolved', async () => {
+    const result = await runMobileTest({
+      url: `${baseUrl}/with-target`,
+      device: 'iPhone14',
+      screenshotDir,
+      selector: { testId: 'no-such-target' }
+    });
+
+    expect(result.status).toBe('FAIL');
+    expect(result.error).toContain('Unable to resolve selector');
     expect(result.screenshotPath).toBeUndefined();
   });
 
