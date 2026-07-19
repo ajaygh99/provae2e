@@ -8,6 +8,7 @@ import { log } from '../core/logger.js';
 import { runBrowserTest } from '../runners/browser-runner.js';
 import { runApiTest } from '../runners/api-runner.js';
 import type { HttpMethod } from '../runners/api-runner.js';
+import { runMobileTest } from '../runners/mobile-runner.js';
 
 const program = new Command();
 
@@ -90,7 +91,23 @@ program
       return;
     }
 
-    // FORGE will implement the remaining runners (mobile, all) here
+    if (opts.type === 'mobile') {
+      const result = await runMobileTest({ url: opts.url, device: opts.device });
+      log.info('Run result', {
+        status: result.status,
+        device: result.device,
+        durationMs: result.durationMs,
+        screenshotPath: result.screenshotPath
+      });
+      if (result.status === 'FAIL') {
+        process.exitCode = 1;
+        return;
+      }
+      log.success('Run complete');
+      return;
+    }
+
+    // FORGE will implement the remaining runners (all) here
     log.info(`Running ${opts.type} tests against ${opts.url}`);
     log.info('FORGE: Implement src/runners/ and wire them here');
 

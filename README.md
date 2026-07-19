@@ -49,6 +49,34 @@ qe-tool run --url https://yourapp.com --type browser [options]
 
 **Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
 
+## Mobile Browser Testing (`--type mobile`)
+
+Runs the same headless Playwright flow as `--type browser`, but under emulation of a mobile device (viewport, user agent, touch, device scale factor).
+
+**Features:**
+- Device emulation via Playwright's `devices` descriptors
+- Automatic page load assertion
+- Screenshot capture (default: `./screenshots/`)
+- JSON report: `{ status, device, title, durationMs, screenshotPath, error }`
+
+**Usage:**
+```bash
+qe-tool run --url https://yourapp.com --type mobile --device iPhone14 [options]
+```
+
+**Supported `--device` values:**
+| Alias | Emulates |
+|-------|----------|
+| `iPhone14` | iPhone 14 |
+| `iPhoneSE` | iPhone SE |
+| `Pixel7` | Pixel 7 |
+| `GalaxyS21` | Galaxy S24 (nearest available Samsung device — Playwright dropped the exact S21 profile) |
+| `iPad` | iPad (gen 7) |
+
+Exact Playwright device keys (e.g. `"iPhone 14 Pro"`) are also accepted. More devices will follow in a later Issue.
+
+**Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
+
 ## API Testing (`--type api`)
 
 Sends REST or GraphQL requests via Playwright's `APIRequestContext` — no separate HTTP client.

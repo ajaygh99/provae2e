@@ -1,0 +1,133 @@
+/**
+ * Mobile Runner — Playwright browser tests with mobile device emulation.
+ * Visits a URL under an emulated device (viewport, user agent, touch), takes a
+ * screenshot, and asserts the page loaded with a title. Mirrors browser-runner.ts,
+ * with the browser context created from a Playwright device descriptor.
+ */
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { chromium, devices } from '@playwright/test';
+import { log } from '../core/logger.js';
+
+/**
+ * Maps compact CLI `--device` aliases to Playwright's official device
+ * descriptor keys. Playwright's bundled device list changes between
+ * releases and does not carry every real-world device name (e.g. there is
+ * no exact `'Galaxy S21'` entry in @playwright/test 1.44) — `GalaxyS21` maps
+ * to the nearest available Samsung phone descriptor instead.
+ */
+const DEVICE_ALIASES: Record<string, string> = {
+  iphone14: 'iPhone 14',
+  iphonese: 'iPhone SE',
+  pixel7: 'Pixel 7',
+  galaxys21: 'Galaxy S24',
+  ipad: 'iPad (gen 7)'
+};
+
+/** The list of CLI-facing device names supported out of the box. */
+export const SUPPORTED_DEVICES = Object.keys(DEVICE_ALIASES);
+
+/** Resolves a CLI device name (alias or exact Playwright key) to a Playwright device key, or undefined if unknown. */
+function resolveDeviceKey(device: string): string | undefined {
+  const alias = DEVICE_ALIASES[device.toLowerCase().replace(/\s+/g, '')];
+  if (alias) {
+    return alias;
+  }
+  return device in devices ? device : undefined;
+}
+
+/** Options accepted by {@link runMobileTest}. */
+export interface MobileRunnerOptions {
+  /** Target URL to visit. */
+  url: string;
+  /** Device to emulate: a supported alias (e.g. `iPhone14`) or an exact Playwright device key (e.g. `iPhone 14`). */
+  device: string;
+  /** Directory to write the screenshot into. Defaults to './screenshots'. */
+  screenshotDir?: string;
+}
+
+/** Outcome of a single mobile emulation test run. */
+export interface MobileRunResult {
+  /** PASS if the page loaded and returned a non-empty title, FAIL otherwise. */
+  status: 'PASS' | 'FAIL';
+  /** The URL that was tested. */
+  url: string;
+  /** The Playwright device descriptor key that was emulated. */
+  device: string;
+  /** The page title captured, when available. */
+  title?: string;
+  /** Wall-clock duration of the run, in milliseconds. */
+  durationMs: number;
+  /** Path to the screenshot written to disk, when available. */
+  screenshotPath?: string;
+  /** Error message, populated only when status is FAIL. */
+  error?: string;
+}
+
+/** Builds a filesystem-safe screenshot filename from a device name, URL, and timestamp. */
+function screenshotFileName(device: string, url: string): string {
+  const safeDevice = device.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const safeUrl = url.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return `${Date.now()}-${safeDevice}-${safeUrl}.png`;
+}
+
+/**
+ * Runs a headless Playwright browser test against a URL under emulation of a mobile device.
+ * Navigates to the URL, captures a screenshot, and asserts the page has a title.
+ * Never throws — unknown devices, navigation, and assertion failures are all reported as a FAIL result.
+ *
+ * @param options - Target URL, device to emulate, and optional screenshot directory.
+ * @returns The PASS/FAIL result with duration and screenshot path.
+ */
+export async function runMobileTest(options: MobileRunnerOptions): Promise<MobileRunResult> {
+  const { url } = options;
+  const screenshotDir = options.screenshotDir ?? './screenshots';
+  const startedAt = Date.now();
+
+  const deviceKey = resolveDeviceKey(options.device);
+  if (!deviceKey) {
+    const durationMs = Date.now() - startedAt;
+    const error = `Unknown device "${options.device}". Supported: ${SUPPORTED_DEVICES.join(', ')}`;
+    log.error('Mobile run failed', undefined);
+    return { status: 'FAIL', url, device: options.device, durationMs, error };
+  }
+
+  log.info('Launching headless browser with device emulation', { url, device: deviceKey });
+  const browser = await chromium.launch({ headless: true });
+
+  try {
+    const context = await browser.newContext({ ...devices[deviceKey] });
+
+    try {
+      const page = await context.newPage();
+
+      try {
+        await page.goto(url, { waitUntil: 'load' });
+        const title = await page.title();
+
+        await mkdir(screenshotDir, { recursive: true });
+        const screenshotPath = path.join(screenshotDir, screenshotFileName(deviceKey, url));
+        await page.screenshot({ path: screenshotPath });
+
+        const durationMs = Date.now() - startedAt;
+
+        if (!title) {
+          log.error('Mobile run failed: page has no title', undefined);
+          return { status: 'FAIL', url, device: deviceKey, title, durationMs, screenshotPath, error: 'Page title is empty' };
+        }
+
+        log.success('Mobile run passed', { url, device: deviceKey, title, durationMs, screenshotPath });
+        return { status: 'PASS', url, device: deviceKey, title, durationMs, screenshotPath };
+      } catch (err) {
+        const durationMs = Date.now() - startedAt;
+        const message = err instanceof Error ? err.message : String(err);
+        log.error('Mobile run failed', err);
+        return { status: 'FAIL', url, device: deviceKey, durationMs, error: message };
+      }
+    } finally {
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+  }
+}
