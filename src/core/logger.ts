@@ -18,28 +18,33 @@ function format(level: LogLevel, message: string, data?: Record<string, unknown>
 }
 
 export const log = {
-  info:    (msg: string, data?: Record<string, unknown>) => {
+  /** Log an informational message to stdout. */
+  info:    (msg: string, data?: Record<string, unknown>): LogEntry => {
     const entry = format('info', msg, data);
     process.stdout.write(chalk.blue('ℹ ') + msg + (data ? ' ' + JSON.stringify(data) : '') + '\n');
     return entry;
   },
-  success: (msg: string, data?: Record<string, unknown>) => {
+  /** Log a success message to stdout. */
+  success: (msg: string, data?: Record<string, unknown>): LogEntry => {
     const entry = format('success', msg, data);
     process.stdout.write(chalk.green('✓ ') + msg + (data ? ' ' + JSON.stringify(data) : '') + '\n');
     return entry;
   },
-  warn:    (msg: string, data?: Record<string, unknown>) => {
+  /** Log a warning message to stderr. */
+  warn:    (msg: string, data?: Record<string, unknown>): LogEntry => {
     const entry = format('warn', msg, data);
     process.stderr.write(chalk.yellow('⚠ ') + msg + (data ? ' ' + JSON.stringify(data) : '') + '\n');
     return entry;
   },
-  error:   (msg: string, error?: unknown) => {
+  /** Log an error message to stderr, extracting the message from an Error if given. */
+  error:   (msg: string, error?: unknown): LogEntry => {
     const entry = format('error', msg);
     const errMsg = error instanceof Error ? error.message : String(error ?? '');
     process.stderr.write(chalk.red('✗ ') + msg + (errMsg ? ': ' + errMsg : '') + '\n');
     return entry;
   },
-  debug:   (msg: string, data?: Record<string, unknown>) => {
+  /** Log a debug message to stdout, only when PROVA_DEBUG is set. */
+  debug:   (msg: string, data?: Record<string, unknown>): void => {
     if (process.env['PROVA_DEBUG']) {
       process.stdout.write(chalk.gray('· ') + msg + (data ? ' ' + JSON.stringify(data) : '') + '\n');
     }
