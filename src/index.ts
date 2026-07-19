@@ -8,6 +8,8 @@ export { fetchJiraTicketDescription, jiraDescriptionToText } from './core/jira-c
 export type { JiraConnectorOptions, JiraDescriptionResult } from './core/jira-connector.js';
 export { generateTestData, generateTestDataFromFile } from './core/test-data-factory.js';
 export type { TestDataFactoryOptions, TestDataFactoryResult } from './core/test-data-factory.js';
+export { extractFigmaElements, fetchFigmaElements } from './core/figma-connector.js';
+export type { FigmaConnectorOptions, FigmaElement, FigmaElementsResult } from './core/figma-connector.js';
 export { extractAcceptanceCriteria, generateTestsFromSpec } from './generators/spec-test-generator.js';
 export type {
   GeneratedTestType,

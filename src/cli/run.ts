@@ -24,6 +24,8 @@ import type { GeneratedTestType } from '../generators/spec-test-generator.js';
 import { fetchJiraTicketDescription } from '../core/jira-connector.js';
 import { generateTestDataFromFile } from '../core/test-data-factory.js';
 import { writeFile } from 'node:fs/promises';
+import { fetchFigmaElements } from '../core/figma-connector.js';
+import type { FigmaElement } from '../core/figma-connector.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -42,6 +44,8 @@ export interface GenerateActionOptions {
   url: string;
   output: string;
   schema?: string;
+  figmaFile?: string;
+  figmaNode?: string;
 }
 
 /** Raw CLI values accepted by the `data` command. */
@@ -84,7 +88,7 @@ export async function dataCommand(opts: DataActionOptions): Promise<void> {
 }
 
 /**
- * Generates Playwright test skeletons from a specification file.
+ * Generates Playwright test skeletons from a specification, JIRA ticket, or Figma frame.
  * Sets exit code 1 and logs a concise error for every failure.
  *
  * @param opts - Parsed `generate` command options.
@@ -92,8 +96,21 @@ export async function dataCommand(opts: DataActionOptions): Promise<void> {
 export async function generateCommand(opts: GenerateActionOptions): Promise<void> {
   const hasSpec = Boolean(opts.spec);
   const hasJiraTicket = Boolean(opts.jiraTicket);
-  if (hasSpec === hasJiraTicket) {
-    log.error('Provide exactly one source: --spec <file> or --jira-ticket <KEY>');
+  const hasFigmaFile = Boolean(opts.figmaFile);
+  const hasFigmaNode = Boolean(opts.figmaNode);
+  const hasFigma = hasFigmaFile && hasFigmaNode;
+  if (hasSpec && hasJiraTicket) {
+    log.error('--spec and --jira-ticket are mutually exclusive');
+    process.exitCode = 1;
+    return;
+  }
+  if (hasFigmaFile !== hasFigmaNode) {
+    log.error('--figma-file and --figma-node must be provided together');
+    process.exitCode = 1;
+    return;
+  }
+  if (!hasSpec && !hasJiraTicket && !hasFigma) {
+    log.error('Provide --spec <file>, --jira-ticket <KEY>, or a Figma file/node pair');
     process.exitCode = 1;
     return;
   }
@@ -104,6 +121,11 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
   }
   if (opts.schema && opts.type !== 'api') {
     log.error('--schema can only be used with --type api');
+    process.exitCode = 1;
+    return;
+  }
+  if (hasFigma && opts.type !== 'browser') {
+    log.error('Figma ingestion can only be used with --type browser');
     process.exitCode = 1;
     return;
   }
@@ -121,6 +143,30 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
 
   let specText: string | undefined;
   let sourceLabel: string | undefined;
+  let figmaElements: FigmaElement[] | undefined;
+  if (hasFigma && opts.figmaFile && opts.figmaNode) {
+    const apiToken = process.env['FIGMA_API_TOKEN'];
+    if (!apiToken) {
+      log.error('FIGMA_API_TOKEN environment variable is required with --figma-file and --figma-node');
+      process.exitCode = 1;
+      return;
+    }
+    const figmaResult = await fetchFigmaElements({
+      fileKey: opts.figmaFile,
+      nodeId: opts.figmaNode,
+      apiToken
+    });
+    if (!figmaResult.ok) {
+      log.error(figmaResult.error);
+      process.exitCode = 1;
+      return;
+    }
+    figmaElements = figmaResult.elements;
+    if (!hasSpec && !hasJiraTicket) {
+      specText = 'Acceptance Criteria\n- Verify the named Figma screen elements exist on the page';
+      sourceLabel = `Figma frame ${figmaResult.nodeId}`;
+    }
+  }
   if (opts.jiraTicket) {
     if (!opts.jiraUrl) {
       log.error('--jira-url <base-url> is required with --jira-ticket');
@@ -154,7 +200,8 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
     type: opts.type as GeneratedTestType,
     url: opts.url,
     outputDir: opts.output,
-    requestBody
+    requestBody,
+    figmaElements
   });
   if (!result.ok) {
     log.error(result.error);
@@ -304,10 +351,12 @@ export function buildProgram(): Command {
 
   program
     .command('generate')
-    .description('Generate Playwright test skeletons from a local spec or JIRA ticket using local Ollama')
+    .description('Generate Playwright test skeletons from a local spec, JIRA ticket, or Figma frame using local Ollama')
     .option('--spec <file>', 'Plain-text or Markdown specification file (mutually exclusive with --jira-ticket)')
     .option('--jira-ticket <key>', 'JIRA ticket key (mutually exclusive with --spec)')
     .option('--jira-url <base-url>', 'JIRA base URL; required with --jira-ticket')
+    .option('--figma-file <file-key>', 'Figma file key; requires --figma-node and FIGMA_API_TOKEN')
+    .option('--figma-node <node-id>', 'Figma frame/node ID; requires --figma-file and FIGMA_API_TOKEN')
     .requiredOption('--type <type>', 'Generated test type: browser|api')
     .requiredOption('--url <url>', 'Target URL for generated tests')
     .option('--output <dir>', 'Directory for generated test files', './generated-tests')

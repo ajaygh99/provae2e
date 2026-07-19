@@ -4,6 +4,7 @@
 import axios from 'axios';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { FigmaElement } from '../core/figma-connector.js';
 
 const DEFAULT_ENDPOINT = 'http://localhost:11434/api/generate';
 const DEFAULT_MODEL = 'llama3.1:8b';
@@ -33,6 +34,8 @@ export interface GenerateTestsOptions {
   timeoutMs?: number;
   /** Generated JSON body to embed in API-test prompts. */
   requestBody?: unknown;
+  /** Named Figma elements that browser tests must verify. */
+  figmaElements?: readonly FigmaElement[];
 }
 
 /** Successful or failed generation outcome. */
@@ -139,12 +142,24 @@ function slugify(value: string): string {
   return slug || 'criterion';
 }
 
-function buildPrompt(criterion: string, type: GeneratedTestType, url: string, requestBody?: unknown): string {
+function buildPrompt(
+  criterion: string,
+  type: GeneratedTestType,
+  url: string,
+  requestBody?: unknown,
+  figmaElements?: readonly FigmaElement[]
+): string {
   const guidance = type === 'browser'
     ? 'Use page.goto and user-visible Playwright locators such as getByRole or getByText.'
     : 'Use Playwright request/APIRequestContext and assert the HTTP response status and relevant response data.';
   const bodyGuidance = type === 'api' && requestBody !== undefined
     ? `Use this generated request body in the API request:\n${JSON.stringify(requestBody, null, 2)}`
+    : undefined;
+  const figmaGuidance = type === 'browser' && figmaElements && figmaElements.length > 0
+    ? `Verify these Figma elements exist on the page: ${figmaElements.map((element) => {
+      const text = element.text ? ` with text "${element.text}"` : '';
+      return `${element.name} (${element.type}${text})`;
+    }).join(', ')}. Use resilient user-visible assertions for each element.`
     : undefined;
   return [
     'You are a senior quality engineer generating one runnable Playwright TypeScript test.',
@@ -152,6 +167,7 @@ function buildPrompt(criterion: string, type: GeneratedTestType, url: string, re
     `Acceptance criterion: ${criterion}`,
     guidance,
     bodyGuidance,
+    figmaGuidance,
     "Import test and expect from '@playwright/test'.",
     'Return only TypeScript source code. Do not use Markdown fences or explanatory prose.',
     'Keep uncertain product-specific selectors or payload values as clearly named constants with safe example values.'
@@ -199,6 +215,9 @@ export async function generateTestsFromSpec(options: GenerateTestsOptions): Prom
     if (!isHttpUrl(options.url)) {
       return { ok: false, error: `Invalid target URL "${options.url}": use an absolute http:// or https:// URL` };
     }
+    if (options.figmaElements && options.type !== 'browser') {
+      return { ok: false, error: 'Figma elements can only be used for browser test generation' };
+    }
 
     if (Boolean(options.specFile) === Boolean(options.specText)) {
       return { ok: false, error: 'Provide exactly one specification source: specFile or specText' };
@@ -238,7 +257,7 @@ export async function generateTestsFromSpec(options: GenerateTestsOptions): Prom
         options.endpoint ?? DEFAULT_ENDPOINT,
         {
           model: options.model ?? DEFAULT_MODEL,
-          prompt: buildPrompt(criteria[index], options.type, options.url, options.requestBody),
+          prompt: buildPrompt(criteria[index], options.type, options.url, options.requestBody, options.figmaElements),
           stream: false
         },
         { timeout: options.timeoutMs ?? 30000 }

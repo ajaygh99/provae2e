@@ -111,6 +111,31 @@ qe-tool generate --spec ./create-user.md --type api \
 
 `--schema` on `generate` is available only for API tests. Schema composition and references such as `$ref`, `oneOf`, `anyOf`, and `allOf` are rejected with a clear message rather than silently approximated.
 
+## Figma Screen Ingestion
+
+Set a Figma personal access token in the environment so it is never passed as a command-line argument:
+
+```bash
+# macOS/Linux
+export FIGMA_API_TOKEN="your-token"
+
+# Windows PowerShell
+$env:FIGMA_API_TOKEN = "your-token"
+```
+
+Generate a browser test directly from a Figma frame:
+
+```bash
+qe-tool generate --figma-file AbCdEf123456 \
+  --figma-node 12:34 \
+  --type browser \
+  --url https://yourapp.com/login
+```
+
+Figma can also add screen context to a local spec or JIRA ticket by including the same `--figma-file` and `--figma-node` flags on that generate command. PROVA extracts text layers and meaningfully named elements such as buttons, inputs, fields, links, checkboxes, and dropdowns, then asks Ollama to assert their presence.
+
+The file key is the segment after `/design/` or `/file/` in a Figma URL. For example, in `figma.com/design/AbCdEf123456/App?node-id=12-34`, the file key is `AbCdEf123456`; the node ID is `12-34` (the API also commonly displays it as `12:34`). Select a frame and use **Copy link to selection** to obtain its node ID. Personal access tokens are created from Figma account settings under **Security**.
+
 ## Browser Testing (`--type browser`)
 
 Launches headless Playwright to test web applications.
