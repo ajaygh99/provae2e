@@ -5,7 +5,7 @@
 Schedule: Every other Monday at 08:00 (bi-weekly)
 
 ## Steps
-1. Read all open GHE Issues via Composio GitHub MCP
+1. Read all open GitHub Issues via Composio GitHub MCP
    - Filter: not labeled `in-progress`, not labeled `blocked`
    - Sort by: customer-reported bugs first, then features, then improvements
 2. Read `feedback/` folder for latest customer requests
@@ -17,7 +17,7 @@ Schedule: Every other Monday at 08:00 (bi-weekly)
    - Definition of done for each
    - Agent assignments (ARIA handles all via delegation)
 6. Write `sprint/agent-tasks.md` with task queue for ARIA
-7. Add label `sprint-current` to selected GHE Issues
+7. Add label `sprint-current` to selected GitHub Issues
 8. Post sprint plan to Slack #prova-team channel
 9. Post summary to `daily/YYYY-MM-DD-standup.md`
 

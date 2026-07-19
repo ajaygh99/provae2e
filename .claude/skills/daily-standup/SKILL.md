@@ -5,7 +5,7 @@
 Schedule: Every weekday at 08:30
 
 ## Steps
-1. Read GHE via Composio:
+1. Read GitHub via Composio:
    - PRs opened since yesterday
    - PRs merged since yesterday
    - Issues labeled `agent-implement` (in queue)

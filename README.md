@@ -41,9 +41,9 @@ Copy `.github/workflows/prova-ci.yml` to your repository. Done.
 This repository is managed by the PROVA Trinity system:
 - **Cowork** — Sprint planning, coordination, release announcements
 - **Claude Code** — Feature implementation, testing, npm publishing  
-- **GHE** — Source of truth, CI/CD, event bus
+- **GitHub** — Source of truth, CI/CD, event bus
 
-To request a feature: create a GHE Issue and add label `agent-implement`.
+To request a feature: create a GitHub Issue and add label `agent-implement`.
 See `docs/SETUP.md` for the complete setup guide.
 
 ## Architecture

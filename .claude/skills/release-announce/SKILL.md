@@ -1,5 +1,5 @@
 # Release Announce Skill
-# Cowork runs this when a GitHub Release is created on GHE
+# Cowork runs this when a GitHub Release is created
 
 ## Trigger
 - Event: GitHub Release published (via Composio webhook)

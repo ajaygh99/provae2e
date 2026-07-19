@@ -6,7 +6,7 @@ Start: [SET DATE]
 End:   [SET DATE — 2 weeks later]
 
 ## Goal
-Bootstrap the PROVA repository and get the Trinity system (Cowork + Claude Code + GHE) running autonomously.
+Bootstrap the PROVA repository and get the Trinity system (Cowork + Claude Code + GitHub) running autonomously.
 
 ## Issues This Sprint
 | Issue | Title | Priority | Status |

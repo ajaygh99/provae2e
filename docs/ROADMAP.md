@@ -31,7 +31,7 @@
 - Production monitoring (PROVA Sentinel, 5 layers)
 - Mobile native testing (Appium)
 - Security testing (OWASP ZAP)
-- Full knowledge graph (4-source: GHE + JIRA + Design + DB)
+- Full knowledge graph (4-source: GitHub + JIRA + Design + DB)
 
 ## Phase 4 — Enterprise (Month 12-24)
 **Goal: $10k MRR, Series A readiness**

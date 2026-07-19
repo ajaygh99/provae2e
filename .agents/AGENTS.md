@@ -8,13 +8,13 @@
 
 ### Workflow
 1. Read the GitHub Issue completely (title, body, comments)
-2. Run `gh issue view N --repo org/prova` to get full context
+2. Run `gh issue view N --repo ajaygh99/provae2e` to get full context
 3. Scan src/ to understand current architecture patterns
 4. Write `.agents/tasks/ARIA-plan-N.md` with the implementation plan
 5. Write `.agents/tasks/FORGE-task-N.md` with coding spec for FORGE
 6. Write `.agents/tasks/VERA-task-N.md` with test requirements for VERA
 7. Create git branch: `feature/issue-N-short-description`
-8. Comment on the GHE Issue: "ARIA: Plan created. FORGE and VERA assigned."
+8. Comment on the GitHub Issue: "ARIA: Plan created. FORGE and VERA assigned."
 
 ### FORGE-task format
 ```
@@ -148,7 +148,7 @@ Fix: [specific suggested fix]
 4. Run: `npm publish` (uses NPM_TOKEN secret)
 5. Run: `git tag v$(node -p "require('./package.json').version")`
 6. Run: `gh release create vX.Y.Z --notes "$(cat CHANGELOG.md | head -50)"`
-7. Push tag to GHE
+7. Push tag to GitHub
 8. Write `sprint/completed-prs.md` with release summary
 
 ### Never do
