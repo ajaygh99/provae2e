@@ -12,6 +12,7 @@ test-results/
 prova-reports/
 allure-results/
 allure-report/
+.prova/
 
 # Environment — NEVER COMMIT
 .env

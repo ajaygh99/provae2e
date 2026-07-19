@@ -9,6 +9,17 @@ import { runBrowserTest } from '../runners/browser-runner.js';
 import { runApiTest } from '../runners/api-runner.js';
 import type { HttpMethod } from '../runners/api-runner.js';
 import { runMobileTest } from '../runners/mobile-runner.js';
+import { generateAllureReport } from '../reporters/allure-reporter.js';
+import type { ReportEntry } from '../reporters/allure-reporter.js';
+
+/** Generates the HTML report for a single run result, when --report was passed. Never throws. */
+async function maybeGenerateReport(shouldReport: boolean, entry: ReportEntry): Promise<void> {
+  if (!shouldReport) {
+    return;
+  }
+  const report = await generateAllureReport([entry]);
+  log.info('Report generated', { reportPath: report.reportPath, passed: report.passed, failed: report.failed });
+}
 
 const program = new Command();
 
@@ -43,6 +54,14 @@ program
         status: result.status,
         durationMs: result.durationMs,
         screenshotPath: result.screenshotPath
+      });
+      await maybeGenerateReport(Boolean(opts.report), {
+        type: 'browser',
+        status: result.status,
+        url: opts.url,
+        durationMs: result.durationMs,
+        screenshotPath: result.screenshotPath,
+        error: result.error
       });
       if (result.status === 'FAIL') {
         process.exitCode = 1;
@@ -83,6 +102,14 @@ program
         responseSummary: result.responseSummary
       });
 
+      await maybeGenerateReport(Boolean(opts.report), {
+        type: 'api',
+        status: result.status,
+        url: opts.url,
+        durationMs: result.durationMs,
+        error: result.error
+      });
+
       if (result.status === 'FAIL') {
         process.exitCode = 1;
         return;
@@ -98,6 +125,14 @@ program
         device: result.device,
         durationMs: result.durationMs,
         screenshotPath: result.screenshotPath
+      });
+      await maybeGenerateReport(Boolean(opts.report), {
+        type: 'mobile',
+        status: result.status,
+        url: opts.url,
+        durationMs: result.durationMs,
+        screenshotPath: result.screenshotPath,
+        error: result.error
       });
       if (result.status === 'FAIL') {
         process.exitCode = 1;
