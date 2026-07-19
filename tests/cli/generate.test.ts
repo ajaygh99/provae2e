@@ -2,6 +2,7 @@ import { buildProgram, generateCommand, type GenerateActionOptions } from '../..
 import { generateTestsFromSpec } from '../../src/generators/spec-test-generator';
 import { fetchJiraTicketDescription } from '../../src/core/jira-connector';
 import { generateTestDataFromFile } from '../../src/core/test-data-factory';
+import { fetchFigmaElements } from '../../src/core/figma-connector';
 
 jest.mock('../../src/generators/spec-test-generator', () => ({
   generateTestsFromSpec: jest.fn()
@@ -12,10 +13,14 @@ jest.mock('../../src/core/jira-connector', () => ({
 jest.mock('../../src/core/test-data-factory', () => ({
   generateTestDataFromFile: jest.fn()
 }));
+jest.mock('../../src/core/figma-connector', () => ({
+  fetchFigmaElements: jest.fn()
+}));
 
 const mockGenerate = generateTestsFromSpec as jest.MockedFunction<typeof generateTestsFromSpec>;
 const mockFetchJira = fetchJiraTicketDescription as jest.MockedFunction<typeof fetchJiraTicketDescription>;
 const mockGenerateData = generateTestDataFromFile as jest.MockedFunction<typeof generateTestDataFromFile>;
+const mockFetchFigma = fetchFigmaElements as jest.MockedFunction<typeof fetchFigmaElements>;
 
 function options(overrides: Partial<GenerateActionOptions> = {}): GenerateActionOptions {
   return {
@@ -35,6 +40,7 @@ describe('generateCommand', () => {
     jest.clearAllMocks();
     process.exitCode = undefined;
     delete process.env['JIRA_API_TOKEN'];
+    delete process.env['FIGMA_API_TOKEN'];
     stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
     stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
@@ -61,7 +67,8 @@ describe('generateCommand', () => {
       type: 'browser',
       url: 'https://example.com',
       outputDir: './custom-output',
-      requestBody: undefined
+      requestBody: undefined,
+      figmaElements: undefined
     });
     expect(process.exitCode).toBeUndefined();
     expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('AI test generation complete'));
@@ -105,10 +112,10 @@ describe('generateCommand', () => {
     expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('unit-test-token'));
   });
 
-  it('requires exactly one of --spec and --jira-ticket', async () => {
+  it('requires a spec, JIRA ticket, or complete Figma pair and keeps spec/JIRA exclusive', async () => {
     await generateCommand(options({ spec: undefined, jiraTicket: undefined }));
     expect(process.exitCode).toBe(1);
-    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('exactly one source'));
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Figma file/node pair'));
 
     process.exitCode = undefined;
     await generateCommand(options({ spec: 'ticket.md', jiraTicket: 'PROJ-1', jiraUrl: 'https://company.atlassian.net' }));
@@ -161,6 +168,65 @@ describe('generateCommand', () => {
     expect(process.exitCode).toBe(1);
     expect(mockGenerate).not.toHaveBeenCalled();
   });
+
+  it('supports standalone Figma browser generation and passes elements to Ollama', async () => {
+    process.env['FIGMA_API_TOKEN'] = 'unit-test-token';
+    const elements = [
+      { name: 'Login Button', type: 'INSTANCE' },
+      { name: 'Heading', type: 'TEXT', text: 'Welcome' }
+    ];
+    mockFetchFigma.mockResolvedValueOnce({ ok: true, fileKey: 'file123', nodeId: '1:2', elements });
+    mockGenerate.mockResolvedValueOnce({ ok: true, criteria: ['Verify elements'], files: ['browser.spec.ts'] });
+
+    await generateCommand(options({ spec: undefined, figmaFile: 'file123', figmaNode: '1:2' }));
+
+    expect(mockFetchFigma).toHaveBeenCalledWith({ fileKey: 'file123', nodeId: '1:2', apiToken: 'unit-test-token' });
+    expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({
+      specFile: undefined,
+      specText: 'Acceptance Criteria\n- Verify the named Figma screen elements exist on the page',
+      sourceLabel: 'Figma frame 1:2',
+      figmaElements: elements
+    }));
+    expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining('unit-test-token'));
+    expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('unit-test-token'));
+  });
+
+  it('allows Figma to augment a local spec without replacing it', async () => {
+    process.env['FIGMA_API_TOKEN'] = 'unit-test-token';
+    mockFetchFigma.mockResolvedValueOnce({
+      ok: true, fileKey: 'file123', nodeId: '1:2', elements: [{ name: 'Email Input', type: 'INSTANCE' }]
+    });
+    mockGenerate.mockResolvedValueOnce({ ok: true, criteria: ['Login'], files: ['browser.spec.ts'] });
+    await generateCommand(options({ figmaFile: 'file123', figmaNode: '1:2' }));
+    expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({
+      specFile: 'ticket.md', specText: undefined, figmaElements: [{ name: 'Email Input', type: 'INSTANCE' }]
+    }));
+  });
+
+  it('requires a complete Figma pair, token, and browser type', async () => {
+    await generateCommand(options({ figmaFile: 'file123' }));
+    expect(process.exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('provided together'));
+
+    process.exitCode = undefined;
+    await generateCommand(options({ figmaFile: 'file123', figmaNode: '1:2', type: 'api' }));
+    expect(process.exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('--type browser'));
+
+    process.exitCode = undefined;
+    await generateCommand(options({ figmaFile: 'file123', figmaNode: '1:2' }));
+    expect(process.exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('FIGMA_API_TOKEN'));
+  });
+
+  it('reports Figma connector failures without generation or token leakage', async () => {
+    process.env['FIGMA_API_TOKEN'] = 'unit-test-token';
+    mockFetchFigma.mockResolvedValueOnce({ ok: false, error: 'Figma authentication failed (401). Check FIGMA_API_TOKEN permissions.' });
+    await generateCommand(options({ figmaFile: 'file123', figmaNode: '1:2' }));
+    expect(process.exitCode).toBe(1);
+    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('unit-test-token'));
+  });
 });
 
 describe('generate CLI registration', () => {
@@ -171,6 +237,8 @@ describe('generate CLI registration', () => {
       '--spec',
       '--jira-ticket',
       '--jira-url',
+      '--figma-file',
+      '--figma-node',
       '--type',
       '--url',
       '--output',

@@ -147,6 +147,37 @@ test('generated api case', async ({ request }) => {
     expect(prompt).toContain('"email": "user@example.com"');
   });
 
+  it('includes named Figma elements in browser generation prompts', async () => {
+    mockedAxios.post.mockResolvedValueOnce({ data: { response: BROWSER_TEST } });
+    const result = await generateTestsFromSpec({
+      specText: '- Login screen is visible',
+      type: 'browser',
+      url: 'https://example.com/login',
+      outputDir,
+      figmaElements: [
+        { name: 'Login Button', type: 'INSTANCE' },
+        { name: 'Heading', type: 'TEXT', text: 'Welcome back' }
+      ]
+    });
+    expect(result.ok).toBe(true);
+    const request = mockedAxios.post.mock.calls[0][1] as { prompt: string };
+    expect(request.prompt).toContain('Verify these Figma elements exist on the page');
+    expect(request.prompt).toContain('Login Button (INSTANCE)');
+    expect(request.prompt).toContain('Heading (TEXT with text "Welcome back")');
+  });
+
+  it('rejects Figma elements for API generation before calling Ollama', async () => {
+    const result = await generateTestsFromSpec({
+      specText: '- Create user',
+      type: 'api',
+      url: 'https://example.com/users',
+      outputDir,
+      figmaElements: [{ name: 'Submit Button', type: 'INSTANCE' }]
+    });
+    expect(result).toEqual({ ok: false, error: 'Figma elements can only be used for browser test generation' });
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+  });
+
   it('returns a clear error for an empty spec without calling Ollama', async () => {
     writeFileSync(specFile, '  \n', 'utf-8');
     const result = await generateTestsFromSpec({ specFile, type: 'browser', url: 'https://example.com', outputDir });
