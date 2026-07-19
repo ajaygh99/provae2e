@@ -16,7 +16,7 @@ npm install -g @provae2e/cli
 ## Quick Start
 
 ```bash
-# Browser testing
+# Browser testing (headless Chromium, WebKit, or Firefox)
 qe-tool run --url https://yourapp.com --type browser
 
 # API testing  
@@ -31,6 +31,23 @@ qe-tool run --url https://yourapp.com --type all --workers 5 --report
 # With local AI summaries (requires Ollama)
 qe-tool run --url https://yourapp.com --ai
 ```
+
+## Browser Testing (`--type browser`)
+
+Launches headless Playwright to test web applications.
+
+**Features:**
+- Headless Chromium, WebKit, or Firefox
+- Automatic page load assertion
+- Screenshot capture (default: `./screenshots/`)
+- JSON report: `{ status, title, durationMs, screenshotPath, error }`
+
+**Usage:**
+```bash
+qe-tool run --url https://yourapp.com --type browser [options]
+```
+
+**Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
 
 ## GitHub Actions (drop-in)
 
