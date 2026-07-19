@@ -4,3 +4,9 @@
  * The CLI itself lives in src/cli/run.ts.
  */
 export { log } from './core/logger.js';
+export { extractAcceptanceCriteria, generateTestsFromSpec } from './generators/spec-test-generator.js';
+export type {
+  GeneratedTestType,
+  GenerateTestsOptions,
+  GenerateTestsResult
+} from './generators/spec-test-generator.js';
