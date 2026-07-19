@@ -31,7 +31,13 @@ $RepoSlug = "ajaygh99/provae2e"
 
 function Log($msg) {
     $line = "[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg
-    Write-Output $line
+    # Write-Host, not Write-Output: Write-Output would leak into the return
+    # value of any function that calls Log() as a bare statement (like
+    # Invoke-LensReview below), silently turning a clean boolean into a
+    # multi-element array - which PowerShell always treats as truthy
+    # regardless of content. Write-Host prints to console without touching
+    # the pipeline, so it's safe to call from inside functions.
+    Write-Host $line
     Add-Content -Path $LogFile -Value $line
 }
 
@@ -142,7 +148,7 @@ Do not stop until typecheck, lint, and tests all pass and the PR is open. Work a
     Log "PR #$prNumber opened: $($pr[0].url)"
 
     # 5. LENS review pass, with one automatic fix-up retry if it's not clean
-    $clean = Invoke-LensReview $prNumber
+    $clean = [bool](Invoke-LensReview $prNumber)
 
     if (-not $clean) {
         Log "LENS flagged BLOCKER/MAJOR items. Giving FORGE one automatic fix-up pass."
@@ -157,7 +163,7 @@ Re-run npm run typecheck && npm run lint && npm test and make sure everything is
         Add-Content -Path $LogFile -Value $fixResult
         Log "Fix-up pass finished (exit code $LASTEXITCODE)."
 
-        $clean = Invoke-LensReview $prNumber
+        $clean = [bool](Invoke-LensReview $prNumber)
     }
 
     if ($clean) {

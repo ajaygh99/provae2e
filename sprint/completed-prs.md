@@ -1,5 +1,7 @@
-- [2026-07-19] PR #2 for Issue #1 ([FEATURE] Implement browser runner GÇö Playwright headless)
-- [2026-07-19] PR #2 for Issue #1 ([FEATURE] Implement browser runner GÇö Playwright headless) - clean=[11:13:06] Starting LENS review pass on PR #2 (claude-haiku-4-5)... [11:14:16] LENS review pass finished (exit code 0). True
-- [2026-07-19] PR #6 for Issue #3 ([FEATURE] Implement API testing runner GÇö Playwright network + supertest) - clean=[12:00:47] Starting LENS review pass on PR #6 (claude-haiku-4-5)... [12:01:32] LENS review pass finished (exit code 0). True
-- [2026-07-19] PR #7 for Issue #4 ([FEATURE] Implement mobile browser emulation) - clean=[12:11:24] Starting LENS review pass on PR #7 (claude-haiku-4-5)... [12:13:25] LENS review pass finished (exit code 0). True
-- [2026-07-19] PR #8 for Issue #5 ([FEATURE] Build HTML report with Allure) - clean=[13:35:03] Starting LENS review pass on PR #8 (claude-haiku-4-5)... [13:37:27] LENS review pass finished (exit code 0). True
+# Completed PRs
+# Written by nightly-run.ps1 after each auto-merge. Cowork reads this.
+
+- [2026-07-19] PR #2 for Issue #1 (Implement browser runner - Playwright headless) - LENS clean, auto-merged
+- [2026-07-19] PR #6 for Issue #3 (Implement API testing runner - Playwright network + supertest) - LENS clean, auto-merged
+- [2026-07-19] PR #7 for Issue #4 (Implement mobile browser emulation) - LENS clean, auto-merged
+- [2026-07-19] PR #8 for Issue #5 (Build HTML report with Allure) - LENS clean, auto-merged
