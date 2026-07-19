@@ -63,6 +63,30 @@ qe-tool generate --spec ./users-api.md --type api \
 
 Generation uses the local Ollama integration and defaults to `llama3.1:8b`. Each acceptance criterion produces a separate `.spec.ts` file. PROVA refuses to overwrite an existing generated test; review generated skeletons before running or committing them.
 
+### Generate from a JIRA ticket
+
+Set the JIRA API token in your environment so it never appears in shell history or CLI arguments:
+
+```bash
+# macOS/Linux
+export JIRA_API_TOKEN="your-token"
+
+# Windows PowerShell
+$env:JIRA_API_TOKEN = "your-token"
+```
+
+Then provide the ticket key and JIRA base URL instead of `--spec`:
+
+```bash
+qe-tool generate --jira-ticket PROJ-123 \
+  --jira-url https://company.atlassian.net \
+  --type browser \
+  --url https://yourapp.com \
+  --output ./generated-tests
+```
+
+`--spec` and `--jira-ticket` are mutually exclusive; exactly one is required. PROVA fetches `/rest/api/3/issue/<KEY>`, converts plain-text or Atlassian Document Format descriptions to text, and applies the same acceptance-criteria parser used for local spec files.
+
 ## Browser Testing (`--type browser`)
 
 Launches headless Playwright to test web applications.

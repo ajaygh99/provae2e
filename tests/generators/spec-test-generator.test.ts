@@ -116,10 +116,25 @@ test('generated api case', async ({ request }) => {
     expect(prompt).toContain('Test type: api');
   });
 
+  it('applies the shared acceptance-criteria parser to already-loaded JIRA text', async () => {
+    mockedAxios.post.mockResolvedValueOnce({ data: { response: BROWSER_TEST } });
+
+    const result = await generateTestsFromSpec({
+      specText: 'Acceptance Criteria\n- User can sign in',
+      sourceLabel: 'JIRA ticket PROJ-123',
+      type: 'browser',
+      url: 'https://example.com',
+      outputDir
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.criteria).toEqual(['User can sign in']);
+  });
+
   it('returns a clear error for an empty spec without calling Ollama', async () => {
     writeFileSync(specFile, '  \n', 'utf-8');
     const result = await generateTestsFromSpec({ specFile, type: 'browser', url: 'https://example.com', outputDir });
-    expect(result).toEqual({ ok: false, error: `Spec file is empty: ${specFile}` });
+    expect(result).toEqual({ ok: false, error: `Spec is empty: ${specFile}` });
     expect(mockedAxios.post).not.toHaveBeenCalled();
   });
 
