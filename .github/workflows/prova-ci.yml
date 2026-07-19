@@ -7,6 +7,7 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
 
 jobs:
   # ── TypeScript + Lint check ─────────────────────────────────────
@@ -23,16 +24,15 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run lint
 
-  # ── Parallel test matrix ────────────────────────────────────────
-  test-matrix:
-    name: Tests (${{ matrix.scope }})
+  # ── Full test suite + coverage gate ─────────────────────────────
+  # Runs every test file under tests/ (no --testPathPattern filter) so newly
+  # added test directories are always included automatically, and enforces
+  # the 80% coverage floor (package.json's jest.coverageThreshold) as a real
+  # build-failing gate rather than just collecting coverage for display.
+  test:
+    name: Tests + coverage gate
     runs-on: ubuntu-latest
     needs: typecheck
-    strategy:
-      matrix:
-        scope: [browser, api, mobile]
-      max-parallel: 3   # all 3 run simultaneously
-      fail-fast: false  # don't cancel other scopes if one fails
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,21 +42,21 @@ jobs:
       - run: npm ci
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      - name: Run ${{ matrix.scope }} tests
-        run: npm test -- --testPathPattern=${{ matrix.scope }} --coverage
+      - name: Run full test suite with coverage gate
+        run: npm run test:ci
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-${{ matrix.scope }}
+          name: coverage
           path: coverage/
 
-  # ── SHIP: publish on merge to main ─────────────────────────────
+  # ── SHIP: publish only on explicit manual dispatch ─────────────
   ship:
     name: SHIP — Publish to npm
     runs-on: ubuntu-latest
-    needs: [typecheck, test-matrix]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [typecheck, test]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,13 +69,7 @@ jobs:
       - run: npm ci
 
       - name: Check for release approval
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [ ! -f "releases/v${VERSION}-approval.md" ]; then
-            echo "No approval doc found for v${VERSION}. Skipping publish."
-            exit 0
-          fi
-          echo "Approval found. Publishing v${VERSION}..."
+        run: node scripts/check-release-approval.js
 
       - name: Bump version and publish
         run: |
@@ -106,4 +100,6 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Run smoke suite
-        run: npm test -- --testPathPattern=smoke
+        # test:smoke does NOT pass --passWithNoTests, unlike the plain `test`
+        # script - so this fails the build if zero smoke tests actually run.
+        run: npm run test:smoke

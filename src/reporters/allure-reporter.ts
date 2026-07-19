@@ -9,6 +9,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { log } from '../core/logger.js';
 import type { BrowserRunResult } from '../runners/browser-runner.js';
 import type { ApiRunResult } from '../runners/api-runner.js';
@@ -116,9 +117,15 @@ function renderCase(testCase: ReportTestCase): string {
         .join('')
     : '';
   const error = testCase.error ? `<div class="error">${escapeHtml(testCase.error)}</div>` : '';
+  // Screenshots are taken to paths relative to the process cwd at run time, which may
+  // not match where the generated report's index.html ends up on disk. Resolve to an
+  // absolute file:// URL so the <img> tag loads correctly regardless of either location.
+  const screenshotSrc = testCase.screenshotPath
+    ? pathToFileURL(path.resolve(testCase.screenshotPath)).href
+    : undefined;
   const screenshot =
-    testCase.status === 'FAIL' && testCase.screenshotPath
-      ? `<img class="screenshot" src="${escapeHtml(testCase.screenshotPath)}" alt="Failure screenshot" />`
+    testCase.status === 'FAIL' && screenshotSrc
+      ? `<img class="screenshot" src="${escapeHtml(screenshotSrc)}" alt="Failure screenshot" />`
       : '';
   return `<div class="case ${statusClass}">
     <div class="case-header">
@@ -205,7 +212,7 @@ export async function generateAllureReport(options: GenerateReportOptions): Prom
   <div class="stat failed"><div class="value">${failed}</div><div>Failed</div></div>
 </div>
 <h2>Trend</h2>
-${renderTrend(history)}
+${renderTrend(updatedHistory)}
 <h2>Test Cases</h2>
 <div class="cases">
 ${casesHtml}

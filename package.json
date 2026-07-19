@@ -16,6 +16,7 @@
     "test":        "jest --passWithNoTests",
     "test:watch":  "jest --watch",
     "test:ci":     "jest --ci --coverage --forceExit",
+    "test:smoke":  "jest --testPathPattern=tests/smoke --forceExit",
     "lint":        "eslint src tests",
     "lint:fix":    "eslint src tests --fix",
     "typecheck":   "tsc --noEmit",
@@ -53,6 +54,14 @@
     "testMatch": ["**/*.test.ts"],
     "coverageDirectory": "coverage",
     "collectCoverageFrom": ["src/**/*.ts", "!src/**/*.d.ts"],
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    },
     "moduleNameMapper": { "^(\\.{1,2}/.*)\\.js$": "$1" }
   }
 }

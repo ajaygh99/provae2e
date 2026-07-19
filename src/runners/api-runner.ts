@@ -156,9 +156,9 @@ export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResul
   try {
     context = await playwrightRequest.newContext({ timeout: options.timeoutMs ?? 30000 });
     const response = await sendRequest(context, options);
-    const durationMs = Date.now() - startedAt;
     const statusCode = response.status();
     const bodyText = await response.text();
+    const durationMs = Date.now() - startedAt;
     const responseSummary = summarize(bodyText);
 
     if (statusCode !== expectedStatus) {
@@ -182,9 +182,11 @@ export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResul
 
     if (options.graphql && typeof parsedBody === 'object' && parsedBody !== null && 'errors' in (parsedBody as Record<string, unknown>)) {
       const gqlErrors = (parsedBody as Record<string, unknown>)['errors'];
-      const error = `GraphQL response contained errors: ${JSON.stringify(gqlErrors)}`;
-      log.error('API run failed', undefined);
-      return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
+      if (Array.isArray(gqlErrors) && gqlErrors.length > 0) {
+        const error = `GraphQL response contained errors: ${JSON.stringify(gqlErrors)}`;
+        log.error('API run failed', undefined);
+        return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
+      }
     }
 
     if (options.schema) {
@@ -208,7 +210,13 @@ export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResul
     return { status: 'FAIL', url, method, durationMs, error: message };
   } finally {
     if (context) {
-      await context.dispose();
+      try {
+        await context.dispose();
+      } catch (err) {
+        log.warn('API run: failed to dispose request context cleanly', {
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
     }
   }
 }

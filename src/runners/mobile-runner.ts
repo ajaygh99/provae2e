@@ -7,6 +7,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, devices } from '@playwright/test';
+import type { Browser, BrowserContext } from '@playwright/test';
 import { log } from '../core/logger.js';
 import { resolveSelector, type SelectorDescriptor, type SelectorTier } from '../core/self-healing-selector.js';
 
@@ -29,7 +30,7 @@ const DEVICE_ALIASES: Record<string, string> = {
 export const SUPPORTED_DEVICES = Object.keys(DEVICE_ALIASES);
 
 /** Resolves a CLI device name (alias or exact Playwright key) to a Playwright device key, or undefined if unknown. */
-function resolveDeviceKey(device: string): string | undefined {
+export function resolveDeviceKey(device: string): string | undefined {
   const alias = DEVICE_ALIASES[device.toLowerCase().replace(/\s+/g, '')];
   if (alias) {
     return alias;
@@ -97,55 +98,66 @@ export async function runMobileTest(options: MobileRunnerOptions): Promise<Mobil
     return { status: 'FAIL', url, device: options.device, durationMs, error };
   }
 
-  log.info('Launching headless browser with device emulation', { url, device: deviceKey });
-  const browser = await chromium.launch({ headless: true });
-
+  let browser: Browser | undefined;
+  let context: BrowserContext | undefined;
   try {
-    const context = await browser.newContext({ ...devices[deviceKey] });
+    log.info('Launching headless browser with device emulation', { url, device: deviceKey });
+    browser = await chromium.launch({ headless: true });
+    context = await browser.newContext({ ...devices[deviceKey] });
+    const page = await context.newPage();
 
-    try {
-      const page = await context.newPage();
+    await page.goto(url, { waitUntil: 'load' });
+    const title = await page.title();
 
+    let selectorTier: SelectorTier | undefined;
+    if (options.selector) {
       try {
-        await page.goto(url, { waitUntil: 'load' });
-        const title = await page.title();
-
-        let selectorTier: SelectorTier | undefined;
-        if (options.selector) {
-          try {
-            const resolved = await resolveSelector(page, options.selector);
-            selectorTier = resolved.tier;
-          } catch (err) {
-            const durationMs = Date.now() - startedAt;
-            const message = err instanceof Error ? err.message : String(err);
-            log.error('Mobile run failed: selector could not be resolved', err);
-            return { status: 'FAIL', url, device: deviceKey, title, durationMs, error: message };
-          }
-        }
-
-        await mkdir(screenshotDir, { recursive: true });
-        const screenshotPath = path.join(screenshotDir, screenshotFileName(deviceKey, url));
-        await page.screenshot({ path: screenshotPath });
-
-        const durationMs = Date.now() - startedAt;
-
-        if (!title) {
-          log.error('Mobile run failed: page has no title', undefined);
-          return { status: 'FAIL', url, device: deviceKey, title, durationMs, screenshotPath, selectorTier, error: 'Page title is empty' };
-        }
-
-        log.success('Mobile run passed', { url, device: deviceKey, title, durationMs, screenshotPath });
-        return { status: 'PASS', url, device: deviceKey, title, durationMs, screenshotPath, selectorTier };
+        const resolved = await resolveSelector(page, options.selector);
+        selectorTier = resolved.tier;
       } catch (err) {
         const durationMs = Date.now() - startedAt;
         const message = err instanceof Error ? err.message : String(err);
-        log.error('Mobile run failed', err);
-        return { status: 'FAIL', url, device: deviceKey, durationMs, error: message };
+        log.error('Mobile run failed: selector could not be resolved', err);
+        return { status: 'FAIL', url, device: deviceKey, title, durationMs, error: message };
       }
-    } finally {
-      await context.close();
     }
+
+    await mkdir(screenshotDir, { recursive: true });
+    const screenshotPath = path.join(screenshotDir, screenshotFileName(deviceKey, url));
+    await page.screenshot({ path: screenshotPath });
+
+    const durationMs = Date.now() - startedAt;
+
+    if (!title) {
+      log.error('Mobile run failed: page has no title', undefined);
+      return { status: 'FAIL', url, device: deviceKey, title, durationMs, screenshotPath, selectorTier, error: 'Page title is empty' };
+    }
+
+    log.success('Mobile run passed', { url, device: deviceKey, title, durationMs, screenshotPath });
+    return { status: 'PASS', url, device: deviceKey, title, durationMs, screenshotPath, selectorTier };
+  } catch (err) {
+    const durationMs = Date.now() - startedAt;
+    const message = err instanceof Error ? err.message : String(err);
+    log.error('Mobile run failed', err);
+    return { status: 'FAIL', url, device: deviceKey, durationMs, error: message };
   } finally {
-    await browser.close();
+    if (context) {
+      try {
+        await context.close();
+      } catch (err) {
+        log.warn('Mobile run: failed to close context cleanly', {
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
+    }
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (err) {
+        log.warn('Mobile run: failed to close browser cleanly', {
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
+    }
   }
 }
