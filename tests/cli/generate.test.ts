@@ -1,6 +1,7 @@
 import { buildProgram, generateCommand, type GenerateActionOptions } from '../../src/cli/run';
 import { generateTestsFromSpec } from '../../src/generators/spec-test-generator';
 import { fetchJiraTicketDescription } from '../../src/core/jira-connector';
+import { generateTestDataFromFile } from '../../src/core/test-data-factory';
 
 jest.mock('../../src/generators/spec-test-generator', () => ({
   generateTestsFromSpec: jest.fn()
@@ -8,9 +9,13 @@ jest.mock('../../src/generators/spec-test-generator', () => ({
 jest.mock('../../src/core/jira-connector', () => ({
   fetchJiraTicketDescription: jest.fn()
 }));
+jest.mock('../../src/core/test-data-factory', () => ({
+  generateTestDataFromFile: jest.fn()
+}));
 
 const mockGenerate = generateTestsFromSpec as jest.MockedFunction<typeof generateTestsFromSpec>;
 const mockFetchJira = fetchJiraTicketDescription as jest.MockedFunction<typeof fetchJiraTicketDescription>;
+const mockGenerateData = generateTestDataFromFile as jest.MockedFunction<typeof generateTestDataFromFile>;
 
 function options(overrides: Partial<GenerateActionOptions> = {}): GenerateActionOptions {
   return {
@@ -55,7 +60,8 @@ describe('generateCommand', () => {
       sourceLabel: undefined,
       type: 'browser',
       url: 'https://example.com',
-      outputDir: './custom-output'
+      outputDir: './custom-output',
+      requestBody: undefined
     });
     expect(process.exitCode).toBeUndefined();
     expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('AI test generation complete'));
@@ -135,6 +141,26 @@ describe('generateCommand', () => {
     expect(mockGenerate).not.toHaveBeenCalled();
     expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('unit-test-token'));
   });
+
+  it('populates an API generation request body from --schema', async () => {
+    mockGenerateData.mockResolvedValueOnce({ ok: true, data: { email: 'user@example.com' } });
+    mockGenerate.mockResolvedValueOnce({ ok: true, criteria: ['Create user'], files: ['api.spec.ts'] });
+    await generateCommand(options({ type: 'api', schema: 'user-schema.json' }));
+    expect(mockGenerateData).toHaveBeenCalledWith('user-schema.json');
+    expect(mockGenerate).toHaveBeenCalledWith(expect.objectContaining({ requestBody: { email: 'user@example.com' } }));
+  });
+
+  it('rejects --schema for browser generation and reports factory failures', async () => {
+    await generateCommand(options({ type: 'browser', schema: 'user-schema.json' }));
+    expect(process.exitCode).toBe(1);
+    expect(mockGenerateData).not.toHaveBeenCalled();
+
+    process.exitCode = undefined;
+    mockGenerateData.mockResolvedValueOnce({ ok: false, error: 'Schema file is not valid JSON: broken.json' });
+    await generateCommand(options({ type: 'api', schema: 'broken.json' }));
+    expect(process.exitCode).toBe(1);
+    expect(mockGenerate).not.toHaveBeenCalled();
+  });
 });
 
 describe('generate CLI registration', () => {
@@ -147,7 +173,8 @@ describe('generate CLI registration', () => {
       '--jira-url',
       '--type',
       '--url',
-      '--output'
+      '--output',
+      '--schema'
     ]);
     expect(command?.options.filter((option) => option.mandatory).map((option) => option.long)).toEqual([
       '--type',

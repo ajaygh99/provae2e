@@ -31,6 +31,8 @@ export interface GenerateTestsOptions {
   model?: string;
   /** Per-criterion Ollama timeout in milliseconds. */
   timeoutMs?: number;
+  /** Generated JSON body to embed in API-test prompts. */
+  requestBody?: unknown;
 }
 
 /** Successful or failed generation outcome. */
@@ -137,19 +139,23 @@ function slugify(value: string): string {
   return slug || 'criterion';
 }
 
-function buildPrompt(criterion: string, type: GeneratedTestType, url: string): string {
+function buildPrompt(criterion: string, type: GeneratedTestType, url: string, requestBody?: unknown): string {
   const guidance = type === 'browser'
     ? 'Use page.goto and user-visible Playwright locators such as getByRole or getByText.'
     : 'Use Playwright request/APIRequestContext and assert the HTTP response status and relevant response data.';
+  const bodyGuidance = type === 'api' && requestBody !== undefined
+    ? `Use this generated request body in the API request:\n${JSON.stringify(requestBody, null, 2)}`
+    : undefined;
   return [
     'You are a senior quality engineer generating one runnable Playwright TypeScript test.',
     `Test type: ${type}. Target URL: ${url}`,
     `Acceptance criterion: ${criterion}`,
     guidance,
+    bodyGuidance,
     "Import test and expect from '@playwright/test'.",
     'Return only TypeScript source code. Do not use Markdown fences or explanatory prose.',
     'Keep uncertain product-specific selectors or payload values as clearly named constants with safe example values.'
-  ].join('\n');
+  ].filter((line): line is string => line !== undefined).join('\n');
 }
 
 function cleanGeneratedSource(response: string): string {
@@ -232,7 +238,7 @@ export async function generateTestsFromSpec(options: GenerateTestsOptions): Prom
         options.endpoint ?? DEFAULT_ENDPOINT,
         {
           model: options.model ?? DEFAULT_MODEL,
-          prompt: buildPrompt(criteria[index], options.type, options.url),
+          prompt: buildPrompt(criteria[index], options.type, options.url, options.requestBody),
           stream: false
         },
         { timeout: options.timeoutMs ?? 30000 }

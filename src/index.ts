@@ -6,6 +6,8 @@
 export { log } from './core/logger.js';
 export { fetchJiraTicketDescription, jiraDescriptionToText } from './core/jira-connector.js';
 export type { JiraConnectorOptions, JiraDescriptionResult } from './core/jira-connector.js';
+export { generateTestData, generateTestDataFromFile } from './core/test-data-factory.js';
+export type { TestDataFactoryOptions, TestDataFactoryResult } from './core/test-data-factory.js';
 export { extractAcceptanceCriteria, generateTestsFromSpec } from './generators/spec-test-generator.js';
 export type {
   GeneratedTestType,
