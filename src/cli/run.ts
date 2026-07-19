@@ -19,6 +19,8 @@ import type { ReportTestCase } from '../reporters/allure-reporter.js';
 import { printAiSummary } from '../core/ai-summary.js';
 import { validateRunOptions } from './validate.js';
 import type { RunOptionsInput } from './validate.js';
+import { generateTestsFromSpec } from '../generators/spec-test-generator.js';
+import type { GeneratedTestType } from '../generators/spec-test-generator.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -26,6 +28,38 @@ export interface RunActionOptions extends RunOptionsInput {
   report: boolean;
   ai: boolean;
   premium: boolean;
+}
+
+/** Raw CLI values accepted by the `generate` command. */
+export interface GenerateActionOptions {
+  spec: string;
+  type: string;
+  url: string;
+  output: string;
+}
+
+/**
+ * Generates Playwright test skeletons from a specification file.
+ * Sets exit code 1 and logs a concise error for every failure.
+ *
+ * @param opts - Parsed `generate` command options.
+ */
+export async function generateCommand(opts: GenerateActionOptions): Promise<void> {
+  const result = await generateTestsFromSpec({
+    specFile: opts.spec,
+    type: opts.type as GeneratedTestType,
+    url: opts.url,
+    outputDir: opts.output
+  });
+  if (!result.ok) {
+    log.error(result.error);
+    process.exitCode = 1;
+    return;
+  }
+  log.success('AI test generation complete', {
+    criteria: result.criteria.length,
+    files: result.files
+  });
 }
 
 /**
@@ -154,6 +188,15 @@ export function buildProgram(): Command {
       log.info('Creating prova.config.yml...');
       log.info('FORGE: Implement config initialisation here');
     });
+
+  program
+    .command('generate')
+    .description('Generate Playwright test skeletons from a plain-text or Markdown specification using local Ollama')
+    .requiredOption('--spec <file>', 'Plain-text or Markdown specification file')
+    .requiredOption('--type <type>', 'Generated test type: browser|api')
+    .requiredOption('--url <url>', 'Target URL for generated tests')
+    .option('--output <dir>', 'Directory for generated test files', './generated-tests')
+    .action(generateCommand);
 
   return program;
 }

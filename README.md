@@ -35,6 +35,34 @@ qe-tool run --url https://yourapp.com --type all --report
 qe-tool run --url https://yourapp.com --ai
 ```
 
+## AI Test Generation
+
+Generate runnable Playwright TypeScript test skeletons from acceptance criteria in a plain-text or Markdown ticket. PROVA recognizes Given/When/Then scenarios, bullet lists, numbered criteria, and plain lines under an `Acceptance Criteria` heading.
+
+```markdown
+# Login ticket
+
+## Acceptance Criteria
+- The login page displays email and password fields
+- Invalid credentials show an error message
+
+Given a registered user
+When they submit valid credentials
+Then they are redirected to the dashboard
+```
+
+```bash
+# Browser test skeletons
+qe-tool generate --spec ./login-ticket.md --type browser \
+  --url https://yourapp.com --output ./generated-tests
+
+# API test skeletons (output defaults to ./generated-tests)
+qe-tool generate --spec ./users-api.md --type api \
+  --url https://api.yourapp.com
+```
+
+Generation uses the local Ollama integration and defaults to `llama3.1:8b`. Each acceptance criterion produces a separate `.spec.ts` file. PROVA refuses to overwrite an existing generated test; review generated skeletons before running or committing them.
+
 ## Browser Testing (`--type browser`)
 
 Launches headless Playwright to test web applications.
