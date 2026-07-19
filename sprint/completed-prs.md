@@ -6,3 +6,4 @@
 - [2026-07-19] PR #7 for Issue #4 (Implement mobile browser emulation) - LENS clean, auto-merged
 - [2026-07-19] PR #8 for Issue #5 (Build HTML report with Allure) - LENS clean, auto-merged
 - [2026-07-19] PR #12 for Issue #9 ([FEATURE] Self-healing selectors (5-tier fallback)) - clean=True
+- [2026-07-19] PR #13 for Issue #10 ([FEATURE] Ollama AI summaries (--ai flag)) - clean=True
