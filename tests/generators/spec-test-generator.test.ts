@@ -131,6 +131,22 @@ test('generated api case', async ({ request }) => {
     expect(result.ok && result.criteria).toEqual(['User can sign in']);
   });
 
+  it('includes factory-generated request data in API generation prompts', async () => {
+    mockedAxios.post.mockResolvedValueOnce({ data: { response: BROWSER_TEST } });
+    const result = await generateTestsFromSpec({
+      specText: '- Create a user',
+      type: 'api',
+      url: 'https://example.com/users',
+      outputDir,
+      requestBody: { email: 'user@example.com', active: true }
+    });
+    expect(result.ok).toBe(true);
+    const request = mockedAxios.post.mock.calls[0][1] as { prompt: string };
+    const prompt = request.prompt;
+    expect(prompt).toContain('Use this generated request body');
+    expect(prompt).toContain('"email": "user@example.com"');
+  });
+
   it('returns a clear error for an empty spec without calling Ollama', async () => {
     writeFileSync(specFile, '  \n', 'utf-8');
     const result = await generateTestsFromSpec({ specFile, type: 'browser', url: 'https://example.com', outputDir });

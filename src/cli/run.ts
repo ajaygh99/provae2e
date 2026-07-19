@@ -22,6 +22,8 @@ import type { RunOptionsInput } from './validate.js';
 import { generateTestsFromSpec } from '../generators/spec-test-generator.js';
 import type { GeneratedTestType } from '../generators/spec-test-generator.js';
 import { fetchJiraTicketDescription } from '../core/jira-connector.js';
+import { generateTestDataFromFile } from '../core/test-data-factory.js';
+import { writeFile } from 'node:fs/promises';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -39,6 +41,46 @@ export interface GenerateActionOptions {
   type: string;
   url: string;
   output: string;
+  schema?: string;
+}
+
+/** Raw CLI values accepted by the `data` command. */
+export interface DataActionOptions {
+  schema: string;
+  count: string;
+  output?: string;
+}
+
+/**
+ * Generates test data from a schema file and writes JSON to stdout or a file.
+ *
+ * @param opts - Parsed `data` command options.
+ */
+export async function dataCommand(opts: DataActionOptions): Promise<void> {
+  const count = Number(opts.count);
+  if (!Number.isInteger(count) || count <= 0) {
+    log.error('--count must be a positive integer');
+    process.exitCode = 1;
+    return;
+  }
+  const result = await generateTestDataFromFile(opts.schema, { count });
+  if (!result.ok) {
+    log.error(result.error);
+    process.exitCode = 1;
+    return;
+  }
+  const json = `${JSON.stringify(result.data, null, 2)}\n`;
+  if (!opts.output) {
+    process.stdout.write(json);
+    return;
+  }
+  try {
+    await writeFile(opts.output, json, { encoding: 'utf-8' });
+    log.success('Test data written', { output: opts.output, count });
+  } catch (error) {
+    log.error(`Unable to write test data file "${opts.output}"`, error);
+    process.exitCode = 1;
+  }
 }
 
 /**
@@ -59,6 +101,22 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
     log.error('--jira-url can only be used with --jira-ticket');
     process.exitCode = 1;
     return;
+  }
+  if (opts.schema && opts.type !== 'api') {
+    log.error('--schema can only be used with --type api');
+    process.exitCode = 1;
+    return;
+  }
+
+  let requestBody: unknown;
+  if (opts.schema) {
+    const dataResult = await generateTestDataFromFile(opts.schema);
+    if (!dataResult.ok) {
+      log.error(dataResult.error);
+      process.exitCode = 1;
+      return;
+    }
+    requestBody = dataResult.data;
   }
 
   let specText: string | undefined;
@@ -95,7 +153,8 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
     sourceLabel,
     type: opts.type as GeneratedTestType,
     url: opts.url,
-    outputDir: opts.output
+    outputDir: opts.output,
+    requestBody
   });
   if (!result.ok) {
     log.error(result.error);
@@ -236,6 +295,14 @@ export function buildProgram(): Command {
     });
 
   program
+    .command('data')
+    .description('Generate realistic JSON test data from a schema or example file')
+    .requiredOption('--schema <file.json>', 'JSON Schema, descriptor shape, or example JSON file')
+    .option('--count <n>', 'Number of records to generate', '1')
+    .option('--output <file.json>', 'Write JSON to a file instead of stdout')
+    .action(dataCommand);
+
+  program
     .command('generate')
     .description('Generate Playwright test skeletons from a local spec or JIRA ticket using local Ollama')
     .option('--spec <file>', 'Plain-text or Markdown specification file (mutually exclusive with --jira-ticket)')
@@ -244,6 +311,7 @@ export function buildProgram(): Command {
     .requiredOption('--type <type>', 'Generated test type: browser|api')
     .requiredOption('--url <url>', 'Target URL for generated tests')
     .option('--output <dir>', 'Directory for generated test files', './generated-tests')
+    .option('--schema <file.json>', 'Populate API request bodies from a schema or example JSON file')
     .action(generateCommand);
 
   return program;

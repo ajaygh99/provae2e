@@ -87,6 +87,30 @@ qe-tool generate --jira-ticket PROJ-123 \
 
 `--spec` and `--jira-ticket` are mutually exclusive; exactly one is required. PROVA fetches `/rest/api/3/issue/<KEY>`, converts plain-text or Atlassian Document Format descriptions to text, and applies the same acceptance-criteria parser used for local spec files.
 
+## Test Data Factory
+
+Generate realistic JSON fixtures from a JSON Schema file:
+
+```bash
+# Print one record to stdout
+qe-tool data --schema ./schemas/user.json
+
+# Write five records as a JSON array
+qe-tool data --schema ./schemas/user.json --count 5 --output ./fixtures/users.json
+```
+
+The factory supports primitive types, enums, required and optional properties, nested objects and arrays, numeric and length constraints, and common string formats including `email`, `date`, `date-time`, `uuid`, `uri`, `hostname`, and `ipv4`. A simple descriptor shape such as `{ "email": "email", "age": "integer" }` also works. When the file is an ordinary example JSON object, PROVA infers a basic schema from its values.
+
+Use generated data directly while creating an API test:
+
+```bash
+qe-tool generate --spec ./create-user.md --type api \
+  --url https://api.example.com/users \
+  --schema ./schemas/user.json
+```
+
+`--schema` on `generate` is available only for API tests. Schema composition and references such as `$ref`, `oneOf`, `anyOf`, and `allOf` are rejected with a clear message rather than silently approximated.
+
 ## Browser Testing (`--type browser`)
 
 Launches headless Playwright to test web applications.
