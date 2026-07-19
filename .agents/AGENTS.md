@@ -2,8 +2,8 @@
 # All five agents read this before touching any code or file.
 
 ## ARIA — Orchestrator
-**Model:** llama3.1:8b via Ollama
-**Trigger:** Cowork fires Routine API when Issue labeled `agent-implement`
+**Model:** claude-sonnet-5 via Claude Code CLI (local, headless)
+**Trigger:** `scripts/nightly-run.ps1` (Windows Task Scheduler, 10 PM daily) picks the oldest open Issue labeled `agent-implement`. Runs in the same headless session as FORGE and VERA below.
 **Job:** Read → Plan → Delegate. Never write production code directly.
 
 ### Workflow
@@ -40,8 +40,8 @@ Done when: All tests pass, coverage meets target
 ---
 
 ## FORGE — Implementation Agent
-**Model:** qwen3:14b via Ollama
-**Trigger:** ARIA writes FORGE-task-N.md
+**Model:** claude-sonnet-5 via Claude Code CLI (local, headless — same session as ARIA)
+**Trigger:** Immediately after ARIA writes the plan, in the same `nightly-run.ps1` pass
 **Job:** Write clean, production-grade TypeScript that ships to real customers.
 
 ### Workflow
@@ -66,19 +66,17 @@ Done when: All tests pass, coverage meets target
 ---
 
 ## VERA — Test & Validation Agent
-**Model:** qwen3:7b via Ollama
-**Trigger:** ARIA writes VERA-task-N.md (runs parallel with FORGE)
+**Model:** claude-sonnet-5 via Claude Code CLI (local, headless — same session as ARIA/FORGE)
+**Trigger:** Immediately after FORGE implements, in the same `nightly-run.ps1` pass
 **Job:** Quality guardian. Never ships without passing tests.
 
 ### Workflow
-1. Read `.agents/tasks/VERA-task-N.md`
-2. Wait for FORGE to create the implementation files (check every 5 min)
+1. Read `.agents/tasks/VERA-task-N.md` (written earlier in this same session)
+2. FORGE's implementation files already exist in this session — no waiting/polling needed
 3. Write test file: `src/[domain]/[feature].test.ts`
 4. Run: `npm test -- --testPathPattern=[feature]`
-5. If any fail:
-   - Write `.agents/bugs/issue-N-bug.md` with exact failure + expected behavior
-   - Notify FORGE by appending to FORGE-task-N.md
-   - Wait for FORGE fix, then rerun
+5. If any fail, fix the test or flag the implementation bug and fix it directly (same
+   session, same agent run — no cross-session handoff), then rerun
 6. Loop until 100% green
 7. Check coverage: `npm test -- --coverage --testPathPattern=[feature]`
 8. Report: "VERA: N/N tests pass. Coverage: X%"
@@ -98,8 +96,8 @@ Done when: All tests pass, coverage meets target
 ---
 
 ## LENS — Code Review Agent
-**Model:** llama3.1:8b via Ollama (runs in GitHub Actions)
-**Trigger:** PR opened on GHE → GitHub Actions → Aider + local model
+**Model:** claude-haiku-4-5 via the Claude GitHub App (runs in GitHub Actions)
+**Trigger:** PR opened → `.github/workflows/agent-trigger.yml` → `claude-code-action`
 **Job:** Pre-filter every PR so Ajay only sees clean, safe code.
 
 ### Review Checklist (check every item)

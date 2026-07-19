@@ -13,7 +13,7 @@ curl -fsSL https://ollama.com/install.sh | sh
 
 # Pull all agent models (one-time, ~17GB)
 ollama pull qwen3:14b      # FORGE — best local coder
-ollama pull qwen3:7b       # VERA — test writer
+ollama pull qwen3:8b       # VERA — test writer
 ollama pull llama3.1:8b    # ARIA + LENS + SHIP
 
 # Verify Ollama works
@@ -22,77 +22,95 @@ ollama list
 
 ### Clone this repo and install
 ```bash
-git clone https://github.yourcompany.com/org/provae2e.git
-cd prova
+git clone https://github.com/ajaygh99/provae2e.git
+cd provae2e
 npm install
 npm run typecheck  # should pass with no errors
 ```
 
-## Step 2 — GHE Setup (5 minutes)
+## Step 2 — GitHub Setup (5 minutes)
 
-### Authenticate Claude Code to GHE
+### Authenticate GitHub CLI
 ```bash
-# Install GitHub CLI
-gh auth login --hostname github.yourcompany.com
-# Complete browser OAuth flow
-gh repo list  # verify it works
+# Install GitHub CLI (winget install GitHub.cli), then:
+gh auth login
+# Complete browser OAuth flow, choose github.com
+gh repo view ajaygh99/provae2e  # verify it works
 ```
 
-### Connect GHES to Claude Code (Admin does once)
-1. Go to claude.ai/admin-settings/claude-code
-2. Click "Connect GitHub Enterprise Server"
-3. Enter hostname: github.yourcompany.com
-4. Install the Claude GitHub App on your GHE instance
-5. Add this repo to allowed repositories
+### Connect the Claude GitHub App
+1. In a terminal inside the repo folder, run: `claude` then `/install-github-app`
+2. Follow the interactive prompts — it installs the Claude GitHub App on `ajaygh99/provae2e` and offers to add the GitHub Actions workflow + `ANTHROPIC_API_KEY` secret
+3. If `/install-github-app` isn't available, install manually: visit https://github.com/apps/claude, click Install, select `ajaygh99/provae2e`
 
-## Step 3 — Claude Code Routines (10 minutes)
-Go to claude.ai/code/routines and create 5 Routines:
+## Step 3 — Claude Code CLI (local, 10 minutes)
+ARIA, FORGE, and VERA run locally now — not as cloud Routines — so they can
+finish in minutes instead of hours and use full Claude-quality code gen. Cost
+is per-token on the Claude API (roughly $30-100 for the whole MVP), paid for
+by an API key, not a subscription.
 
-### Routine 1: ARIA — Issue Implementer
-- Prompt: "You are ARIA. Read CLAUDE.md and .agents/AGENTS.md. Read the Issue described in the trigger text. Create an implementation plan in .agents/tasks/ARIA-plan-N.md. Delegate to FORGE and VERA by writing task files. Create a feature branch via gh CLI. Comment on the Issue."
-- Repository: org/provae2e
-- Trigger: API (copy the trigger ID → ARIA_ROUTINE_TRIGGER_ID secret)
-
-### Routine 2: VERA — Test Rerunner  
-- Prompt: "You are VERA. Read CLAUDE.md and .agents/AGENTS.md. Run npm test. If failing, write bug report to .agents/bugs/. If passing, update qa/run-results.md."
-- Trigger: API (copy → VERA_ROUTINE_TRIGGER_ID secret)
-
-### Routine 3: SHIP — Releaser
-- Prompt: "You are SHIP. Check releases/ folder for approval doc. If found, run: npm version patch, npm publish, create git tag, create GitHub Release, update CHANGELOG.md."
-- Trigger: GitHub event (PR merged to main)
-
-### Routine 4: LENS — Reviewer
-- Prompt: "You are LENS. Review the PR diff against AGENTS.md checklist. Post inline review comments on the PR. Flag BLOCKERs, MAJORs, MINORs."
-- Trigger: GitHub event (PR opened)
-
-### Routine 5: ARIA-Daily — Task Processor
-- Prompt: "You are ARIA. Read sprint/agent-tasks.md. Process any pending tasks by creating feature branches and delegating to FORGE+VERA. Update the task queue file."
-- Trigger: Schedule (daily 09:00)
-
-## Step 4 — GHE Secrets (2 minutes)
-Add these to your GHE repo Settings → Secrets:
-```
-ARIA_ROUTINE_TRIGGER_ID   = trig_01... (from Step 3)
-ARIA_ROUTINE_TOKEN        = sk-ant-oat01-... (from Step 3)
-VERA_ROUTINE_TRIGGER_ID   = trig_01...
-VERA_ROUTINE_TOKEN        = sk-ant-oat01-...
-NPM_TOKEN                 = npm_... (from npmjs.com)
-GH_PAT                    = ghp_... (GitHub PAT for SHIP to push)
+```powershell
+npm install -g @anthropic-ai/claude-code
+claude --version
 ```
 
-## Step 5 — Cowork Setup (10 minutes)
+Get an API key from console.anthropic.com (Anthropic Console → API Keys),
+then set it as a permanent user environment variable so both interactive
+and scheduled (Task Scheduler) runs can see it:
+```powershell
+setx ANTHROPIC_API_KEY "sk-ant-api03-..."
+# Close and reopen PowerShell for it to take effect
+$env:ANTHROPIC_API_KEY   # should print your key
+```
+
+Verify Claude Code can run headless (no browser prompt):
+```powershell
+claude -p "Say OK" --model claude-haiku-4-5-20251001
+```
+
+## Step 4 — Local Nightly Automation (Task Scheduler, 5 minutes)
+`scripts/nightly-run.ps1` is already in this repo. It finds the oldest open
+Issue labeled `agent-implement`, runs ARIA+FORGE+VERA as one Claude Code CLI
+session (Sonnet) to plan/implement/test/PR it, then kicks off LENS review.
+
+Register it to run nightly at 10 PM:
+```powershell
+$action = New-ScheduledTaskAction -Execute "powershell.exe" `
+  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"C:\Users\ajjuk\Documents\Cowork\Provae2e\scripts\nightly-run.ps1`""
+$trigger = New-ScheduledTaskTrigger -Daily -At 10:00PM
+Register-ScheduledTask -TaskName "PROVA-NightlyAgentRun" -Action $action -Trigger $trigger -Description "ARIA+FORGE+VERA nightly implementation pass"
+```
+
+Test it manually before trusting it overnight:
+```powershell
+Start-ScheduledTask -TaskName "PROVA-NightlyAgentRun"
+# Watch progress:
+Get-Content "C:\Users\ajjuk\Documents\Cowork\Provae2e\daily\$(Get-Date -Format yyyy-MM-dd)-nightlyrun.log" -Wait
+```
+
+## Step 5 — GitHub Repo Secrets (2 minutes)
+Add these at github.com/ajaygh99/provae2e → Settings → Secrets and variables → Actions.
+Only LENS (GitHub Actions) and SHIP need secrets — ARIA/FORGE/VERA read the
+key from your local machine's environment variable, not from GitHub.
+```
+ANTHROPIC_API_KEY = sk-ant-api03-...  (same key as Step 3, powers LENS's review)
+NPM_TOKEN          = npm_...           (from npmjs.com, for SHIP's npm publish)
+GH_PAT             = ghp_...           (GitHub PAT, for SHIP to push the version bump)
+```
+
+## Step 6 — Cowork Setup (10 minutes)
 1. Open Claude desktop app → Cowork tab
 2. Point Cowork at this project folder (grant read/write)
 3. Settings → Connectors → Add Custom Connector
 4. Add Composio MCP: npx @composio/mcp@latest setup [your-url] --client claude
-5. Authenticate Composio with your GHE credentials
+5. Authenticate Composio with your GitHub credentials
 6. Install the 5 Skills from .claude/skills/ folder
 7. Schedule the standup skill: daily 08:30
 8. Schedule the sprint-planner skill: bi-weekly Monday 08:00
 9. Schedule the delegate-to-agents skill: daily 09:00
 
-## Step 6 — First Issue (the moment it all starts)
-Create an Issue on GHE:
+## Step 7 — First Issue (the moment it all starts)
+Create an Issue on GitHub:
 ```
 Title: [FEATURE] Implement browser runner — Playwright headless
 Body:

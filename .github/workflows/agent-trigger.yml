@@ -1,101 +1,45 @@
-# PROVA Agent Pipeline
-# Fires when Issue labeled "agent-implement" — starts ARIA via Routine API
-name: PROVA Agent Trigger
+# PROVA LENS Review Pipeline
+# ARIA/FORGE/VERA now run locally (Windows Task Scheduler + Claude Code CLI,
+# see scripts/nightly-run.ps1 and docs/SETUP.md Step 3) — no cloud Routine
+# trigger needed here anymore.
+#
+# This workflow only runs LENS: an automatic code review on every PR,
+# using the official Claude GitHub App + claude-code-action, on Haiku
+# (cheap, good enough for a checklist-style review).
+name: PROVA LENS Review
 
 on:
-  issues:
-    types: [labeled]
   pull_request:
     types: [opened, synchronize]
 
 jobs:
-  # ── STEP 1: Trigger ARIA when Issue is labeled ──────────────────
-  trigger-aria:
-    name: Fire ARIA Routine
-    runs-on: ubuntu-latest
-    if: github.event_name == 'issues' && github.event.label.name == 'agent-implement'
-    steps:
-      - name: Fire ARIA via Routines API
-        run: |
-          ISSUE_NUM="${{ github.event.issue.number }}"
-          ISSUE_TITLE="${{ github.event.issue.title }}"
-          ISSUE_URL="${{ github.event.issue.html_url }}"
-          
-          # Fire the ARIA Routine — replace ROUTINE_TRIGGER_ID with your actual ID
-          # from claude.ai/code/routines after you create the ARIA routine
-          curl -s -X POST \
-            "https://api.anthropic.com/v1/claude_code/routines/${{ secrets.ARIA_ROUTINE_TRIGGER_ID }}/fire" \
-            -H "Authorization: Bearer ${{ secrets.ARIA_ROUTINE_TOKEN }}" \
-            -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "Content-Type: application/json" \
-            -d "{\"text\": \"New Issue to implement: #${ISSUE_NUM} — ${ISSUE_TITLE}. URL: ${ISSUE_URL}. Read CLAUDE.md and AGENTS.md first. Create implementation plan and delegate to FORGE and VERA.\"}"
-          
-          echo "ARIA Routine fired for Issue #${ISSUE_NUM}"
-
-  # ── STEP 2: LENS review on every PR ────────────────────────────
   lens-review:
     name: LENS Code Review
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Run LENS review
+        uses: anthropics/claude-code-action@v1
         with:
-          node-version: '20'
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --model claude-haiku-4-5-20251001
+            --max-turns 8
+          prompt: |
+            You are LENS, the review agent for PROVA. Read .agents/AGENTS.md
+            for your review checklist and severity guide before reviewing.
 
-      - name: Install dependencies
-        run: npm ci
+            Review this PR's diff. Post inline review comments flagging
+            BLOCKER / MAJOR / MINOR / SUGGESTION per the checklist.
 
-      - name: Install Aider (LENS agent)
-        run: pip install aider-chat --break-system-packages
-
-      - name: Setup Ollama + LENS model
-        run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          ollama serve &
-          sleep 5
-          ollama pull llama3.1:8b
-
-      - name: Run LENS Review
-        run: |
-          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD --name-only | head -20 | tr '\n' ' ')
-          
-          aider --model ollama/llama3.1:8b \
-            --no-auto-commits \
-            --message "$(cat .agents/AGENTS.md | grep -A 50 '## LENS')
-            
-            Review these changed files: $DIFF
-            
-            For each issue found, format as:
-            File: [filename]
-            Line: [number]  
-            Severity: BLOCKER|MAJOR|MINOR|SUGGESTION
-            Issue: [description]
-            Fix: [suggestion]
-            
-            Post your review as a summary. Be specific and actionable." \
-            $DIFF 2>&1 | tee lens-review.txt || true
-          
-          echo "LENS review complete"
-          cat lens-review.txt
-
-      - name: Post LENS review as PR comment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const review = fs.existsSync('lens-review.txt') 
-              ? fs.readFileSync('lens-review.txt', 'utf8').slice(0, 3000)
-              : 'LENS review completed.';
-            
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `## 🔍 LENS Code Review\n\n\`\`\`\n${review}\n\`\`\``
-            });
+            If there are no BLOCKER or MAJOR items, approve the PR and add
+            the label 'ready-for-qa'. If there are BLOCKER or MAJOR items,
+            request changes and leave the label off.
