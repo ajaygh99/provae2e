@@ -5,6 +5,7 @@
  */
 import { Command } from 'commander';
 import { log } from '../core/logger.js';
+import { runBrowserTest } from '../runners/browser-runner.js';
 
 const program = new Command();
 
@@ -28,12 +29,26 @@ program
   .option('--env <env>',                     'Target environment: dev|qe|uat|staging|prod', 'qe')
   .action(async (opts) => {
     log.info('PROVA starting', { url: opts.url, type: opts.type, env: opts.env });
-    
-    // FORGE will implement the full runner here
-    // This stub exists so TypeScript compiles and CLI works
+
+    if (opts.type === 'browser') {
+      const result = await runBrowserTest({ url: opts.url });
+      log.info('Run result', {
+        status: result.status,
+        durationMs: result.durationMs,
+        screenshotPath: result.screenshotPath
+      });
+      if (result.status === 'FAIL') {
+        process.exitCode = 1;
+        return;
+      }
+      log.success('Run complete');
+      return;
+    }
+
+    // FORGE will implement the remaining runners (api, mobile, all) here
     log.info(`Running ${opts.type} tests against ${opts.url}`);
     log.info('FORGE: Implement src/runners/ and wire them here');
-    
+
     log.success('Run complete');
   });
 

@@ -44,6 +44,7 @@ logs/
 # Playwright
 playwright-report/
 test-results/
+screenshots/
 
 # Temp agent task files (committed when created by ARIA)
 # .agents/tasks/*.md  ← these ARE committed so agents can read them
