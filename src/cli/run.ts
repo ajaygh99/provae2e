@@ -15,6 +15,7 @@ import {
   apiResultToCase,
   mobileResultToCase
 } from '../reporters/allure-reporter.js';
+import { printAiSummary } from '../core/ai-summary.js';
 
 const program = new Command();
 
@@ -53,6 +54,9 @@ program
       if (opts.report) {
         const { reportPath } = await generateAllureReport({ runs: [browserResultToCase(result)] });
         log.info('HTML report generated', { reportPath });
+      }
+      if (opts.ai) {
+        await printAiSummary({ runs: [browserResultToCase(result)] });
       }
       if (result.status === 'FAIL') {
         process.exitCode = 1;
@@ -97,6 +101,9 @@ program
         const { reportPath } = await generateAllureReport({ runs: [apiResultToCase(result)] });
         log.info('HTML report generated', { reportPath });
       }
+      if (opts.ai) {
+        await printAiSummary({ runs: [apiResultToCase(result)] });
+      }
 
       if (result.status === 'FAIL') {
         process.exitCode = 1;
@@ -117,6 +124,9 @@ program
       if (opts.report) {
         const { reportPath } = await generateAllureReport({ runs: [mobileResultToCase(result)] });
         log.info('HTML report generated', { reportPath });
+      }
+      if (opts.ai) {
+        await printAiSummary({ runs: [mobileResultToCase(result)] });
       }
       if (result.status === 'FAIL') {
         process.exitCode = 1;
