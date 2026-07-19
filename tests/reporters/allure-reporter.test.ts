@@ -3,6 +3,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   generateAllureReport,
   browserResultToCase,
@@ -53,19 +54,26 @@ describe('Allure Reporter', () => {
       expect(html).toContain('No test cases were run.');
     });
 
-    it('renders "no run history" on the first report, then a trend bar on the second', async () => {
-      const firstHtml = readFileSync(
-        (await generateAllureReport({ runs: [{ name: 'a', status: 'PASS', durationMs: 10 }], outputDir })).reportPath,
-        'utf-8'
-      );
-      expect(firstHtml).toContain('No run history yet');
+    it('includes the current run in the trend, not just historical runs', async () => {
+      const firstResult = await generateAllureReport({
+        runs: [{ name: 'a', status: 'PASS', durationMs: 10 }],
+        outputDir
+      });
+      const firstHtml = readFileSync(firstResult.reportPath, 'utf-8');
+      // Even on the very first report ever (no prior history file), the trend must
+      // reflect the run that was just completed - not an empty "no history" placeholder.
+      // (Note: the CSS block also contains the literal text "trend-bar-fill" as a
+      // selector, so we match the rendered `class="trend-bar-fill"` attribute only.)
+      expect(firstHtml).not.toContain('No run history yet');
+      expect((firstHtml.match(/class="trend-bar-fill"/g) ?? []).length).toBe(1);
 
       const secondResult = await generateAllureReport({
         runs: [{ name: 'b', status: 'FAIL', durationMs: 10 }],
         outputDir
       });
       const secondHtml = readFileSync(secondResult.reportPath, 'utf-8');
-      expect(secondHtml).toContain('trend-bar');
+      // Second report's trend must show both the first run AND the current (second) run.
+      expect((secondHtml.match(/class="trend-bar-fill"/g) ?? []).length).toBe(2);
 
       const history = JSON.parse(readFileSync(secondResult.historyPath, 'utf-8')) as unknown[];
       expect(history).toHaveLength(2);
@@ -112,8 +120,21 @@ describe('Allure Reporter', () => {
       const result = await generateAllureReport({ runs, outputDir });
       const html = readFileSync(result.reportPath, 'utf-8');
 
-      expect(html).not.toContain('/tmp/pass.png');
-      expect(html).toContain('/tmp/fail.png');
+      expect(html).not.toContain('pass.png');
+      expect(html).toContain('fail.png');
+    });
+
+    it('resolves a relative screenshot path to an absolute file:// URL so it loads regardless of the report location', async () => {
+      const relativeScreenshotPath = path.join('screenshots', 'shot.png');
+      const runs: ReportTestCase[] = [
+        { name: 'fail-with-relative-screenshot', status: 'FAIL', durationMs: 1, screenshotPath: relativeScreenshotPath }
+      ];
+
+      const result = await generateAllureReport({ runs, outputDir });
+      const html = readFileSync(result.reportPath, 'utf-8');
+
+      const expectedHref = pathToFileURL(path.resolve(relativeScreenshotPath)).href;
+      expect(html).toContain(`src="${expectedHref}"`);
     });
 
     it('renders details key/value pairs under a test case', async () => {

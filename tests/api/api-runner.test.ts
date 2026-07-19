@@ -85,6 +85,11 @@ describe('API Runner', () => {
             res.end(JSON.stringify({ errors: [{ message: 'field "brokenQuery" does not exist' }] }));
             return;
           }
+          if (parsed.query.includes('emptyErrorsQuery')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ data: { user: { id: 1, name: 'Ada' } }, errors: [] }));
+            return;
+          }
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: { user: { id: 1, name: 'Ada' } } }));
           return;
@@ -173,7 +178,7 @@ describe('API Runner', () => {
     expect(result.responseSummary).toContain('Ada');
   });
 
-  it('fails without throwing when the GraphQL response contains errors', async () => {
+  it('fails without throwing when the GraphQL response contains a non-empty errors array', async () => {
     const result = await runApiTest({
       url: `${baseUrl}/graphql`,
       graphql: { query: 'query { brokenQuery }' }
@@ -181,5 +186,16 @@ describe('API Runner', () => {
 
     expect(result.status).toBe('FAIL');
     expect(result.error).toContain('GraphQL response contained errors');
+  });
+
+  it('passes when the GraphQL response has an empty errors array', async () => {
+    const result = await runApiTest({
+      url: `${baseUrl}/graphql`,
+      graphql: { query: 'query { emptyErrorsQuery }' },
+      schema: { user: 'object' }
+    });
+
+    expect(result.status).toBe('PASS');
+    expect(result.error).toBeUndefined();
   });
 });

@@ -5,6 +5,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from '@playwright/test';
+import type { Browser } from '@playwright/test';
 import { log } from '../core/logger.js';
 import { resolveSelector, type SelectorDescriptor, type SelectorTier } from '../core/self-healing-selector.js';
 
@@ -55,49 +56,55 @@ export async function runBrowserTest(options: BrowserRunnerOptions): Promise<Bro
   const screenshotDir = options.screenshotDir ?? './screenshots';
   const startedAt = Date.now();
 
-  log.info('Launching headless browser', { url });
-  const browser = await chromium.launch({ headless: true });
-
+  let browser: Browser | undefined;
   try {
+    log.info('Launching headless browser', { url });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
 
-    try {
-      await page.goto(url, { waitUntil: 'load' });
-      const title = await page.title();
+    await page.goto(url, { waitUntil: 'load' });
+    const title = await page.title();
 
-      let selectorTier: SelectorTier | undefined;
-      if (options.selector) {
-        try {
-          const resolved = await resolveSelector(page, options.selector);
-          selectorTier = resolved.tier;
-        } catch (err) {
-          const durationMs = Date.now() - startedAt;
-          const message = err instanceof Error ? err.message : String(err);
-          log.error('Browser run failed: selector could not be resolved', err);
-          return { status: 'FAIL', url, title, durationMs, error: message };
-        }
+    let selectorTier: SelectorTier | undefined;
+    if (options.selector) {
+      try {
+        const resolved = await resolveSelector(page, options.selector);
+        selectorTier = resolved.tier;
+      } catch (err) {
+        const durationMs = Date.now() - startedAt;
+        const message = err instanceof Error ? err.message : String(err);
+        log.error('Browser run failed: selector could not be resolved', err);
+        return { status: 'FAIL', url, title, durationMs, error: message };
       }
-
-      await mkdir(screenshotDir, { recursive: true });
-      const screenshotPath = path.join(screenshotDir, screenshotFileName(url));
-      await page.screenshot({ path: screenshotPath });
-
-      const durationMs = Date.now() - startedAt;
-
-      if (!title) {
-        log.error('Browser run failed: page has no title', undefined);
-        return { status: 'FAIL', url, title, durationMs, screenshotPath, selectorTier, error: 'Page title is empty' };
-      }
-
-      log.success('Browser run passed', { url, title, durationMs, screenshotPath });
-      return { status: 'PASS', url, title, durationMs, screenshotPath, selectorTier };
-    } catch (err) {
-      const durationMs = Date.now() - startedAt;
-      const message = err instanceof Error ? err.message : String(err);
-      log.error('Browser run failed', err);
-      return { status: 'FAIL', url, durationMs, error: message };
     }
+
+    await mkdir(screenshotDir, { recursive: true });
+    const screenshotPath = path.join(screenshotDir, screenshotFileName(url));
+    await page.screenshot({ path: screenshotPath });
+
+    const durationMs = Date.now() - startedAt;
+
+    if (!title) {
+      log.error('Browser run failed: page has no title', undefined);
+      return { status: 'FAIL', url, title, durationMs, screenshotPath, selectorTier, error: 'Page title is empty' };
+    }
+
+    log.success('Browser run passed', { url, title, durationMs, screenshotPath });
+    return { status: 'PASS', url, title, durationMs, screenshotPath, selectorTier };
+  } catch (err) {
+    const durationMs = Date.now() - startedAt;
+    const message = err instanceof Error ? err.message : String(err);
+    log.error('Browser run failed', err);
+    return { status: 'FAIL', url, durationMs, error: message };
   } finally {
-    await browser.close();
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (err) {
+        log.warn('Browser run: failed to close browser cleanly', {
+          error: err instanceof Error ? err.message : String(err)
+        });
+      }
+    }
   }
 }
