@@ -1,14 +1,14 @@
 {
   "name": "@provae2e/cli",
   "version": "0.1.0",
-  "description": "AI-native QE automation platform — browser, mobile, and API testing",
+  "description": "CLI-first browser, mobile, and API test automation powered by Playwright",
   "bin": {
     "qe-tool": "./dist/cli/run.js",
     "prova": "./dist/cli/run.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": ["dist", "templates", "README.md", "CHANGELOG.md", "LICENSE"],
   "scripts": {
     "build":       "tsc",
     "dev":         "tsc --watch",
@@ -23,9 +23,20 @@
     "clean":       "rm -rf dist coverage",
     "prepublishOnly": "npm run clean && npm run typecheck && npm run lint && npm run test && npm run build"
   },
-  "keywords": ["testing", "automation", "playwright", "qe", "ai", "browser-testing", "api-testing"],
+  "keywords": ["testing", "test-automation", "e2e", "playwright", "quality-engineering", "cli", "browser-testing", "mobile-testing", "api-testing", "self-healing"],
   "author": "Ajay — PROVA",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ajaygh99/provae2e.git"
+  },
+  "homepage": "https://github.com/ajaygh99/provae2e#readme",
+  "bugs": {
+    "url": "https://github.com/ajaygh99/provae2e/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": { "node": ">=20.0.0" },
   "dependencies": {
     "@playwright/test":  "^1.44.0",
