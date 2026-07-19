@@ -11,12 +11,15 @@
 
 ```bash
 npm install -g @provae2e/cli
+npx playwright install chromium
 ```
+
+The second command installs the Chromium runtime used by browser and mobile tests.
 
 ## Quick Start
 
 ```bash
-# Browser testing (headless Chromium, WebKit, or Firefox)
+# Browser testing (headless Chromium)
 qe-tool run --url https://yourapp.com --type browser
 
 # API testing  
@@ -25,8 +28,8 @@ qe-tool run --url https://api.yourapp.com --type api
 # Mobile browser (iPhone 14 emulation)
 qe-tool run --url https://yourapp.com --type mobile --device iPhone14
 
-# All three in parallel
-qe-tool run --url https://yourapp.com --type all --workers 5 --report
+# Browser, API, and mobile testing in one command
+qe-tool run --url https://yourapp.com --type all --report
 
 # With local AI summaries (requires Ollama)
 qe-tool run --url https://yourapp.com --ai
@@ -37,10 +40,10 @@ qe-tool run --url https://yourapp.com --ai
 Launches headless Playwright to test web applications.
 
 **Features:**
-- Headless Chromium, WebKit, or Firefox
+- Headless Chromium
 - Automatic page load assertion
 - Screenshot capture (default: `./screenshots/`)
-- JSON report: `{ status, title, durationMs, screenshotPath, error }`
+- Structured result output: `{ status, title, durationMs, screenshotPath, error }`
 
 **Usage:**
 ```bash
@@ -57,7 +60,7 @@ Runs the same headless Playwright flow as `--type browser`, but under emulation 
 - Device emulation via Playwright's `devices` descriptors
 - Automatic page load assertion
 - Screenshot capture (default: `./screenshots/`)
-- JSON report: `{ status, device, title, durationMs, screenshotPath, error }`
+- Structured result output: `{ status, device, title, durationMs, screenshotPath, error }`
 
 **Usage:**
 ```bash
@@ -85,7 +88,7 @@ Sends REST or GraphQL requests via Playwright's `APIRequestContext` — no separ
 - REST: GET, POST, PUT, DELETE
 - GraphQL: query/mutation via `--graphql`
 - Assertions: status code, response time, optional response schema
-- JSON report: `{ status, statusCode, durationMs, responseSummary, error }`
+- Structured result output: `{ status, statusCode, durationMs, responseSummary, error }`
 
 **Usage:**
 ```bash
@@ -112,11 +115,11 @@ qe-tool run --url https://api.yourapp.com/graphql --type api \
 
 ## HTML Report (`--report`)
 
-Add `--report` to any run (`--type browser|api|mobile`) to generate a self-contained, Allure-style static HTML report — no server required, opens straight from disk.
+Add `--report` to any run (`--type browser|api|mobile|all`) to generate an Allure-style static HTML report — no server required, opens straight from disk.
 
 **Features:**
 - Pass/fail counts and duration per test case
-- Screenshots embedded for failed browser/mobile runs
+- Failure screenshots linked from browser/mobile results
 - Trend chart across past runs (history persisted alongside the report)
 
 **Usage:**
