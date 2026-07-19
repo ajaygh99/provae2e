@@ -71,6 +71,16 @@ try {
         Log "WARNING: git pull returned non-zero, continuing with local state anyway"
     }
 
+    # Safety net: if a previous run ever left the working tree dirty (crash,
+    # interruption, or the completed-prs.md bug this run just fixed), don't
+    # let that silently confuse this run's branch/commit steps.
+    $dirty = git status --porcelain
+    if ($dirty) {
+        Log "WARNING: working tree was not clean at start. Stashing leftover changes before proceeding."
+        git stash push -u -m "auto-stash before nightly run $Today" | Out-Null
+        Log "stash exit code: $LASTEXITCODE"
+    }
+
     # 2. Find the oldest open Issue labeled agent-implement
     Log "Looking for Issues labeled agent-implement..."
     $issuesJson = gh issue list --label "agent-implement" --state open --json number,title,body --limit 5
@@ -137,8 +147,8 @@ Do not stop until typecheck, lint, and tests all pass and the PR is open. Work a
     if (-not $clean) {
         Log "LENS flagged BLOCKER/MAJOR items. Giving FORGE one automatic fix-up pass."
         $fixPrompt = @"
-You are FORGE. Read the review comments LENS left on PR #$prNumber:
-  gh pr view $prNumber --repo $RepoSlug --comments
+You are FORGE. Read the review comments LENS left on PR #${prNumber} (see:
+  gh pr view $prNumber --repo $RepoSlug --comments )
 Address every BLOCKER and MAJOR item LENS raised. Do not touch MINOR/SUGGESTION items unless trivial.
 Commit and push the fixes to the same branch '$branch'.
 Re-run npm run typecheck && npm run lint && npm test and make sure everything is still green before finishing.
@@ -162,9 +172,17 @@ Re-run npm run typecheck && npm run lint && npm test and make sure everything is
         gh pr comment $prNumber --repo $RepoSlug --body "Needs human review - LENS still found BLOCKER/MAJOR issues after one automated fix-up attempt. @ajaygh99 please take a look." | Out-Null
     }
 
-    # 6. Update sprint tracking file
+    # 6. Update sprint tracking file - do this on a clean main checkout and
+    # commit/push it directly, so it never sits as an uncommitted local change
+    # that the next run's implementation pass would otherwise trip over.
+    git checkout main | Out-Null
+    git pull origin main | Out-Null
     $completedNote = "- [$Today] PR #$prNumber for Issue #$issueNum ($issueTitle) - clean=$clean"
     Add-Content -Path (Join-Path $RepoRoot "sprint\completed-prs.md") -Value $completedNote
+    git add "sprint/completed-prs.md" | Out-Null
+    git commit -m "chore: log completed PR #$prNumber for Issue #$issueNum" | Out-Null
+    git push origin main | Out-Null
+    Log "Logged completion to sprint/completed-prs.md and pushed to main (exit code $LASTEXITCODE)"
 
     $elapsed = (Get-Date) - $StartTime
     Log "=== Nightly run finished in $([int]$elapsed.TotalMinutes) minutes ==="
