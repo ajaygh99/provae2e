@@ -6,13 +6,19 @@
 #
 # Requires: gh CLI authenticated, ANTHROPIC_API_KEY set as a user env var,
 # Claude Code CLI installed (npm install -g @anthropic-ai/claude-code).
+#
+# NOTE: deliberately does NOT use `$ErrorActionPreference = "Stop"` combined
+# with `2>&1` on native commands (git/gh/claude) - in Windows PowerShell that
+# combination turns ordinary stderr chatter (e.g. git's own status messages)
+# into fatal terminating errors, killing the script on step 1 even when the
+# underlying command actually succeeded. Real failures are instead detected
+# via $LASTEXITCODE after each native call.
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $LogDir   = Join-Path $RepoRoot "daily"
 $Today    = Get-Date -Format "yyyy-MM-dd"
 $LogFile  = Join-Path $LogDir "$Today-nightlyrun.log"
-$MaxRuntimeMinutes = 470   # stop working ~30 min before the 6 AM cutoff
 
 function Log($msg) {
     $line = "[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $msg
@@ -22,36 +28,50 @@ function Log($msg) {
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $StartTime = Get-Date
-Log "=== Nightly run started ==="
 
-Set-Location $RepoRoot
+try {
+    Log "=== Nightly run started ==="
+    Set-Location $RepoRoot
 
-# 1. Sync repo
-Log "Pulling latest main..."
-git checkout main 2>&1 | Out-Null
-git pull origin main 2>&1 | Tee-Object -Variable pullOut | Out-Null
-Log "git pull: $pullOut"
+    # 1. Sync repo
+    Log "Pulling latest main..."
+    git checkout main | Out-Null
+    Log "checkout exit code: $LASTEXITCODE"
+    git pull origin main | Out-Null
+    Log "pull exit code: $LASTEXITCODE"
+    if ($LASTEXITCODE -ne 0) {
+        Log "WARNING: git pull returned non-zero, continuing with local state anyway"
+    }
 
-# 2. Find the oldest open Issue labeled agent-implement
-Log "Looking for Issues labeled agent-implement..."
-$issuesJson = gh issue list --label "agent-implement" --state open --json number,title,body --limit 5
-$issues = $issuesJson | ConvertFrom-Json
+    # 2. Find the oldest open Issue labeled agent-implement
+    Log "Looking for Issues labeled agent-implement..."
+    $issuesJson = gh issue list --label "agent-implement" --state open --json number,title,body --limit 5
+    if ($LASTEXITCODE -ne 0) {
+        Log "FAILED: gh issue list returned exit code $LASTEXITCODE. Is 'gh auth status' still valid?"
+        exit 1
+    }
+    $issues = $issuesJson | ConvertFrom-Json
 
-if (-not $issues -or $issues.Count -eq 0) {
-    Log "No pending Issues. Nothing to do tonight."
-    exit 0
-}
+    if (-not $issues -or $issues.Count -eq 0) {
+        Log "No pending Issues. Nothing to do tonight."
+        exit 0
+    }
 
-$issue = $issues | Sort-Object number | Select-Object -First 1
-$issueNum   = $issue.number
-$issueTitle = $issue.title
-Log "Picked Issue #$issueNum : $issueTitle"
+    $issue = $issues | Sort-Object number | Select-Object -First 1
+    $issueNum   = $issue.number
+    $issueTitle = $issue.title
+    Log "Picked Issue #$issueNum : $issueTitle"
 
-# 3. Implement + test loop (ARIA + FORGE + VERA in one agentic session, Sonnet)
-$branch = "feature/issue-$issueNum"
-git checkout -b $branch 2>&1 | Out-Null
+    # 3. Implement + test loop (ARIA + FORGE + VERA in one agentic session, Sonnet)
+    $branch = "feature/issue-$issueNum"
+    git checkout -b $branch 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        # branch may already exist from a prior attempt - just switch to it
+        git checkout $branch | Out-Null
+        Log "Branch $branch already existed, switched to it (exit code $LASTEXITCODE)"
+    }
 
-$implementPrompt = @"
+    $implementPrompt = @"
 You are working on the PROVA repo. Read CLAUDE.md and .agents/AGENTS.md first and follow them exactly.
 
 Implement GitHub Issue #$issueNum end to end:
@@ -69,23 +89,24 @@ Implement GitHub Issue #$issueNum end to end:
 Do not stop until typecheck, lint, and tests all pass and the PR is open. Work autonomously - do not ask for confirmation.
 "@
 
-Log "Starting implementation pass (claude-sonnet-5)..."
-$implementResult = claude -p $implementPrompt --model claude-sonnet-5 --permission-mode bypassPermissions --output-format text 2>&1
-Add-Content -Path $LogFile -Value $implementResult
-Log "Implementation pass finished."
+    Log "Starting implementation pass (claude-sonnet-5)... this can take 5-20+ minutes"
+    $implementResult = claude -p $implementPrompt --model claude-sonnet-5 --permission-mode bypassPermissions --output-format text
+    $implementExit = $LASTEXITCODE
+    Add-Content -Path $LogFile -Value $implementResult
+    Log "Implementation pass finished (exit code $implementExit)."
 
-# 4. Find the PR that was just opened for this branch
-$prJson = gh pr list --head $branch --json number,url --limit 1
-$pr = $prJson | ConvertFrom-Json
-if (-not $pr -or $pr.Count -eq 0) {
-    Log "WARNING: no PR found for branch $branch. Skipping LENS review. Check log for failures."
-    exit 1
-}
-$prNumber = $pr[0].number
-Log "PR #$prNumber opened: $($pr[0].url)"
+    # 4. Find the PR that was just opened for this branch
+    $prJson = gh pr list --head $branch --json number,url --limit 1
+    $pr = $prJson | ConvertFrom-Json
+    if (-not $pr -or $pr.Count -eq 0) {
+        Log "WARNING: no PR found for branch $branch. Implementation pass may have failed - check the output logged above."
+        exit 1
+    }
+    $prNumber = $pr[0].number
+    Log "PR #$prNumber opened: $($pr[0].url)"
 
-# 5. LENS review pass (Haiku, cheap, checklist-based)
-$reviewPrompt = @"
+    # 5. LENS review pass (Haiku, cheap, checklist-based)
+    $reviewPrompt = @"
 You are LENS, the review agent. Read .agents/AGENTS.md for your review checklist.
 Review PR #$prNumber in ajaygh99/provae2e (gh pr diff $prNumber).
 Post inline review comments via gh pr review $prNumber, flagging BLOCKER / MAJOR / MINOR / SUGGESTION per the checklist.
@@ -93,14 +114,20 @@ If there are no BLOCKER or MAJOR items, approve the PR and add the label 'ready-
 If there are BLOCKER or MAJOR items, request changes and do NOT add the label.
 "@
 
-Log "Starting LENS review pass (claude-haiku-4-5)..."
-$reviewResult = claude -p $reviewPrompt --model claude-haiku-4-5-20251001 --permission-mode bypassPermissions --output-format text 2>&1
-Add-Content -Path $LogFile -Value $reviewResult
-Log "LENS review pass finished."
+    Log "Starting LENS review pass (claude-haiku-4-5)..."
+    $reviewResult = claude -p $reviewPrompt --model claude-haiku-4-5-20251001 --permission-mode bypassPermissions --output-format text
+    Add-Content -Path $LogFile -Value $reviewResult
+    Log "LENS review pass finished (exit code $LASTEXITCODE)."
 
-# 6. Update sprint tracking file
-$completedNote = "- [$Today] PR #$prNumber for Issue #$issueNum ($issueTitle)"
-Add-Content -Path (Join-Path $RepoRoot "sprint\completed-prs.md") -Value $completedNote
+    # 6. Update sprint tracking file
+    $completedNote = "- [$Today] PR #$prNumber for Issue #$issueNum ($issueTitle)"
+    Add-Content -Path (Join-Path $RepoRoot "sprint\completed-prs.md") -Value $completedNote
 
-$elapsed = (Get-Date) - $StartTime
-Log "=== Nightly run finished in $([int]$elapsed.TotalMinutes) minutes ==="
+    $elapsed = (Get-Date) - $StartTime
+    Log "=== Nightly run finished in $([int]$elapsed.TotalMinutes) minutes ==="
+}
+catch {
+    Log "FATAL ERROR: $($_.Exception.Message)"
+    Log "At: $($_.InvocationInfo.PositionMessage)"
+    exit 1
+}
