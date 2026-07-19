@@ -1,0 +1,52 @@
+# PROVA — GitHub Actions drop-in template
+# ------------------------------------------------------------------
+# For END USERS of the published @provae2e/cli npm package.
+# Copy this file into YOUR repository at .github/workflows/qe-tool-ci.yml
+# and it will run the PROVA QE suite against a URL you provide, then
+# publish the Allure HTML report as a downloadable build artifact.
+#
+# This is unrelated to PROVA's own internal CI (prova-ci.yml) — nothing
+# here needs the PROVA source repo, only the published CLI.
+name: PROVA QE Suite
+
+on:
+  # Trigger manually from the Actions tab ("Run workflow") and provide
+  # the URL to test. Add push/pull_request/schedule triggers of your own
+  # alongside this one if you want it to run automatically.
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Target URL to test'
+        required: true
+        default: 'https://example.com'
+
+jobs:
+  qe-run:
+    name: Run PROVA QE Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Installs the published CLI globally — no changes to your
+      # package.json or a local install are required.
+      - name: Install @provae2e/cli
+        run: npm install -g @provae2e/cli
+
+      # GitHub-hosted runners don't ship Playwright's browser binaries.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit firefox
+
+      # Runs browser + API + mobile tests and writes an Allure HTML report.
+      - name: Run qe-tool
+        run: qe-tool run --url "${{ inputs.url }}" --type all --report
+
+      - name: Upload Allure report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prova-allure-report
+          path: allure-report/

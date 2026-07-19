@@ -128,7 +128,17 @@ Writes `./allure-report/index.html` (open directly in a browser) and `./allure-r
 
 ## GitHub Actions (drop-in)
 
-Copy `.github/workflows/prova-ci.yml` to your repository. Done.
+Copy [`templates/github-actions/qe-tool-ci.yml`](templates/github-actions/qe-tool-ci.yml) into your own repository's `.github/workflows/` folder. Done.
+
+The template installs `@provae2e/cli`, runs `qe-tool run --type all --report` against a URL you provide, and uploads the resulting Allure report as a build artifact.
+
+**Usage:**
+1. Copy the file to `.github/workflows/qe-tool-ci.yml` in your repo.
+2. Push it, then go to your repo's **Actions** tab → **PROVA QE Suite** → **Run workflow**.
+3. Enter the `url` input (the target to test) and run it.
+4. When it finishes, download the `prova-allure-report` artifact from the run summary and open `index.html`.
+
+Add your own `push`/`pull_request`/`schedule` triggers alongside `workflow_dispatch` in the copied file if you want it to run automatically instead of on demand.
 
 ## Autonomous Development
 
