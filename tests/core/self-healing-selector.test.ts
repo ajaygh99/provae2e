@@ -5,7 +5,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { chromium } from '@playwright/test';
 import type { Browser, Page } from '@playwright/test';
-import { resolveSelector, SelectorResolutionError } from '../../src/core/self-healing-selector';
+import { resolveSelector, SelectorResolutionError } from '../../src/core/self-healing-selector.js';
 
 jest.setTimeout(30000);
 

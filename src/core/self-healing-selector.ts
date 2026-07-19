@@ -117,15 +117,19 @@ function buildAttempts(page: Page, descriptor: SelectorDescriptor): TierAttempt[
     });
   }
   if (descriptor.testId !== undefined) {
+    // Type narrowing from the guard check doesn't carry through the closure boundary
     attempts.push({ tier: 'data-testid', resolve: async () => page.getByTestId(descriptor.testId as string) });
   }
   if (descriptor.text !== undefined) {
+    // Type narrowing from the guard check doesn't carry through the closure boundary
     attempts.push({ tier: 'text-content', resolve: async () => page.getByText(descriptor.text as string | RegExp) });
   }
   if (descriptor.position) {
+    // Type narrowing from the guard check doesn't carry through the closure boundary
     attempts.push({ tier: 'visual-position', resolve: async () => resolveByPosition(page, descriptor.position as PositionSelector) });
   }
   if (descriptor.css !== undefined) {
+    // Type narrowing from the guard check doesn't carry through the closure boundary
     attempts.push({ tier: 'css-selector', resolve: async () => page.locator(descriptor.css as string) });
   }
 
