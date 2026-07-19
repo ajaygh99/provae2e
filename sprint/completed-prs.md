@@ -1,0 +1,1 @@
+- [2026-07-19] PR #2 for Issue #1 ([FEATURE] Implement browser runner GÇö Playwright headless)

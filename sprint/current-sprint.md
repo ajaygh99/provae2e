@@ -19,9 +19,10 @@ Bootstrap the PROVA repository and get the Trinity system (Cowork + Claude Code 
 ## Definition of Done
 - All Playwright tests pass (browser + API + mobile)
 - CLI: qe-tool run --url --type --device works end-to-end
-- LENS review: no BLOCKERs
-- Ajay reviewed and approved PR
-- npm published as @provae2e/cli@0.1.x
+- LENS review: no BLOCKER/MAJOR items (auto-merges if clean, one FORGE
+  fix-up retry if not, escalates to Ajay by name only if still unclean)
+- npm published as @provae2e/cli@0.1.x (still requires Ajay's manual
+  releases/vN.N.N-approval.md - merging to main does not auto-publish)
 
 ## Notes for Agents
 Read CLAUDE.md first. All code goes in src/. All tests go in tests/.
