@@ -8,6 +8,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, devices } from '@playwright/test';
 import { log } from '../core/logger.js';
+import { resolveSelector, type SelectorDescriptor, type SelectorTier } from '../core/self-healing-selector.js';
 
 /**
  * Maps compact CLI `--device` aliases to Playwright's official device
@@ -44,6 +45,8 @@ export interface MobileRunnerOptions {
   device: string;
   /** Directory to write the screenshot into. Defaults to './screenshots'. */
   screenshotDir?: string;
+  /** When set, resolves this element via the self-healing 5-tier fallback after navigation. */
+  selector?: SelectorDescriptor;
 }
 
 /** Outcome of a single mobile emulation test run. */
@@ -60,6 +63,8 @@ export interface MobileRunResult {
   durationMs: number;
   /** Path to the screenshot written to disk, when available. */
   screenshotPath?: string;
+  /** The fallback tier that resolved {@link MobileRunnerOptions.selector}, when one was configured. */
+  selectorTier?: SelectorTier;
   /** Error message, populated only when status is FAIL. */
   error?: string;
 }
@@ -105,6 +110,19 @@ export async function runMobileTest(options: MobileRunnerOptions): Promise<Mobil
         await page.goto(url, { waitUntil: 'load' });
         const title = await page.title();
 
+        let selectorTier: SelectorTier | undefined;
+        if (options.selector) {
+          try {
+            const resolved = await resolveSelector(page, options.selector);
+            selectorTier = resolved.tier;
+          } catch (err) {
+            const durationMs = Date.now() - startedAt;
+            const message = err instanceof Error ? err.message : String(err);
+            log.error('Mobile run failed: selector could not be resolved', err);
+            return { status: 'FAIL', url, device: deviceKey, title, durationMs, error: message };
+          }
+        }
+
         await mkdir(screenshotDir, { recursive: true });
         const screenshotPath = path.join(screenshotDir, screenshotFileName(deviceKey, url));
         await page.screenshot({ path: screenshotPath });
@@ -113,11 +131,11 @@ export async function runMobileTest(options: MobileRunnerOptions): Promise<Mobil
 
         if (!title) {
           log.error('Mobile run failed: page has no title', undefined);
-          return { status: 'FAIL', url, device: deviceKey, title, durationMs, screenshotPath, error: 'Page title is empty' };
+          return { status: 'FAIL', url, device: deviceKey, title, durationMs, screenshotPath, selectorTier, error: 'Page title is empty' };
         }
 
         log.success('Mobile run passed', { url, device: deviceKey, title, durationMs, screenshotPath });
-        return { status: 'PASS', url, device: deviceKey, title, durationMs, screenshotPath };
+        return { status: 'PASS', url, device: deviceKey, title, durationMs, screenshotPath, selectorTier };
       } catch (err) {
         const durationMs = Date.now() - startedAt;
         const message = err instanceof Error ? err.message : String(err);
