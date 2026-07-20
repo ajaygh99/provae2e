@@ -26,6 +26,13 @@ import { generateTestDataFromFile } from '../core/test-data-factory.js';
 import { writeFile } from 'node:fs/promises';
 import { fetchFigmaElements } from '../core/figma-connector.js';
 import type { FigmaElement } from '../core/figma-connector.js';
+import { runK6 } from '../core/k6-runner.js';
+import type { K6Metrics } from '../core/k6-runner.js';
+import {
+  comparePerformanceMetrics,
+  loadPerformanceBaseline,
+  savePerformanceBaseline
+} from '../core/performance-baseline.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -53,6 +60,102 @@ export interface DataActionOptions {
   schema: string;
   count: string;
   output?: string;
+}
+
+/** Raw CLI values accepted by the `perf` command. */
+export interface PerfActionOptions {
+  url: string;
+  vus: string;
+  duration: string;
+  baseline?: string;
+  updateBaseline: boolean;
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Runs a k6 baseline check and optionally compares or persists its metrics.
+ *
+ * @param opts - Parsed `perf` command options.
+ */
+export async function perfCommand(opts: PerfActionOptions): Promise<void> {
+  if (!isHttpUrl(opts.url)) {
+    log.error(`Invalid --url "${opts.url}": use an absolute http:// or https:// URL`);
+    process.exitCode = 1;
+    return;
+  }
+  const vus = Number(opts.vus);
+  if (!Number.isInteger(vus) || vus <= 0) {
+    log.error('--vus must be a positive integer');
+    process.exitCode = 1;
+    return;
+  }
+  const durationSeconds = Number(opts.duration);
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    log.error('--duration must be a positive number of seconds');
+    process.exitCode = 1;
+    return;
+  }
+  if (opts.updateBaseline && !opts.baseline) {
+    log.error('--update-baseline requires --baseline <file>');
+    process.exitCode = 1;
+    return;
+  }
+
+  let storedBaseline: K6Metrics | undefined;
+  if (opts.baseline) {
+    const baselineResult = await loadPerformanceBaseline(opts.baseline);
+    if (!baselineResult.ok) {
+      log.error(baselineResult.error);
+      process.exitCode = 1;
+      return;
+    }
+    storedBaseline = baselineResult.baseline;
+    if (!storedBaseline && !opts.updateBaseline) {
+      log.error(`Performance baseline does not exist: ${opts.baseline}. Use --update-baseline to create it.`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  const result = await runK6({ url: opts.url, vus, durationSeconds });
+  if (!result.ok) {
+    log.error(result.error);
+    process.exitCode = 1;
+    return;
+  }
+  log.info('k6 performance metrics', {
+    p95ResponseTimeMs: result.metrics.p95ResponseTimeMs,
+    errorRate: result.metrics.errorRate,
+    requestsPerSecond: result.metrics.requestsPerSecond
+  });
+
+  if (storedBaseline) {
+    const regressions = comparePerformanceMetrics(result.metrics, storedBaseline);
+    if (regressions.length > 0) {
+      for (const regression of regressions) log.error(`Performance regression: ${regression}`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  if (opts.baseline && opts.updateBaseline) {
+    const saveResult = await savePerformanceBaseline(opts.baseline, result.metrics);
+    if (!saveResult.ok) {
+      log.error(saveResult.error);
+      process.exitCode = 1;
+      return;
+    }
+    log.success('Performance baseline updated', { baseline: opts.baseline });
+  }
+  log.success('Performance check passed');
 }
 
 /**
@@ -340,6 +443,16 @@ export function buildProgram(): Command {
       log.info('Creating prova.config.yml...');
       log.info('FORGE: Implement config initialisation here');
     });
+
+  program
+    .command('perf')
+    .description('Run a k6 performance check and compare it with a stored baseline')
+    .requiredOption('--url <target>', 'Target URL for the k6 load test')
+    .option('--vus <n>', 'Number of virtual users', '10')
+    .option('--duration <s>', 'Test duration in seconds', '30')
+    .option('--baseline <file>', 'Performance baseline JSON file')
+    .option('--update-baseline', 'Create or update the baseline after a successful run', false)
+    .action(perfCommand);
 
   program
     .command('data')
