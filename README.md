@@ -136,6 +136,30 @@ Figma can also add screen context to a local spec or JIRA ticket by including th
 
 The file key is the segment after `/design/` or `/file/` in a Figma URL. For example, in `figma.com/design/AbCdEf123456/App?node-id=12-34`, the file key is `AbCdEf123456`; the node ID is `12-34` (the API also commonly displays it as `12:34`). Select a frame and use **Copy link to selection** to obtain its node ID. Personal access tokens are created from Figma account settings under **Security**.
 
+## Performance Baseline Monitoring
+
+PROVA uses the external [k6 command-line tool](https://k6.io/docs/get-started/installation/) for lightweight performance checks. Install k6 separately and confirm `k6 version` works in your terminal; k6 is not bundled in the npm package.
+
+Run a basic load test with 10 virtual users for 30 seconds:
+
+```bash
+qe-tool perf --url https://yourapp.com --vus 10 --duration 30
+```
+
+Create the first baseline, then compare later runs against it:
+
+```bash
+# Create or intentionally refresh the baseline after a successful run
+qe-tool perf --url https://yourapp.com --vus 10 --duration 30 \
+  --baseline ./performance/homepage.json --update-baseline
+
+# CI/regression check using the stored baseline
+qe-tool perf --url https://yourapp.com --vus 10 --duration 30 \
+  --baseline ./performance/homepage.json
+```
+
+The baseline stores p95 response time, HTTP error rate, and requests per second. A comparison fails when p95 latency or error rate is more than 20% worse than the stored value. Requests per second is reported and retained for visibility but does not currently fail the check. A missing baseline fails unless `--update-baseline` is supplied, in which case PROVA creates it after a successful k6 run.
+
 ## Browser Testing (`--type browser`)
 
 Launches headless Playwright to test web applications.
