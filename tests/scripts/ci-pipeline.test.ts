@@ -19,6 +19,7 @@ interface WorkflowStep {
 interface WorkflowJob {
   'runs-on': string;
   needs?: string | string[];
+  permissions?: Record<string, string>;
   steps: WorkflowStep[];
 }
 
@@ -68,5 +69,35 @@ describe('package.json jest config — real 80% coverage gate', () => {
 
   it('test:ci actually collects coverage, so the threshold is enforced in CI', () => {
     expect(pkg.scripts?.['test:ci']).toMatch(/--coverage/);
+  });
+});
+
+describe('prova-ci.yml - safe SHIP workflow', () => {
+  const workflowPath = path.join(__dirname, '../../.github/workflows/prova-ci.yml');
+  const doc = yaml.load(readFileSync(workflowPath, 'utf-8')) as Workflow;
+  const ship = doc.jobs['ship'];
+
+  it('grants the release job permission to push its version commit and tag', () => {
+    expect(ship.permissions?.['contents']).toBe('write');
+  });
+
+  it('fails clearly when npm authentication is missing or invalid', () => {
+    const authStep = ship.steps.find((step) => step.name === 'Verify npm authentication');
+    expect(authStep?.run).toContain('NPM_TOKEN is not configured');
+    expect(authStep?.run).toContain('npm whoami');
+  });
+
+  it('installs Chromium before npm publish triggers prepublishOnly tests', () => {
+    const installIndex = ship.steps.findIndex((step) => step.run?.includes('playwright install'));
+    const publishIndex = ship.steps.findIndex((step) => step.run?.includes('npm publish'));
+    expect(installIndex).toBeGreaterThan(-1);
+    expect(publishIndex).toBeGreaterThan(installIndex);
+  });
+
+  it('publishes before creating and pushing release metadata', () => {
+    const releaseStep = ship.steps.find((step) => step.run?.includes('npm publish'))?.run ?? '';
+    expect(releaseStep.indexOf('npm publish')).toBeLessThan(releaseStep.indexOf('git commit'));
+    expect(releaseStep.indexOf('npm publish')).toBeLessThan(releaseStep.indexOf('git tag'));
+    expect(releaseStep.indexOf('npm publish')).toBeLessThan(releaseStep.indexOf('git push'));
   });
 });
