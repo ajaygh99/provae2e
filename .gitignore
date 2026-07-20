@@ -37,6 +37,9 @@ Thumbs.db
 *.log
 logs/
 
+# Nightly automation run lock (runtime artifact, never source)
+daily/*.lock
+
 # SQLite
 *.sqlite
 *.db

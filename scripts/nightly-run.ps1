@@ -153,7 +153,16 @@ try {
     }
     if ($dirty) {
         Log "FATAL: working tree is not clean at start. Refusing to proceed automatically - inspect and resolve manually before the next run:"
-        Log $dirty
+        Log ($dirty -join "`n")
+        # Explicit cleanup here (not just relying on the outer finally block):
+        # PowerShell's `exit` can terminate the host process before a pending
+        # `finally` runs, which previously left daily/nightly-run.lock behind
+        # and caused the *next* run to see a dirty tree consisting only of its
+        # own stale lock file. Belt-and-suspenders so that specific failure
+        # mode can't repeat, regardless of finally's behavior on this host.
+        Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+        if ($RunMutexAcquired) { $RunMutex.ReleaseMutex() }
+        $RunMutex.Dispose()
         exit 1
     }
 
