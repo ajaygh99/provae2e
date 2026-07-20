@@ -18,9 +18,11 @@
 ## Execution Model (hybrid — local + cloud)
 - **ARIA + FORGE + VERA** run together in one local, unattended session: Windows
   Task Scheduler fires `scripts/nightly-run.ps1` at 10 PM, which runs Claude Code
-  CLI headless (`claude -p`, model `claude-sonnet-5`) to plan, implement, test,
+  CLI headless (`claude -p`, model `claude-haiku-4-5`) to plan, implement, test,
   and open a PR for the oldest Issue labeled `agent-implement`. Runs on Ajay's
   PC, billed per-token on the Claude API (no local Ollama in this path).
+  Switched from Sonnet to Haiku 2026-07-19 for cost control — expect more
+  LENS fix-up retries/escalations than before; revisit if defect rate climbs.
 - **LENS** runs in GitHub Actions on every PR (`.github/workflows/agent-trigger.yml`),
   via the Claude GitHub App + `claude-code-action`, model `claude-haiku-4-5` (cheap,
   checklist-style review).
