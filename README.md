@@ -31,6 +31,9 @@ qe-tool run --url https://yourapp.com --type mobile --device iPhone14
 # Browser, API, and mobile testing in one command
 qe-tool run --url https://yourapp.com --type all --report
 
+# Failed tests retry up to 3 times with 1s, 2s, and 4s backoff
+qe-tool run --url https://yourapp.com --type browser --retries 3
+
 # With local AI summaries (requires Ollama)
 qe-tool run --url https://yourapp.com --ai
 ```

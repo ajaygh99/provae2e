@@ -42,6 +42,7 @@ export interface RunOptionsInput {
   expectStatus: string;
   graphql?: string;
   body?: string;
+  retries?: string;
   timeout?: string;
   headers?: string;
 }
@@ -88,6 +89,13 @@ export function validateRunOptions(input: RunOptionsInput): ValidationResult {
 
   const workersError = validateWorkers(input.workers);
   if (workersError) errors.push(workersError);
+
+  if (input.retries !== undefined) {
+    const retries = Number(input.retries);
+    if (!Number.isInteger(retries) || retries < 0 || retries > 3) {
+      errors.push(`Invalid --retries "${input.retries}": must be an integer between 0 and 3`);
+    }
+  }
 
   if (input.timeout !== undefined) {
     const timeoutError = validatePositiveInteger(input.timeout);

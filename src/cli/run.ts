@@ -342,7 +342,7 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
   let anyFailed = false;
 
   if (type === 'browser' || type === 'all') {
-    const result = await runBrowserTest({ url: opts.url });
+    const result = await runBrowserTest({ url: opts.url, retries: Number(opts.retries ?? '3') });
     log.info('Run result', {
       status: result.status,
       durationMs: result.durationMs,
@@ -366,7 +366,8 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
       graphql,
       expectedStatus: Number(opts.expectStatus),
       headers: validation.headers,
-      timeoutMs: opts.timeout === undefined ? undefined : Number(opts.timeout)
+      timeoutMs: opts.timeout === undefined ? undefined : Number(opts.timeout),
+      retries: Number(opts.retries ?? '3')
     });
 
     log.info('Run result', {
@@ -382,7 +383,7 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
   }
 
   if (type === 'mobile' || type === 'all') {
-    const result = await runMobileTest({ url: opts.url, device: opts.device });
+    const result = await runMobileTest({ url: opts.url, device: opts.device, retries: Number(opts.retries ?? '3') });
     log.info('Run result', {
       status: result.status,
       device: result.device,
@@ -436,6 +437,7 @@ export function buildProgram(): Command {
     .option('--body <json>', 'API request body as JSON (--type api): REST body or GraphQL variables')
     .option('--graphql <query>', 'GraphQL query/mutation document (--type api). Switches the request to GraphQL')
     .option('--expect-status <code>', 'Expected HTTP status code (--type api)', '200')
+    .option('--retries <n>', 'Retries after a failed test (0-3)', '3')
     .option('--timeout <ms>', 'Positive request timeout in milliseconds')
     .option('--headers <json>', 'Custom API headers as a JSON object')
     .action(runCommand);
