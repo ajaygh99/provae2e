@@ -70,6 +70,12 @@ describe('package.json jest config — real 80% coverage gate', () => {
   it('test:ci actually collects coverage, so the threshold is enforced in CI', () => {
     expect(pkg.scripts?.['test:ci']).toMatch(/--coverage/);
   });
+
+  it('uses a cross-platform cleanup command and the bounded CI suite before publishing', () => {
+    expect(pkg.scripts?.['clean']).toBe('node scripts/clean.js');
+    expect(pkg.scripts?.['prepublishOnly']).toContain('npm run test:ci');
+    expect(pkg.scripts?.['prepublishOnly']).not.toMatch(/npm run test(?:\s|$)/);
+  });
 });
 
 describe('prova-ci.yml - safe SHIP workflow', () => {
