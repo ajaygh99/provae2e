@@ -180,6 +180,22 @@ qe-tool perf --url https://yourapp.com --vus 10 --duration 30 \
 
 The baseline stores p95 response time, HTTP error rate, and requests per second. A comparison fails when p95 latency or error rate is more than 20% worse than the stored value. Requests per second is reported and retained for visibility but does not currently fail the check. A missing baseline fails unless `--update-baseline` is supplied, in which case PROVA creates it after a successful k6 run.
 
+## Multi-environment Promotion Gates
+
+Copy `.env.promotion.example`, set each environment URL and map credential names to
+environment variables. Credentials are read at runtime and are never stored in the config.
+
+```bash
+qe-tool promote --config ./.env.promotion.json --chain release \
+  --from dev --to qe --test ./e2e/smoke.spec.ts --coverage 85 --block-on-fail \
+  --report ./promotion-report.json
+```
+
+Only adjacent ordered transitions are accepted: `dev` to `qe`, then `qe` to `staging`.
+Skipped, reversed, same-environment, and unknown transitions fail before tests run. A failed
+gate exits with code 1 and writes a detailed JSON report. Tests receive the
+current/source URL as `PROVA_BASE_URL` and optional fixture path as `PROVA_TEST_DATA`.
+
 ## Browser Testing (`--type browser`)
 
 Launches headless Playwright to test web applications.

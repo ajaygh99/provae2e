@@ -38,3 +38,14 @@ export type {
   GenerateTestsOptions,
   GenerateTestsResult
 } from './generators/spec-test-generator.js';
+export { loadPromotionConfig, parsePromotionConfig } from './promotions/env-config-loader.js';
+export type { PromotionConfig, PromotionEnvironment } from './promotions/env-config-loader.js';
+export { runPromotionChain, systemPromotionExecutor } from './promotions/env-chain-manager.js';
+export type {
+  PromotionExecutionResult,
+  PromotionExecutor,
+  PromotionOptions,
+  PromotionResult,
+  PromotionStepResult
+} from './promotions/env-chain-manager.js';
+export { writePromotionReport } from './promotions/promotion-reporter.js';

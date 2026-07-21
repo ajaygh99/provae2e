@@ -17,6 +17,7 @@ allure-report/
 .env
 .env.*
 *.env
+!.env.promotion.example
 
 # Secrets — NEVER COMMIT
 .secrets/
