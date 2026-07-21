@@ -10,7 +10,11 @@ export interface JiraConnectorOptions {
   /** JIRA issue key, for example `PROJ-123`. */
   ticketKey: string;
   /** API token read by the CLI from `JIRA_API_TOKEN`. */
-  apiToken: string;
+  apiToken?: string;
+  /** OAuth2 access token. Preferred for new integrations. */
+  accessToken?: string;
+  /** Atlassian Cloud resource ID required for OAuth gateway requests. */
+  cloudId?: string;
   /** Request timeout in milliseconds. Defaults to 30000. */
   timeoutMs?: number;
 }
@@ -19,6 +23,19 @@ export interface JiraConnectorOptions {
 export type JiraDescriptionResult =
   | { ok: true; ticketKey: string; description: string }
   | { ok: false; error: string };
+
+/** Status values PROVA can synchronize to a linked JIRA issue. */
+export type JiraTestStatus = 'GENERATED' | 'PASSED' | 'FAILED';
+
+/** Options for posting a test-generation/execution status to JIRA. */
+export interface JiraStatusSyncOptions extends JiraConnectorOptions {
+  status: JiraTestStatus;
+  details?: string;
+  generatedFiles?: readonly string[];
+}
+
+/** Outcome of synchronizing a status comment to JIRA. */
+export type JiraStatusSyncResult = { ok: true; ticketKey: string } | { ok: false; error: string };
 
 interface AdfNode {
   type?: string;
@@ -117,6 +134,29 @@ function redactToken(message: string, token: string): string {
   return message.split(token).join('[REDACTED]');
 }
 
+function authentication(options: JiraConnectorOptions): { token?: string; error?: string } {
+  const token = options.accessToken?.trim() || options.apiToken?.trim();
+  if (!token) return { error: 'JIRA_OAUTH_ACCESS_TOKEN or JIRA_API_TOKEN is required' };
+  if (options.accessToken && !options.cloudId) return { error: 'JIRA cloudId is required with OAuth2 access tokens' };
+  return { token };
+}
+
+function apiRoot(baseUrl: string, options: JiraConnectorOptions): string {
+  return options.accessToken && options.cloudId
+    ? `https://api.atlassian.com/ex/jira/${encodeURIComponent(options.cloudId)}`
+    : baseUrl;
+}
+
+function safeError(error: unknown, ticketKey: string, token: string, operation: string): JiraStatusSyncResult {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    if (status === 401 || status === 403) return { ok: false, error: `JIRA authentication failed (${status}). Check OAuth/API token permissions.` };
+    if (status === 404) return { ok: false, error: `JIRA ticket ${ticketKey} was not found (404)` };
+  }
+  const message = redactToken(error instanceof Error ? error.message : String(error), token);
+  return { ok: false, error: `Unable to ${operation} JIRA ticket ${ticketKey}: ${message}` };
+}
+
 /**
  * Fetches a JIRA issue through REST API v3 and returns its description as text.
  * The token is used only in the Authorization header and is redacted from any
@@ -134,17 +174,16 @@ export async function fetchJiraTicketDescription(options: JiraConnectorOptions):
   if (!baseUrl) {
     return { ok: false, error: `Invalid JIRA base URL "${options.baseUrl}": use an http:// or https:// URL` };
   }
-  if (!options.apiToken.trim()) {
-    return { ok: false, error: 'JIRA_API_TOKEN is required to fetch a JIRA ticket' };
-  }
+  const auth = authentication(options);
+  if (!auth.token) return { ok: false, error: auth.error ?? 'JIRA authentication is required' };
 
   try {
     const response = await axios.get<JiraIssueResponse>(
-      `${baseUrl}/rest/api/3/issue/${encodeURIComponent(ticketKey)}`,
+      `${apiRoot(baseUrl, options)}/rest/api/3/issue/${encodeURIComponent(ticketKey)}`,
       {
         headers: {
           Accept: 'application/json',
-          Authorization: `Bearer ${options.apiToken}`
+          Authorization: `Bearer ${auth.token}`
         },
         params: { fields: 'description' },
         timeout: options.timeoutMs ?? 30000
@@ -159,13 +198,36 @@ export async function fetchJiraTicketDescription(options: JiraConnectorOptions):
     if (axios.isAxiosError(err)) {
       const status = err.response?.status;
       if (status === 401 || status === 403) {
-        return { ok: false, error: `JIRA authentication failed (${status}). Check JIRA_API_TOKEN permissions.` };
+        return { ok: false, error: `JIRA authentication failed (${status}). Check OAuth/API token permissions.` };
       }
       if (status === 404) {
         return { ok: false, error: `JIRA ticket ${ticketKey} was not found (404)` };
       }
     }
-    const message = redactToken(err instanceof Error ? err.message : String(err), options.apiToken);
+    const message = redactToken(err instanceof Error ? err.message : String(err), auth.token);
     return { ok: false, error: `Unable to fetch JIRA ticket ${ticketKey}: ${message}` };
+  }
+}
+
+/** Posts an ADF comment linking generated or executed tests back to their JIRA issue. */
+export async function syncJiraTestStatus(options: JiraStatusSyncOptions): Promise<JiraStatusSyncResult> {
+  const ticketKey = options.ticketKey.trim().toUpperCase();
+  if (!/^[A-Z][A-Z0-9_]*-\d+$/.test(ticketKey)) return { ok: false, error: `Invalid JIRA ticket key "${options.ticketKey}" (expected format PROJ-123)` };
+  const baseUrl = normalizeBaseUrl(options.baseUrl);
+  if (!baseUrl) return { ok: false, error: `Invalid JIRA base URL "${options.baseUrl}": use an http:// or https:// URL` };
+  const auth = authentication(options);
+  if (!auth.token) return { ok: false, error: auth.error ?? 'JIRA authentication is required' };
+  const fileText = options.generatedFiles?.length ? ` Files: ${options.generatedFiles.join(', ')}.` : '';
+  const detailText = options.details?.trim() ? ` ${options.details.trim()}` : '';
+  const text = `PROVA test status: ${options.status}.${fileText}${detailText}`;
+  try {
+    await axios.post(
+      `${apiRoot(baseUrl, options)}/rest/api/3/issue/${encodeURIComponent(ticketKey)}/comment`,
+      { body: { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] } },
+      { headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` }, timeout: options.timeoutMs ?? 30000 }
+    );
+    return { ok: true, ticketKey };
+  } catch (error) {
+    return safeError(error, ticketKey, auth.token, 'sync status to');
   }
 }

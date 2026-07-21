@@ -5,6 +5,8 @@
 import { request as playwrightRequest } from '@playwright/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 import { log } from '../core/logger.js';
+import { executeWithRetry } from '../core/retry-handler.js';
+import { validateNestedSchema, type NestedSchema } from '../core/schema-validator.js';
 
 /** HTTP methods supported for REST requests. */
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -39,10 +41,16 @@ export interface ApiRunnerOptions {
   expectedStatus?: number;
   /** Optional flat schema the JSON response body (or GraphQL `data`) must satisfy. */
   schema?: ResponseSchema;
+  /** Optional nested schema with support for objects, arrays, nullable, and optional fields. */
+  nestedSchema?: NestedSchema;
   /** Maximum acceptable response time, in milliseconds. Defaults to 5000. */
   maxResponseTimeMs?: number;
   /** Request timeout, in milliseconds. Defaults to 30000. */
   timeoutMs?: number;
+  /** Retry count after the initial attempt. Defaults to 0 for programmatic use. */
+  retries?: number;
+  /** Initial exponential-backoff delay. Defaults to 1000ms. */
+  retryBaseDelayMs?: number;
 }
 
 /** Outcome of a single API test run. */
@@ -143,7 +151,7 @@ async function sendRequest(context: APIRequestContext, options: ApiRunnerOptions
  * @param options - Target URL, method/GraphQL payload, and assertions to apply.
  * @returns The PASS/FAIL result with duration and a response summary.
  */
-export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResult> {
+async function runApiTestOnce(options: ApiRunnerOptions): Promise<ApiRunResult> {
   const { url } = options;
   const method = options.graphql ? 'POST' : options.method ?? 'GET';
   const expectedStatus = options.expectedStatus ?? 200;
@@ -201,6 +209,18 @@ export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResul
       }
     }
 
+    if (options.nestedSchema) {
+      const schemaTarget = options.graphql && typeof parsedBody === 'object' && parsedBody !== null
+        ? (parsedBody as Record<string, unknown>)['data']
+        : parsedBody;
+      const nestedErrors = validateNestedSchema(schemaTarget, options.nestedSchema);
+      if (nestedErrors.length > 0) {
+        const error = `Nested schema validation failed: ${nestedErrors.join('; ')}`;
+        log.error('API run failed', undefined);
+        return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
+      }
+    }
+
     log.success('API run passed', { url, method, statusCode, durationMs });
     return { status: 'PASS', url, method, statusCode, durationMs, responseSummary };
   } catch (err) {
@@ -219,4 +239,13 @@ export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResul
       }
     }
   }
+}
+
+/** Runs an API test and retries failed results using exponential backoff. */
+export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResult> {
+  return executeWithRetry(() => runApiTestOnce(options), {
+    maxRetries: options.retries ?? 0,
+    baseDelayMs: options.retryBaseDelayMs ?? 1000,
+    shouldRetry: (result) => result.status === 'FAIL'
+  });
 }

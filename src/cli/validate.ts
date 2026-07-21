@@ -4,10 +4,21 @@
  * stack trace, or worse, a silent wrong default (e.g. an unrecognised
  * --method falling through to GET inside the API runner).
  */
-import { resolveDeviceKey, SUPPORTED_DEVICES } from '../runners/mobile-runner.js';
+import { SUPPORTED_DEVICES } from '../runners/mobile-runner.js';
+import {
+  parseHeaders,
+  RUN_TYPES,
+  validateApiPayload,
+  validateDevice,
+  validateHttpUrl,
+  validatePositiveInteger,
+  validateRunType,
+  validateWorkers,
+  type HttpHeaders
+} from '../core/input-validator.js';
 
 /** Supported `--type` values. */
-export const VALID_RUN_TYPES = ['browser', 'api', 'mobile', 'all'] as const;
+export const VALID_RUN_TYPES = RUN_TYPES;
 export type RunType = (typeof VALID_RUN_TYPES)[number];
 
 /** Supported `--method` values. */
@@ -31,6 +42,9 @@ export interface RunOptionsInput {
   expectStatus: string;
   graphql?: string;
   body?: string;
+  retries?: string;
+  timeout?: string;
+  headers?: string;
 }
 
 /** Result of validating a full set of `run` CLI options. */
@@ -43,21 +57,8 @@ export interface ValidationResult {
   graphqlVariables?: Record<string, unknown>;
   /** Parsed REST body, when --graphql was not given and --body parsed successfully. */
   restBody?: unknown;
-}
-
-/** True when `value` parses as an absolute http(s) URL. */
-function isHttpUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-/** True when `device` matches a supported alias or an exact Playwright device key. */
-function isSupportedDevice(device: string): boolean {
-  return resolveDeviceKey(device) !== undefined;
+  /** Parsed custom HTTP headers. */
+  headers?: HttpHeaders;
 }
 
 /**
@@ -73,13 +74,10 @@ export function validateRunOptions(input: RunOptionsInput): ValidationResult {
   const errors: string[] = [];
   const result: ValidationResult = { valid: true, errors };
 
-  if (!isHttpUrl(input.url)) {
-    errors.push(`Invalid --url "${input.url}": must be an absolute http:// or https:// URL`);
-  }
-
-  if (!(VALID_RUN_TYPES as readonly string[]).includes(input.type)) {
-    errors.push(`Invalid --type "${input.type}": must be one of ${VALID_RUN_TYPES.join(', ')}`);
-  }
+  const urlError = validateHttpUrl(input.url);
+  if (urlError) errors.push(urlError);
+  const typeError = validateRunType(input.type);
+  if (typeError) errors.push(typeError);
 
   if (!(VALID_ENVIRONMENTS as readonly string[]).includes(input.env)) {
     errors.push(`Invalid --env "${input.env}": must be one of ${VALID_ENVIRONMENTS.join(', ')}`);
@@ -89,15 +87,24 @@ export function validateRunOptions(input: RunOptionsInput): ValidationResult {
     errors.push(`Invalid --scope "${input.scope}": must be one of ${VALID_SCOPES.join(', ')}`);
   }
 
-  const workers = Number(input.workers);
-  if (!Number.isInteger(workers) || workers < 1) {
-    errors.push(`Invalid --workers "${input.workers}": must be a positive integer`);
+  const workersError = validateWorkers(input.workers);
+  if (workersError) errors.push(workersError);
+
+  if (input.retries !== undefined) {
+    const retries = Number(input.retries);
+    if (!Number.isInteger(retries) || retries < 0 || retries > 3) {
+      errors.push(`Invalid --retries "${input.retries}": must be an integer between 0 and 3`);
+    }
+  }
+
+  if (input.timeout !== undefined) {
+    const timeoutError = validatePositiveInteger(input.timeout);
+    if (timeoutError) errors.push(timeoutError);
   }
 
   if (input.type === 'mobile' || input.type === 'all') {
-    if (!isSupportedDevice(input.device)) {
-      errors.push(`Invalid --device "${input.device}": must be one of ${SUPPORTED_DEVICES.join(', ')}`);
-    }
+    const deviceError = validateDevice(input.device);
+    if (deviceError) errors.push(`${deviceError}. Common aliases: ${SUPPORTED_DEVICES.join(', ')}`);
   }
 
   if (input.type === 'api' || input.type === 'all') {
@@ -130,7 +137,14 @@ export function validateRunOptions(input: RunOptionsInput): ValidationResult {
         } else {
           result.restBody = parsedBody;
         }
+        errors.push(...validateApiPayload(parsedBody));
       }
+    }
+
+    if (input.headers !== undefined) {
+      const parsedHeaders = parseHeaders(input.headers);
+      errors.push(...parsedHeaders.errors);
+      result.headers = parsedHeaders.headers;
     }
   }
 

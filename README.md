@@ -31,6 +31,9 @@ qe-tool run --url https://yourapp.com --type mobile --device iPhone14
 # Browser, API, and mobile testing in one command
 qe-tool run --url https://yourapp.com --type all --report
 
+# Failed tests retry up to 3 times with 1s, 2s, and 4s backoff
+qe-tool run --url https://yourapp.com --type browser --retries 3
+
 # With local AI summaries (requires Ollama)
 qe-tool run --url https://yourapp.com --ai
 ```
@@ -86,6 +89,23 @@ qe-tool generate --jira-ticket PROJ-123 \
 ```
 
 `--spec` and `--jira-ticket` are mutually exclusive; exactly one is required. PROVA fetches `/rest/api/3/issue/<KEY>`, converts plain-text or Atlassian Document Format descriptions to text, and applies the same acceptance-criteria parser used for local spec files.
+
+For OAuth2, set `JIRA_OAUTH_ACCESS_TOKEN` and provide the Atlassian resource ID with
+`--jira-cloud-id`. OAuth tokens use Atlassian's `api.atlassian.com/ex/jira/<cloudId>` gateway.
+The public API also exports authorization URL, code exchange, and refresh-token helpers.
+
+Named instances allow the same command to target dev, QE, or staging JIRA sites:
+
+```powershell
+$env:JIRA_OAUTH_ACCESS_TOKEN = "your-oauth-access-token"
+$env:JIRA_ENVIRONMENTS = '{"dev":{"baseUrl":"https://dev.atlassian.net","cloudId":"dev-cloud-id"},"staging":{"baseUrl":"https://staging.atlassian.net","cloudId":"staging-cloud-id"}}'
+
+qe-tool generate --jira-ticket PROJ-123 --jira-env dev --jira-sync `
+  --type browser --url https://yourapp.com --output ./generated-tests
+```
+
+`--jira-sync` posts a linked `GENERATED` status comment and generated file list back to the
+originating issue. Programmatic callers can also sync `PASSED` or `FAILED` after execution.
 
 ## Test Data Factory
 
@@ -235,6 +255,11 @@ qe-tool run --url https://api.yourapp.com/graphql --type api \
 | `--body <json>` | JSON request body (REST) or GraphQL variables | — |
 | `--graphql <query>` | GraphQL query/mutation document — switches the request to GraphQL | — |
 | `--expect-status <code>` | Expected HTTP status code | `200` |
+| `--timeout <ms>` | Positive integer request timeout in milliseconds | `30000` |
+| `--headers <json>` | Custom HTTP headers as a JSON object with string values | — |
+
+All run inputs are validated before a browser or request starts. `--workers` accepts 1-16,
+and invalid URLs, devices, timeouts, payloads, or headers return a clear error with exit code 1.
 
 **Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
 

@@ -1,6 +1,6 @@
 import { buildProgram, generateCommand, type GenerateActionOptions } from '../../src/cli/run';
 import { generateTestsFromSpec } from '../../src/generators/spec-test-generator';
-import { fetchJiraTicketDescription } from '../../src/core/jira-connector';
+import { fetchJiraTicketDescription, syncJiraTestStatus } from '../../src/core/jira-connector';
 import { generateTestDataFromFile } from '../../src/core/test-data-factory';
 import { fetchFigmaElements } from '../../src/core/figma-connector';
 
@@ -8,7 +8,8 @@ jest.mock('../../src/generators/spec-test-generator', () => ({
   generateTestsFromSpec: jest.fn()
 }));
 jest.mock('../../src/core/jira-connector', () => ({
-  fetchJiraTicketDescription: jest.fn()
+  fetchJiraTicketDescription: jest.fn(),
+  syncJiraTestStatus: jest.fn()
 }));
 jest.mock('../../src/core/test-data-factory', () => ({
   generateTestDataFromFile: jest.fn()
@@ -19,6 +20,7 @@ jest.mock('../../src/core/figma-connector', () => ({
 
 const mockGenerate = generateTestsFromSpec as jest.MockedFunction<typeof generateTestsFromSpec>;
 const mockFetchJira = fetchJiraTicketDescription as jest.MockedFunction<typeof fetchJiraTicketDescription>;
+const mockSyncJira = syncJiraTestStatus as jest.MockedFunction<typeof syncJiraTestStatus>;
 const mockGenerateData = generateTestDataFromFile as jest.MockedFunction<typeof generateTestDataFromFile>;
 const mockFetchFigma = fetchFigmaElements as jest.MockedFunction<typeof fetchFigmaElements>;
 
@@ -40,6 +42,8 @@ describe('generateCommand', () => {
     jest.clearAllMocks();
     process.exitCode = undefined;
     delete process.env['JIRA_API_TOKEN'];
+    delete process.env['JIRA_OAUTH_ACCESS_TOKEN'];
+    delete process.env['JIRA_ENVIRONMENTS'];
     delete process.env['FIGMA_API_TOKEN'];
     stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
     stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
@@ -149,6 +153,35 @@ describe('generateCommand', () => {
     expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('unit-test-token'));
   });
 
+  it('selects a named OAuth JIRA environment', async () => {
+    process.env['JIRA_OAUTH_ACCESS_TOKEN'] = 'oauth-token';
+    process.env['JIRA_ENVIRONMENTS'] = JSON.stringify({ qe: { baseUrl: 'https://qe.atlassian.net', cloudId: 'cloud-qe' } });
+    mockFetchJira.mockResolvedValueOnce({ ok: true, ticketKey: 'PROJ-7', description: '- Search works' });
+    mockGenerate.mockResolvedValueOnce({ ok: true, criteria: ['Search works'], files: ['search.spec.ts'] });
+    await generateCommand(options({ spec: undefined, jiraTicket: 'PROJ-7', jiraEnv: 'qe' }));
+    expect(mockFetchJira).toHaveBeenCalledWith({
+      baseUrl: 'https://qe.atlassian.net', cloudId: 'cloud-qe', ticketKey: 'PROJ-7', accessToken: 'oauth-token'
+    });
+  });
+
+  it('syncs generated files to the originating JIRA issue', async () => {
+    process.env['JIRA_API_TOKEN'] = 'api-token';
+    mockFetchJira.mockResolvedValueOnce({ ok: true, ticketKey: 'PROJ-8', description: '- Checkout works' });
+    mockGenerate.mockResolvedValueOnce({ ok: true, criteria: ['Checkout works'], files: ['checkout.spec.ts'] });
+    mockSyncJira.mockResolvedValueOnce({ ok: true, ticketKey: 'PROJ-8' });
+    await generateCommand(options({ spec: undefined, jiraTicket: 'PROJ-8', jiraUrl: 'https://company.atlassian.net', jiraSync: true }));
+    expect(mockSyncJira).toHaveBeenCalledWith(expect.objectContaining({
+      ticketKey: 'PROJ-8', status: 'GENERATED', generatedFiles: ['checkout.spec.ts']
+    }));
+  });
+
+  it('fails clearly for an unknown JIRA environment', async () => {
+    process.env['JIRA_ENVIRONMENTS'] = JSON.stringify({ dev: { baseUrl: 'https://dev.atlassian.net' } });
+    await generateCommand(options({ spec: undefined, jiraTicket: 'PROJ-9', jiraEnv: 'prod' }));
+    expect(process.exitCode).toBe(1);
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown JIRA environment'));
+  });
+
   it('populates an API generation request body from --schema', async () => {
     mockGenerateData.mockResolvedValueOnce({ ok: true, data: { email: 'user@example.com' } });
     mockGenerate.mockResolvedValueOnce({ ok: true, criteria: ['Create user'], files: ['api.spec.ts'] });
@@ -237,6 +270,9 @@ describe('generate CLI registration', () => {
       '--spec',
       '--jira-ticket',
       '--jira-url',
+      '--jira-env',
+      '--jira-cloud-id',
+      '--jira-sync',
       '--figma-file',
       '--figma-node',
       '--type',

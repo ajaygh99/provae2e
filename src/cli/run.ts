@@ -21,7 +21,8 @@ import { validateRunOptions } from './validate.js';
 import type { RunOptionsInput } from './validate.js';
 import { generateTestsFromSpec } from '../generators/spec-test-generator.js';
 import type { GeneratedTestType } from '../generators/spec-test-generator.js';
-import { fetchJiraTicketDescription } from '../core/jira-connector.js';
+import { fetchJiraTicketDescription, syncJiraTestStatus } from '../core/jira-connector.js';
+import { parseJiraEnvironments, resolveJiraEnvironment } from '../core/jira-environments.js';
 import { generateTestDataFromFile } from '../core/test-data-factory.js';
 import { writeFile } from 'node:fs/promises';
 import { fetchFigmaElements } from '../core/figma-connector.js';
@@ -47,6 +48,9 @@ export interface GenerateActionOptions {
   spec?: string;
   jiraTicket?: string;
   jiraUrl?: string;
+  jiraEnv?: string;
+  jiraCloudId?: string;
+  jiraSync?: boolean;
   type: string;
   url: string;
   output: string;
@@ -217,8 +221,8 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
     process.exitCode = 1;
     return;
   }
-  if (opts.jiraUrl && !hasJiraTicket) {
-    log.error('--jira-url can only be used with --jira-ticket');
+  if ((opts.jiraUrl || opts.jiraEnv || opts.jiraCloudId || opts.jiraSync) && !hasJiraTicket) {
+    log.error('JIRA options can only be used with --jira-ticket');
     process.exitCode = 1;
     return;
   }
@@ -247,6 +251,7 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
   let specText: string | undefined;
   let sourceLabel: string | undefined;
   let figmaElements: FigmaElement[] | undefined;
+  let jiraConnection: { baseUrl: string; cloudId?: string; apiToken?: string; accessToken?: string } | undefined;
   if (hasFigma && opts.figmaFile && opts.figmaNode) {
     const apiToken = process.env['FIGMA_API_TOKEN'];
     if (!apiToken) {
@@ -271,21 +276,43 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
     }
   }
   if (opts.jiraTicket) {
-    if (!opts.jiraUrl) {
-      log.error('--jira-url <base-url> is required with --jira-ticket');
+    let configuredUrl = opts.jiraUrl;
+    let configuredCloudId = opts.jiraCloudId;
+    if (opts.jiraEnv) {
+      const environmentsJson = process.env['JIRA_ENVIRONMENTS'];
+      if (!environmentsJson) {
+        log.error('JIRA_ENVIRONMENTS is required with --jira-env');
+        process.exitCode = 1;
+        return;
+      }
+      try {
+        const environment = resolveJiraEnvironment(parseJiraEnvironments(environmentsJson), opts.jiraEnv);
+        configuredUrl = environment.baseUrl;
+        configuredCloudId = environment.cloudId;
+      } catch (error) {
+        log.error(error instanceof Error ? error.message : String(error));
+        process.exitCode = 1;
+        return;
+      }
+    }
+    if (!configuredUrl) {
+      log.error('--jira-url or --jira-env is required with --jira-ticket');
       process.exitCode = 1;
       return;
     }
+    const accessToken = process.env['JIRA_OAUTH_ACCESS_TOKEN'];
     const apiToken = process.env['JIRA_API_TOKEN'];
-    if (!apiToken) {
-      log.error('JIRA_API_TOKEN environment variable is required with --jira-ticket');
+    if (!accessToken && !apiToken) {
+      log.error('JIRA_OAUTH_ACCESS_TOKEN or JIRA_API_TOKEN is required with --jira-ticket');
       process.exitCode = 1;
       return;
     }
+    jiraConnection = accessToken
+      ? { baseUrl: configuredUrl, cloudId: configuredCloudId, accessToken }
+      : { baseUrl: configuredUrl, apiToken };
     const jiraResult = await fetchJiraTicketDescription({
-      baseUrl: opts.jiraUrl,
       ticketKey: opts.jiraTicket,
-      apiToken
+      ...jiraConnection
     });
     if (!jiraResult.ok) {
       log.error(jiraResult.error);
@@ -310,6 +337,20 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
     log.error(result.error);
     process.exitCode = 1;
     return;
+  }
+  if (opts.jiraSync && opts.jiraTicket && jiraConnection) {
+    const syncResult = await syncJiraTestStatus({
+      ...jiraConnection,
+      ticketKey: opts.jiraTicket,
+      status: 'GENERATED',
+      generatedFiles: result.files,
+      details: `${result.criteria.length} acceptance criteria converted to Playwright tests.`
+    });
+    if (!syncResult.ok) {
+      log.error(syncResult.error);
+      process.exitCode = 1;
+      return;
+    }
   }
   log.success('AI test generation complete', {
     criteria: result.criteria.length,
@@ -342,7 +383,7 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
   let anyFailed = false;
 
   if (type === 'browser' || type === 'all') {
-    const result = await runBrowserTest({ url: opts.url });
+    const result = await runBrowserTest({ url: opts.url, retries: Number(opts.retries ?? '3') });
     log.info('Run result', {
       status: result.status,
       durationMs: result.durationMs,
@@ -364,7 +405,10 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
       method: opts.method as HttpMethod,
       body: graphql ? undefined : validation.restBody,
       graphql,
-      expectedStatus: Number(opts.expectStatus)
+      expectedStatus: Number(opts.expectStatus),
+      headers: validation.headers,
+      timeoutMs: opts.timeout === undefined ? undefined : Number(opts.timeout),
+      retries: Number(opts.retries ?? '3')
     });
 
     log.info('Run result', {
@@ -380,7 +424,7 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
   }
 
   if (type === 'mobile' || type === 'all') {
-    const result = await runMobileTest({ url: opts.url, device: opts.device });
+    const result = await runMobileTest({ url: opts.url, device: opts.device, retries: Number(opts.retries ?? '3') });
     log.info('Run result', {
       status: result.status,
       device: result.device,
@@ -434,6 +478,9 @@ export function buildProgram(): Command {
     .option('--body <json>', 'API request body as JSON (--type api): REST body or GraphQL variables')
     .option('--graphql <query>', 'GraphQL query/mutation document (--type api). Switches the request to GraphQL')
     .option('--expect-status <code>', 'Expected HTTP status code (--type api)', '200')
+    .option('--retries <n>', 'Retries after a failed test (0-3)', '3')
+    .option('--timeout <ms>', 'Positive request timeout in milliseconds')
+    .option('--headers <json>', 'Custom API headers as a JSON object')
     .action(runCommand);
 
   program
@@ -467,7 +514,10 @@ export function buildProgram(): Command {
     .description('Generate Playwright test skeletons from a local spec, JIRA ticket, or Figma frame using local Ollama')
     .option('--spec <file>', 'Plain-text or Markdown specification file (mutually exclusive with --jira-ticket)')
     .option('--jira-ticket <key>', 'JIRA ticket key (mutually exclusive with --spec)')
-    .option('--jira-url <base-url>', 'JIRA base URL; required with --jira-ticket')
+    .option('--jira-url <base-url>', 'JIRA base URL; use this or --jira-env with --jira-ticket')
+    .option('--jira-env <name>', 'Named JIRA instance from JIRA_ENVIRONMENTS')
+    .option('--jira-cloud-id <id>', 'Atlassian cloud ID for OAuth2 API access')
+    .option('--jira-sync', 'Post generated-test status back to the JIRA issue', false)
     .option('--figma-file <file-key>', 'Figma file key; requires --figma-node and FIGMA_API_TOKEN')
     .option('--figma-node <node-id>', 'Figma frame/node ID; requires --figma-file and FIGMA_API_TOKEN')
     .requiredOption('--type <type>', 'Generated test type: browser|api')
