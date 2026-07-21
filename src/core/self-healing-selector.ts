@@ -83,9 +83,19 @@ async function resolveByPosition(page: Page, position: PositionSelector): Promis
   const candidates = page.locator(scope);
   const count = await candidates.count();
 
+  let match: Locator | undefined;
   for (let i = 0; i < count; i++) {
     const candidate = candidates.nth(i);
-    const box = await candidate.boundingBox();
+    let box: Awaited<ReturnType<Locator['boundingBox']>>;
+    try {
+      box = await candidate.boundingBox();
+    } catch (error) {
+      log.debug('Position candidate detached, continuing', {
+        index: i,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      continue;
+    }
     if (!box) {
       continue;
     }
@@ -95,10 +105,14 @@ async function resolveByPosition(page: Page, position: PositionSelector): Promis
       Math.abs(box.width - position.width) <= tolerance &&
       Math.abs(box.height - position.height) <= tolerance;
     if (matches) {
-      return candidate;
+      if (match) {
+        log.debug('Position selector was ambiguous', { scope });
+        return undefined;
+      }
+      match = candidate;
     }
   }
-  return undefined;
+  return match;
 }
 
 interface TierAttempt {
@@ -106,31 +120,44 @@ interface TierAttempt {
   resolve: () => Promise<Locator | undefined>;
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidPosition(position: PositionSelector): boolean {
+  const values = [position.x, position.y, position.width, position.height];
+  return values.every(Number.isFinite)
+    && position.width > 0
+    && position.height > 0
+    && (position.tolerance === undefined || (Number.isFinite(position.tolerance) && position.tolerance >= 0))
+    && (position.scope === undefined || isNonEmptyString(position.scope));
+}
+
 function buildAttempts(page: Page, descriptor: SelectorDescriptor): TierAttempt[] {
   const attempts: TierAttempt[] = [];
 
-  if (descriptor.role) {
+  if (descriptor.role && isNonEmptyString(descriptor.role.role)) {
     const { role, name } = descriptor.role;
     attempts.push({
       tier: 'aria-role',
       resolve: async () => page.getByRole(role, name !== undefined ? { name } : undefined)
     });
   }
-  if (descriptor.testId !== undefined) {
-    // Type narrowing from the guard check doesn't carry through the closure boundary
-    attempts.push({ tier: 'data-testid', resolve: async () => page.getByTestId(descriptor.testId as string) });
+  if (isNonEmptyString(descriptor.testId)) {
+    const testId = descriptor.testId;
+    attempts.push({ tier: 'data-testid', resolve: async () => page.getByTestId(testId) });
   }
-  if (descriptor.text !== undefined) {
-    // Type narrowing from the guard check doesn't carry through the closure boundary
-    attempts.push({ tier: 'text-content', resolve: async () => page.getByText(descriptor.text as string | RegExp) });
+  if (descriptor.text instanceof RegExp || isNonEmptyString(descriptor.text)) {
+    const text = descriptor.text;
+    attempts.push({ tier: 'text-content', resolve: async () => page.getByText(text) });
   }
-  if (descriptor.position) {
-    // Type narrowing from the guard check doesn't carry through the closure boundary
-    attempts.push({ tier: 'visual-position', resolve: async () => resolveByPosition(page, descriptor.position as PositionSelector) });
+  if (descriptor.position && isValidPosition(descriptor.position)) {
+    const position = descriptor.position;
+    attempts.push({ tier: 'visual-position', resolve: async () => resolveByPosition(page, position) });
   }
-  if (descriptor.css !== undefined) {
-    // Type narrowing from the guard check doesn't carry through the closure boundary
-    attempts.push({ tier: 'css-selector', resolve: async () => page.locator(descriptor.css as string) });
+  if (isNonEmptyString(descriptor.css)) {
+    const css = descriptor.css;
+    attempts.push({ tier: 'css-selector', resolve: async () => page.locator(css) });
   }
 
   return attempts;
@@ -155,9 +182,12 @@ export async function resolveSelector(page: Page, descriptor: SelectorDescriptor
         continue;
       }
       const count = await locator.count();
-      if (count > 0) {
+      if (count === 1) {
         log.debug('Selector resolved', { tier: attempt.tier });
         return { locator, tier: attempt.tier };
+      }
+      if (count > 1) {
+        log.debug('Selector tier was ambiguous, falling through', { tier: attempt.tier, count });
       }
     } catch (err) {
       log.debug('Selector tier threw, falling through', { tier: attempt.tier, error: err instanceof Error ? err.message : String(err) });
