@@ -46,6 +46,9 @@ import {
   loadPerformanceBaseline,
   savePerformanceBaseline
 } from '../core/performance-baseline.js';
+import { loadPromotionConfig } from '../promotions/env-config-loader.js';
+import { runPromotionChain } from '../promotions/env-chain-manager.js';
+import { writePromotionReport } from '../promotions/promotion-reporter.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -264,6 +267,54 @@ async function perfHistoryCommand(opts: PerfActionOptions, vus: number, duration
     }
     log.success('Performance regression check passed');
   } finally { store.close(); }
+}
+
+/** Raw CLI values accepted by the `promote` command. */
+export interface PromoteActionOptions {
+  config: string;
+  chain: string;
+  from: string;
+  to: string;
+  test: string;
+  coverage?: string;
+  blockOnFail: boolean;
+  report: string;
+}
+
+/** Runs a Playwright test through a configured environment promotion chain. */
+export async function promoteCommand(opts: PromoteActionOptions): Promise<void> {
+  try {
+    const coveragePercent = opts.coverage === undefined ? undefined : Number(opts.coverage);
+    const config = await loadPromotionConfig(opts.config);
+    const result = await runPromotionChain({
+      config,
+      chain: opts.chain,
+      source: opts.from,
+      target: opts.to,
+      testFile: opts.test,
+      coveragePercent,
+      blockOnFail: opts.blockOnFail
+    });
+    const reportPath = await writePromotionReport(result, opts.report);
+    log.info(result.summary);
+    for (const step of result.steps) {
+      log.info('Promotion gate result', {
+        environment: step.environment,
+        passed: step.passed,
+        durationMs: step.durationMs,
+        error: step.error
+      });
+    }
+    if (result.status === 'FAIL') {
+      log.error(`Promotion blocked for chain "${result.chain}". Report: ${reportPath}`);
+      process.exitCode = 1;
+      return;
+    }
+    log.success('Promotion chain passed', { chain: result.chain, reportPath });
+  } catch (error) {
+    log.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
 }
 
 function isHttpUrl(value: string): boolean {

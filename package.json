@@ -11,6 +11,7 @@
   "files": [
     "dist",
     "templates",
+    ".env.promotion.example",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
