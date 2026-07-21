@@ -238,6 +238,11 @@ qe-tool run --url https://api.yourapp.com/graphql --type api \
 | `--body <json>` | JSON request body (REST) or GraphQL variables | — |
 | `--graphql <query>` | GraphQL query/mutation document — switches the request to GraphQL | — |
 | `--expect-status <code>` | Expected HTTP status code | `200` |
+| `--timeout <ms>` | Positive integer request timeout in milliseconds | `30000` |
+| `--headers <json>` | Custom HTTP headers as a JSON object with string values | — |
+
+All run inputs are validated before a browser or request starts. `--workers` accepts 1-16,
+and invalid URLs, devices, timeouts, payloads, or headers return a clear error with exit code 1.
 
 **Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
 

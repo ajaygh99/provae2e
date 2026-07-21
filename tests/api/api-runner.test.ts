@@ -4,6 +4,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { runApiTest, validateSchema } from '../../src/runners/api-runner';
+import type { NestedSchema } from '../../src/core/schema-validator';
 
 jest.setTimeout(30000);
 
@@ -197,5 +198,306 @@ describe('API Runner', () => {
 
     expect(result.status).toBe('PASS');
     expect(result.error).toBeUndefined();
+  });
+
+  describe('Nested schema validation', () => {
+    it('validates a simple nested REST response', async () => {
+      const nestedSchema: NestedSchema = {
+        type: 'object',
+        properties: {
+          id: { type: 'number' },
+          name: { type: 'string' },
+          active: { type: 'boolean' }
+        }
+      };
+
+      const result = await runApiTest({
+        url: `${baseUrl}/users/1`,
+        nestedSchema
+      });
+
+      expect(result.status).toBe('PASS');
+      expect(result.statusCode).toBe(200);
+    });
+
+    it('fails when nested schema validation fails on REST response', async () => {
+      const nestedSchema: NestedSchema = {
+        type: 'object',
+        properties: {
+          id: { type: 'number' },
+          name: { type: 'string' },
+          email: { type: 'string' }
+        }
+      };
+
+      const result = await runApiTest({
+        url: `${baseUrl}/users/1`,
+        nestedSchema
+      });
+
+      expect(result.status).toBe('FAIL');
+      expect(result.error).toContain('Nested schema validation failed');
+      expect(result.error).toContain('email');
+    });
+
+    it('validates nullable fields in nested schema', async () => {
+      const nestedSchema: NestedSchema = {
+        type: 'object',
+        properties: {
+          id: { type: 'number' },
+          name: { type: 'string' },
+          active: { type: 'boolean' }
+        }
+      };
+
+      const result = await runApiTest({
+        url: `${baseUrl}/users/1`,
+        nestedSchema
+      });
+
+      expect(result.status).toBe('PASS');
+    });
+
+    it('validates optional fields in nested schema', async () => {
+      const nestedSchema: NestedSchema = {
+        type: 'object',
+        properties: {
+          id: { type: 'number' },
+          email: { type: 'string', optional: true }
+        }
+      };
+
+      const result = await runApiTest({
+        url: `${baseUrl}/users/1`,
+        nestedSchema
+      });
+
+      expect(result.status).toBe('PASS');
+    });
+
+    it('validates nested objects in schema', async () => {
+      server.removeAllListeners('request');
+      server.on('request', (req, res) => {
+        void (async (): Promise<void> => {
+          if (req.url === '/nested' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              id: 1,
+              user: {
+                name: 'Ada',
+                profile: {
+                  age: 30,
+                  city: 'London'
+                }
+              }
+            }));
+            return;
+          }
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'not found' }));
+        })();
+      });
+
+      const nestedSchema: NestedSchema = {
+        type: 'object',
+        properties: {
+          id: { type: 'number' },
+          user: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              profile: {
+                type: 'object',
+                properties: {
+                  age: { type: 'number' },
+                  city: { type: 'string' }
+                }
+              }
+            }
+          }
+        }
+      };
+
+      const result = await runApiTest({
+        url: `${baseUrl}/nested`,
+        nestedSchema
+      });
+
+      expect(result.status).toBe('PASS');
+    });
+
+    it('validates arrays in nested schema', async () => {
+      server.removeAllListeners('request');
+      server.on('request', (req, res) => {
+        void (async (): Promise<void> => {
+          if (req.url === '/items' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              items: [
+                { id: 1, name: 'Item 1' },
+                { id: 2, name: 'Item 2' }
+              ]
+            }));
+            return;
+          }
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'not found' }));
+        })();
+      });
+
+      const nestedSchema: NestedSchema = {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'number' },
+                name: { type: 'string' }
+              }
+            }
+          }
+        }
+      };
+
+      const result = await runApiTest({
+        url: `${baseUrl}/items`,
+        nestedSchema
+      });
+
+      expect(result.status).toBe('PASS');
+    });
+
+    it('validates nested schema in GraphQL response', async () => {
+      // Reset server to handle /graphql
+      server.removeAllListeners('request');
+      server.on('request', (req, res) => {
+        void (async (): Promise<void> => {
+          await readBody(req);
+          const url = req.url ?? '';
+          if (url === '/graphql') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ data: { user: { id: 1, name: 'Ada' } } }));
+            return;
+          }
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'not found' }));
+        })();
+      });
+
+      const nestedSchema: NestedSchema = {
+        type: 'object',
+        properties: {
+          user: {
+            type: 'object',
+            properties: {
+              id: { type: 'number' },
+              name: { type: 'string' }
+            }
+          }
+        }
+      };
+
+      const result = await runApiTest({
+        url: `${baseUrl}/graphql`,
+        graphql: { query: 'query { user { id name } }' },
+        nestedSchema
+      });
+
+      expect(result.status).toBe('PASS');
+    });
+
+    it('fails when nested schema validation fails on GraphQL response', async () => {
+      // Reset server to handle /graphql
+      server.removeAllListeners('request');
+      server.on('request', (req, res) => {
+        void (async (): Promise<void> => {
+          await readBody(req);
+          const url = req.url ?? '';
+          if (url === '/graphql') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ data: { user: { id: 1, name: 'Ada' } } }));
+            return;
+          }
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'not found' }));
+        })();
+      });
+
+      const nestedSchema: NestedSchema = {
+        type: 'object',
+        properties: {
+          user: {
+            type: 'object',
+            properties: {
+              id: { type: 'number' },
+              email: { type: 'string' }
+            }
+          }
+        }
+      };
+
+      const result = await runApiTest({
+        url: `${baseUrl}/graphql`,
+        graphql: { query: 'query { user { id name } }' },
+        nestedSchema
+      });
+
+      expect(result.status).toBe('FAIL');
+      expect(result.error).toContain('Nested schema validation failed');
+    });
+
+    it('reports detailed path-based errors in nested structures', async () => {
+      server.removeAllListeners('request');
+      server.on('request', (req, res) => {
+        void (async (): Promise<void> => {
+          await readBody(req);
+          if (req.url === '/complex' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              data: {
+                users: [
+                  { id: 1, name: 'Ada' },
+                  { id: 'invalid', name: 'Bob' }
+                ]
+              }
+            }));
+            return;
+          }
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'not found' }));
+        })();
+      });
+
+      const nestedSchema: NestedSchema = {
+        type: 'object',
+        properties: {
+          data: {
+            type: 'object',
+            properties: {
+              users: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'number' },
+                    name: { type: 'string' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      };
+
+      const result = await runApiTest({
+        url: `${baseUrl}/complex`,
+        nestedSchema
+      });
+
+      expect(result.status).toBe('FAIL');
+      expect(result.error).toContain('data.users[1].id');
+    });
   });
 });

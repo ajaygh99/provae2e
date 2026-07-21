@@ -15,6 +15,17 @@ export type { K6CommandExecutor, K6Metrics, K6RunOptions, K6RunResult } from './
 export { comparePerformanceMetrics, loadPerformanceBaseline, savePerformanceBaseline } from './core/performance-baseline.js';
 export { executeWithRetry } from './core/retry-handler.js';
 export type { RetryOptions } from './core/retry-handler.js';
+export {
+  parseHeaders,
+  validateApiPayload,
+  validateDevice,
+  validateHeaders,
+  validateHttpUrl,
+  validatePositiveInteger,
+  validateRunType,
+  validateWorkers
+} from './core/input-validator.js';
+export type { HttpHeaders } from './core/input-validator.js';
 export { extractAcceptanceCriteria, generateTestsFromSpec } from './generators/spec-test-generator.js';
 export type {
   GeneratedTestType,
