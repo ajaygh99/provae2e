@@ -6,8 +6,12 @@ import path from 'node:path';
 
 /** Performance metrics retained for baseline comparison. */
 export interface K6Metrics {
+  /** 50th-percentile HTTP response duration when reported by k6. */
+  p50ResponseTimeMs?: number;
   /** 95th-percentile HTTP response duration in milliseconds. */
   p95ResponseTimeMs: number;
+  /** 99th-percentile HTTP response duration when reported by k6. */
+  p99ResponseTimeMs?: number;
   /** Failed-request fraction from 0 to 1. */
   errorRate: number;
   /** HTTP requests completed per second. */
@@ -19,6 +23,9 @@ export interface K6RunOptions {
   url: string;
   vus: number;
   durationSeconds: number;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  headers?: Record<string, string>;
+  body?: unknown;
   executor?: K6CommandExecutor;
 }
 
@@ -55,6 +62,14 @@ function metricNumber(summary: K6Summary, metric: string, value: string): number
   return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : undefined;
 }
 
+function redactHeaderValues(message: string, headers?: Record<string, string>): string {
+  let redacted = message;
+  for (const value of Object.values(headers ?? {})) {
+    if (value) redacted = redacted.split(value).join('[REDACTED]');
+  }
+  return redacted;
+}
+
 /**
  * Parses a k6 `--summary-export` JSON document into baseline metrics.
  *
@@ -65,6 +80,8 @@ export function parseK6Summary(input: unknown): K6RunResult {
   if (!isRecord(input)) return { ok: false, error: 'k6 summary is not a JSON object' };
   const summary = input as K6Summary;
   const p95ResponseTimeMs = metricNumber(summary, 'http_req_duration', 'p(95)');
+  const p50ResponseTimeMs = metricNumber(summary, 'http_req_duration', 'p(50)');
+  const p99ResponseTimeMs = metricNumber(summary, 'http_req_duration', 'p(99)');
   const errorRate = metricNumber(summary, 'http_req_failed', 'rate');
   const requestsPerSecond = metricNumber(summary, 'http_reqs', 'rate');
   if (p95ResponseTimeMs === undefined || errorRate === undefined || requestsPerSecond === undefined) {
@@ -73,11 +90,34 @@ export function parseK6Summary(input: unknown): K6RunResult {
   if (p95ResponseTimeMs < 0 || errorRate < 0 || errorRate > 1 || requestsPerSecond < 0) {
     return { ok: false, error: 'k6 summary contains out-of-range performance metrics' };
   }
-  return { ok: true, metrics: { p95ResponseTimeMs, errorRate, requestsPerSecond } };
+  return {
+    ok: true,
+    metrics: {
+      ...(p50ResponseTimeMs === undefined ? {} : { p50ResponseTimeMs }),
+      p95ResponseTimeMs,
+      ...(p99ResponseTimeMs === undefined ? {} : { p99ResponseTimeMs }),
+      errorRate,
+      requestsPerSecond
+    }
+  };
 }
 
 /** Generates the minimal JavaScript load test passed to k6. */
-export function createK6Script(url: string, vus: number, durationSeconds: number): string {
+export function createK6Script(
+  url: string,
+  vus: number,
+  durationSeconds: number,
+  request: Pick<K6RunOptions, 'method' | 'headers' | 'body'> = {}
+): string {
+  const method = request.method ?? 'GET';
+  const params = { headers: request.headers ?? {} };
+  const call = method === 'GET'
+    ? request.headers
+      ? `http.get(${JSON.stringify(url)}, ${JSON.stringify(params)})`
+      : `http.get(${JSON.stringify(url)})`
+    : `http.request(${JSON.stringify(method)}, ${JSON.stringify(url)}, ${JSON.stringify(
+      request.body === undefined ? null : JSON.stringify(request.body)
+    )}, ${JSON.stringify(params)})`;
   return [
     "import http from 'k6/http';",
     "import { check } from 'k6';",
@@ -85,7 +125,7 @@ export function createK6Script(url: string, vus: number, durationSeconds: number
     `export const options = { vus: ${vus}, duration: '${durationSeconds}s' };`,
     '',
     'export default function () {',
-    `  const response = http.get(${JSON.stringify(url)});`,
+    `  const response = ${call};`,
     "  check(response, { 'status is below 400': (result) => result.status < 400 });",
     '}',
     ''
@@ -131,12 +171,12 @@ export async function runK6(options: K6RunOptions): Promise<K6RunResult> {
     temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'prova-k6-'));
     const scriptPath = path.join(temporaryDirectory, 'baseline.js');
     const summaryPath = path.join(temporaryDirectory, 'summary.json');
-    await writeFile(scriptPath, createK6Script(options.url, options.vus, options.durationSeconds), 'utf-8');
+    await writeFile(scriptPath, createK6Script(options.url, options.vus, options.durationSeconds, options), 'utf-8');
     const commandResult = await (options.executor ?? systemK6Executor).run(scriptPath, summaryPath);
     if (!commandResult.ok) {
       return commandResult.notFound
         ? { ok: false, error: 'k6 not found — install from https://k6.io/docs/get-started/installation/' }
-        : { ok: false, error: commandResult.error };
+        : { ok: false, error: redactHeaderValues(commandResult.error, options.headers) };
     }
     let summary: unknown;
     try {

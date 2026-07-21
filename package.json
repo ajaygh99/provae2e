@@ -23,6 +23,7 @@
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --forceExit",
     "test:smoke": "jest --testPathPattern=tests/smoke --forceExit",
+    "test:phase2:e2e": "npm run build && node scripts/phase2-e2e.js",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
     "typecheck": "tsc --noEmit",
@@ -58,18 +59,21 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@faker-js/faker": "^9.9.0",
     "@playwright/test": "^1.44.0",
-    "commander": "^12.0.0",
-    "chalk": "^5.3.0",
-    "ora": "^8.0.0",
-    "yaml": "^2.4.0",
+    "allure-playwright": "^2.14.0",
     "axios": "^1.7.0",
-    "allure-playwright": "^2.14.0"
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "ora": "^8.0.0",
+    "sql.js": "^1.14.1",
+    "yaml": "^2.4.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
+    "@types/sql.js": "^1.4.11",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",

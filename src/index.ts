@@ -38,3 +38,17 @@ export type {
   GenerateTestsOptions,
   GenerateTestsResult
 } from './generators/spec-test-generator.js';
+export { generateAdvancedTestData, generateAdvancedTestDataFromFile, serializeTestData } from './generators/test-data-factory.js';
+export type { AdvancedDataOptions, AdvancedDataResult, DataFormat } from './generators/test-data-factory.js';
+export { generateAiSpec } from './generators/ai-spec-generator.js';
+export type { AiSpecOptions, AiSpecResult } from './generators/ai-spec-generator.js';
+export { parseGherkin } from './parsers/gherkin-parser.js';
+export type { AcceptanceLanguage, ParsedFeature, ParsedScenario, ParsedStep, StepKind } from './parsers/gherkin-parser.js';
+export { stepToPlaywright } from './mappers/step-to-playwright.js';
+export { PerformanceStore } from './perf/performance-store.js';
+export type { PerformanceRun, StoredPerformanceMetrics } from './perf/performance-store.js';
+export { detectRegressions, hasDegradingTrend, performanceRunsToCsv } from './perf/regression-detector.js';
+export type { PerformanceRegression } from './perf/regression-detector.js';
+export { FigmaCredentialStore } from './storage/figma-credentials.js';
+export type { FigmaCredentials } from './storage/figma-credentials.js';
+export { generateFigmaTests } from './generators/figma-test-generator.js';
