@@ -5,6 +5,7 @@
 import { request as playwrightRequest } from '@playwright/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 import { log } from '../core/logger.js';
+import { validateNestedSchema, type NestedSchema } from '../core/schema-validator.js';
 
 /** HTTP methods supported for REST requests. */
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -39,6 +40,8 @@ export interface ApiRunnerOptions {
   expectedStatus?: number;
   /** Optional flat schema the JSON response body (or GraphQL `data`) must satisfy. */
   schema?: ResponseSchema;
+  /** Optional nested schema with support for objects, arrays, nullable, and optional fields. */
+  nestedSchema?: NestedSchema;
   /** Maximum acceptable response time, in milliseconds. Defaults to 5000. */
   maxResponseTimeMs?: number;
   /** Request timeout, in milliseconds. Defaults to 30000. */
@@ -196,6 +199,18 @@ export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResul
       const schemaErrors = validateSchema(schemaTarget, options.schema);
       if (schemaErrors.length > 0) {
         const error = `Schema validation failed: ${schemaErrors.join('; ')}`;
+        log.error('API run failed', undefined);
+        return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
+      }
+    }
+
+    if (options.nestedSchema) {
+      const schemaTarget = options.graphql && typeof parsedBody === 'object' && parsedBody !== null
+        ? (parsedBody as Record<string, unknown>)['data']
+        : parsedBody;
+      const nestedErrors = validateNestedSchema(schemaTarget, options.nestedSchema);
+      if (nestedErrors.length > 0) {
+        const error = `Nested schema validation failed: ${nestedErrors.join('; ')}`;
         log.error('API run failed', undefined);
         return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
       }
