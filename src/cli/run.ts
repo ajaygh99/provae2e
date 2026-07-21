@@ -364,7 +364,9 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
       method: opts.method as HttpMethod,
       body: graphql ? undefined : validation.restBody,
       graphql,
-      expectedStatus: Number(opts.expectStatus)
+      expectedStatus: Number(opts.expectStatus),
+      headers: validation.headers,
+      timeoutMs: opts.timeout === undefined ? undefined : Number(opts.timeout)
     });
 
     log.info('Run result', {
@@ -434,6 +436,8 @@ export function buildProgram(): Command {
     .option('--body <json>', 'API request body as JSON (--type api): REST body or GraphQL variables')
     .option('--graphql <query>', 'GraphQL query/mutation document (--type api). Switches the request to GraphQL')
     .option('--expect-status <code>', 'Expected HTTP status code (--type api)', '200')
+    .option('--timeout <ms>', 'Positive request timeout in milliseconds')
+    .option('--headers <json>', 'Custom API headers as a JSON object')
     .action(runCommand);
 
   program
