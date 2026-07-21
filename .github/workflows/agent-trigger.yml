@@ -33,7 +33,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |
             --model claude-haiku-4-5-20251001
-            --max-turns 8
+            --max-turns 15    # ← INCREASED
           prompt: |
             You are LENS, the review agent for PROVA. Read .agents/AGENTS.md
             for your review checklist and severity guide before reviewing.
