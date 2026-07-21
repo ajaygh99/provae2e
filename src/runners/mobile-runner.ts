@@ -10,6 +10,7 @@ import { chromium, devices } from '@playwright/test';
 import type { Browser, BrowserContext } from '@playwright/test';
 import { log } from '../core/logger.js';
 import { resolveSelector, type SelectorDescriptor, type SelectorTier } from '../core/self-healing-selector.js';
+import { executeWithRetry } from '../core/retry-handler.js';
 
 /**
  * Maps compact CLI `--device` aliases to Playwright's official device
@@ -48,6 +49,10 @@ export interface MobileRunnerOptions {
   screenshotDir?: string;
   /** When set, resolves this element via the self-healing 5-tier fallback after navigation. */
   selector?: SelectorDescriptor;
+  /** Retry count after the initial attempt. Defaults to 0 for programmatic use. */
+  retries?: number;
+  /** Initial exponential-backoff delay. Defaults to 1000ms. */
+  retryBaseDelayMs?: number;
 }
 
 /** Outcome of a single mobile emulation test run. */
@@ -85,7 +90,7 @@ function screenshotFileName(device: string, url: string): string {
  * @param options - Target URL, device to emulate, and optional screenshot directory.
  * @returns The PASS/FAIL result with duration and screenshot path.
  */
-export async function runMobileTest(options: MobileRunnerOptions): Promise<MobileRunResult> {
+async function runMobileTestOnce(options: MobileRunnerOptions): Promise<MobileRunResult> {
   const { url } = options;
   const screenshotDir = options.screenshotDir ?? './screenshots';
   const startedAt = Date.now();
@@ -160,4 +165,13 @@ export async function runMobileTest(options: MobileRunnerOptions): Promise<Mobil
       }
     }
   }
+}
+
+/** Runs a mobile test and retries failed results using exponential backoff. */
+export async function runMobileTest(options: MobileRunnerOptions): Promise<MobileRunResult> {
+  return executeWithRetry(() => runMobileTestOnce(options), {
+    maxRetries: options.retries ?? 0,
+    baseDelayMs: options.retryBaseDelayMs ?? 1000,
+    shouldRetry: (result) => result.status === 'FAIL'
+  });
 }

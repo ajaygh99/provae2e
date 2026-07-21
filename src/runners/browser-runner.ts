@@ -8,6 +8,7 @@ import { chromium } from '@playwright/test';
 import type { Browser } from '@playwright/test';
 import { log } from '../core/logger.js';
 import { resolveSelector, type SelectorDescriptor, type SelectorTier } from '../core/self-healing-selector.js';
+import { executeWithRetry } from '../core/retry-handler.js';
 
 /** Options accepted by {@link runBrowserTest}. */
 export interface BrowserRunnerOptions {
@@ -17,6 +18,10 @@ export interface BrowserRunnerOptions {
   screenshotDir?: string;
   /** When set, resolves this element via the self-healing 5-tier fallback after navigation. */
   selector?: SelectorDescriptor;
+  /** Retry count after the initial attempt. Defaults to 0 for programmatic use. */
+  retries?: number;
+  /** Initial exponential-backoff delay. Defaults to 1000ms. */
+  retryBaseDelayMs?: number;
 }
 
 /** Outcome of a single browser test run. */
@@ -51,7 +56,7 @@ function screenshotFileName(url: string): string {
  * @param options - Target URL and optional screenshot directory.
  * @returns The PASS/FAIL result with duration and screenshot path.
  */
-export async function runBrowserTest(options: BrowserRunnerOptions): Promise<BrowserRunResult> {
+async function runBrowserTestOnce(options: BrowserRunnerOptions): Promise<BrowserRunResult> {
   const { url } = options;
   const screenshotDir = options.screenshotDir ?? './screenshots';
   const startedAt = Date.now();
@@ -107,4 +112,13 @@ export async function runBrowserTest(options: BrowserRunnerOptions): Promise<Bro
       }
     }
   }
+}
+
+/** Runs a browser test and retries failed results using exponential backoff. */
+export async function runBrowserTest(options: BrowserRunnerOptions): Promise<BrowserRunResult> {
+  return executeWithRetry(() => runBrowserTestOnce(options), {
+    maxRetries: options.retries ?? 0,
+    baseDelayMs: options.retryBaseDelayMs ?? 1000,
+    shouldRetry: (result) => result.status === 'FAIL'
+  });
 }

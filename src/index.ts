@@ -13,6 +13,8 @@ export type { FigmaConnectorOptions, FigmaElement, FigmaElementsResult } from '.
 export { createK6Script, parseK6Summary, runK6 } from './core/k6-runner.js';
 export type { K6CommandExecutor, K6Metrics, K6RunOptions, K6RunResult } from './core/k6-runner.js';
 export { comparePerformanceMetrics, loadPerformanceBaseline, savePerformanceBaseline } from './core/performance-baseline.js';
+export { executeWithRetry } from './core/retry-handler.js';
+export type { RetryOptions } from './core/retry-handler.js';
 export { extractAcceptanceCriteria, generateTestsFromSpec } from './generators/spec-test-generator.js';
 export type {
   GeneratedTestType,

@@ -5,6 +5,7 @@
 import { request as playwrightRequest } from '@playwright/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
 import { log } from '../core/logger.js';
+import { executeWithRetry } from '../core/retry-handler.js';
 
 /** HTTP methods supported for REST requests. */
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -43,6 +44,10 @@ export interface ApiRunnerOptions {
   maxResponseTimeMs?: number;
   /** Request timeout, in milliseconds. Defaults to 30000. */
   timeoutMs?: number;
+  /** Retry count after the initial attempt. Defaults to 0 for programmatic use. */
+  retries?: number;
+  /** Initial exponential-backoff delay. Defaults to 1000ms. */
+  retryBaseDelayMs?: number;
 }
 
 /** Outcome of a single API test run. */
@@ -143,7 +148,7 @@ async function sendRequest(context: APIRequestContext, options: ApiRunnerOptions
  * @param options - Target URL, method/GraphQL payload, and assertions to apply.
  * @returns The PASS/FAIL result with duration and a response summary.
  */
-export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResult> {
+async function runApiTestOnce(options: ApiRunnerOptions): Promise<ApiRunResult> {
   const { url } = options;
   const method = options.graphql ? 'POST' : options.method ?? 'GET';
   const expectedStatus = options.expectedStatus ?? 200;
@@ -219,4 +224,13 @@ export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResul
       }
     }
   }
+}
+
+/** Runs an API test and retries failed results using exponential backoff. */
+export async function runApiTest(options: ApiRunnerOptions): Promise<ApiRunResult> {
+  return executeWithRetry(() => runApiTestOnce(options), {
+    maxRetries: options.retries ?? 0,
+    baseDelayMs: options.retryBaseDelayMs ?? 1000,
+    shouldRetry: (result) => result.status === 'FAIL'
+  });
 }

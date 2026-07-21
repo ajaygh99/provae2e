@@ -31,6 +31,7 @@ export interface RunOptionsInput {
   expectStatus: string;
   graphql?: string;
   body?: string;
+  retries?: string;
 }
 
 /** Result of validating a full set of `run` CLI options. */
