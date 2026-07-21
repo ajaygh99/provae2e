@@ -90,6 +90,23 @@ qe-tool generate --jira-ticket PROJ-123 \
 
 `--spec` and `--jira-ticket` are mutually exclusive; exactly one is required. PROVA fetches `/rest/api/3/issue/<KEY>`, converts plain-text or Atlassian Document Format descriptions to text, and applies the same acceptance-criteria parser used for local spec files.
 
+For OAuth2, set `JIRA_OAUTH_ACCESS_TOKEN` and provide the Atlassian resource ID with
+`--jira-cloud-id`. OAuth tokens use Atlassian's `api.atlassian.com/ex/jira/<cloudId>` gateway.
+The public API also exports authorization URL, code exchange, and refresh-token helpers.
+
+Named instances allow the same command to target dev, QE, or staging JIRA sites:
+
+```powershell
+$env:JIRA_OAUTH_ACCESS_TOKEN = "your-oauth-access-token"
+$env:JIRA_ENVIRONMENTS = '{"dev":{"baseUrl":"https://dev.atlassian.net","cloudId":"dev-cloud-id"},"staging":{"baseUrl":"https://staging.atlassian.net","cloudId":"staging-cloud-id"}}'
+
+qe-tool generate --jira-ticket PROJ-123 --jira-env dev --jira-sync `
+  --type browser --url https://yourapp.com --output ./generated-tests
+```
+
+`--jira-sync` posts a linked `GENERATED` status comment and generated file list back to the
+originating issue. Programmatic callers can also sync `PASSED` or `FAILED` after execution.
+
 ## Test Data Factory
 
 Generate realistic JSON fixtures from a JSON Schema file:

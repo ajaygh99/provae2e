@@ -4,8 +4,14 @@
  * The CLI itself lives in src/cli/run.ts.
  */
 export { log } from './core/logger.js';
-export { fetchJiraTicketDescription, jiraDescriptionToText } from './core/jira-connector.js';
-export type { JiraConnectorOptions, JiraDescriptionResult } from './core/jira-connector.js';
+export { fetchJiraTicketDescription, jiraDescriptionToText, syncJiraTestStatus } from './core/jira-connector.js';
+export type {
+  JiraConnectorOptions, JiraDescriptionResult, JiraStatusSyncOptions, JiraStatusSyncResult, JiraTestStatus
+} from './core/jira-connector.js';
+export { buildJiraAuthorizationUrl, exchangeJiraAuthorizationCode, refreshJiraAccessToken } from './core/jira-oauth.js';
+export type { JiraOAuthClient, JiraOAuthTokens } from './core/jira-oauth.js';
+export { parseJiraEnvironments, resolveJiraEnvironment } from './core/jira-environments.js';
+export type { JiraEnvironment, JiraEnvironments } from './core/jira-environments.js';
 export { generateTestData, generateTestDataFromFile } from './core/test-data-factory.js';
 export type { TestDataFactoryOptions, TestDataFactoryResult } from './core/test-data-factory.js';
 export { extractFigmaElements, fetchFigmaElements } from './core/figma-connector.js';
