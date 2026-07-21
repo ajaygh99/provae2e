@@ -15,6 +15,8 @@ const FIXTURE_HTML = `
   <body style="margin:0">
     <button aria-label="Submit Form">Submit</button>
     <div data-testid="test-id-target">TestID Target</div>
+    <div data-testid="duplicate-target">Duplicate One</div>
+    <div data-testid="duplicate-target">Duplicate Two</div>
     <p>Unique Text Content Here</p>
     <div style="display:none">Hidden Element With No Bounding Box</div>
     <div style="position:absolute; left:100px; top:50px; width:120px; height:40px;">Position Target</div>
@@ -96,6 +98,38 @@ describe('resolveSelector', () => {
     expect(result.tier).toBe('data-testid');
   });
 
+  it('falls through when a configured tier matches more than one element', async () => {
+    const result = await resolveSelector(page, {
+      testId: 'duplicate-target',
+      css: '.css-only-target'
+    });
+    expect(result.tier).toBe('css-selector');
+  });
+
+  it('skips invalid runtime values and continues to a valid fallback', async () => {
+    const result = await resolveSelector(page, {
+      testId: '   ',
+      position: { x: Number.NaN, y: 0, width: -1, height: 10, tolerance: -1 },
+      css: '.css-only-target'
+    });
+    expect(result.tier).toBe('css-selector');
+  });
+
+  it('accepts a position exactly on the configured tolerance boundary', async () => {
+    const result = await resolveSelector(page, {
+      position: { x: 105, y: 45, width: 125, height: 35, tolerance: 5 }
+    });
+    expect(result.tier).toBe('visual-position');
+  });
+
+  it('rejects a position just outside the configured tolerance boundary', async () => {
+    const result = await resolveSelector(page, {
+      position: { x: 106, y: 50, width: 120, height: 40, tolerance: 5 },
+      css: '.css-only-target'
+    });
+    expect(result.tier).toBe('css-selector');
+  });
+
   it('falls through tiers 1 and 2 to tier 3 when neither matches', async () => {
     const result = await resolveSelector(page, {
       role: { role: 'checkbox' },
@@ -135,5 +169,37 @@ describe('resolveSelector', () => {
       css: '.css-only-target'
     });
     expect(result.tier).toBe('css-selector');
+  });
+
+  it('continues past a detached position candidate', async () => {
+    const detached = {
+      boundingBox: jest.fn().mockRejectedValue(new Error('detached')),
+      count: jest.fn().mockResolvedValue(1)
+    };
+    const matching = {
+      boundingBox: jest.fn().mockResolvedValue({ x: 10, y: 20, width: 30, height: 40 }),
+      count: jest.fn().mockResolvedValue(1)
+    };
+    const candidates = {
+      count: jest.fn().mockResolvedValue(2),
+      nth: jest.fn((index: number) => index === 0 ? detached : matching)
+    };
+    const stubPage = { locator: jest.fn().mockReturnValue(candidates) } as unknown as Page;
+
+    const result = await resolveSelector(stubPage, {
+      position: { x: 10, y: 20, width: 30, height: 40 }
+    });
+    expect(result.tier).toBe('visual-position');
+    expect(result.locator).toBe(matching);
+  });
+
+  it('rejects an ambiguous visual-position match', async () => {
+    await page.setContent(`
+      <div class="same-box" style="position:absolute;left:10px;top:10px;width:20px;height:20px"></div>
+      <div class="same-box" style="position:absolute;left:10px;top:10px;width:20px;height:20px"></div>
+    `);
+    await expect(resolveSelector(page, {
+      position: { scope: '.same-box', x: 10, y: 10, width: 20, height: 20 }
+    })).rejects.toThrow(SelectorResolutionError);
   });
 });
