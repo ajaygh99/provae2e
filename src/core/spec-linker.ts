@@ -54,7 +54,9 @@ export interface LinkTestOptions {
   /** JIRA issue key that contains the requirement. */
   jiraIssueKey: string;
   /** Requirement order (1-based) to link to. */
-  requirementOrder: number;
+  requirementOrder?: number;
+  /** Stable acceptance-criteria ID accepted by Studio/API clients. */
+  acceptCriteriaId?: number;
   /** Test status. */
   testStatus?: 'PASSED' | 'FAILED' | 'PENDING';
   /** Path to spec link database. */
@@ -63,7 +65,7 @@ export interface LinkTestOptions {
 
 /** Result of linking a test. */
 export type LinkTestResult =
-  | { ok: true; testId: string; jiraIssueKey: string; requirementOrder: number }
+  | { ok: true; testId: string; jiraIssueKey: string; requirementOrder: number; acceptCriteriaId: number }
   | { ok: false; error: string };
 
 /**
@@ -151,18 +153,26 @@ export async function linkTest(options: LinkTestOptions): Promise<LinkTestResult
     if (!options.jiraIssueKey.trim()) {
       return { ok: false, error: 'JIRA issue key is required' };
     }
-    if (options.requirementOrder < 1) {
+    if (options.requirementOrder === undefined && options.acceptCriteriaId === undefined) {
+      return { ok: false, error: 'requirementOrder or acceptCriteriaId is required' };
+    }
+    if (options.requirementOrder !== undefined && options.requirementOrder < 1) {
       return { ok: false, error: 'Requirement order must be >= 1' };
+    }
+    if (options.acceptCriteriaId !== undefined && options.acceptCriteriaId < 1) {
+      return { ok: false, error: 'Acceptance criteria ID must be >= 1' };
     }
 
     const store = await SpecLinkStore.open(options.databasePath);
     const requirements = await store.getRequirements(options.jiraIssueKey);
-    const requirement = requirements.find((r) => r.requirement_order === options.requirementOrder);
+    const requirement = options.acceptCriteriaId !== undefined
+      ? requirements.find((candidate) => candidate.id === options.acceptCriteriaId)
+      : requirements.find((candidate) => candidate.requirement_order === options.requirementOrder);
 
     if (!requirement) {
       return {
         ok: false,
-        error: `Requirement ${options.requirementOrder} not found for ${options.jiraIssueKey}`
+        error: `Acceptance criterion not found for ${options.jiraIssueKey}`
       };
     }
 
@@ -176,7 +186,8 @@ export async function linkTest(options: LinkTestOptions): Promise<LinkTestResult
       ok: true,
       testId: options.testId,
       jiraIssueKey: options.jiraIssueKey,
-      requirementOrder: options.requirementOrder
+      requirementOrder: requirement.requirement_order,
+      acceptCriteriaId: requirement.id
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

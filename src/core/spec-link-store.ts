@@ -200,7 +200,7 @@ export class SpecLinkStore {
     baseMetadata?: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     const rows = this.database.exec(
-      `SELECT r.jira_issue_key, r.requirement_text, rt.test_status
+      `SELECT r.id, r.jira_issue_key, r.requirement_text, rt.test_status
        FROM requirement_tests rt
        JOIN requirements r ON rt.requirement_id = r.id
        WHERE rt.test_id = ?`,
@@ -211,11 +211,15 @@ export class SpecLinkStore {
       return baseMetadata || {};
     }
 
-    const [jiraIssueKey, requirementText, testStatus] = rows[0].values[0] as [string, string, string];
+    const [acceptCriteriaId, jiraIssueKey, requirementText, testStatus] = rows[0].values[0] as [number, string, string, string];
+    const coverage = await this.validateCoverage(jiraIssueKey);
+    const coveragePct = coverage.total > 0 ? Math.round((coverage.covered / coverage.total) * 100) : 0;
     return {
       ...baseMetadata,
+      accept_criteria_id: acceptCriteriaId,
       jira_issue_key: jiraIssueKey,
       requirement_text: requirementText,
+      coverage_pct: coveragePct,
       test_status: testStatus,
       linked_at: new Date().toISOString()
     };

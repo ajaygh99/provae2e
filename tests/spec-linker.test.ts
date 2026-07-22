@@ -38,6 +38,7 @@ describe('SpecLinkStore', () => {
       const id1 = await store.createRequirement('PROJ-123', 'First requirement', 1);
       const id2 = await store.createRequirement('PROJ-123', 'Second requirement', 2);
       expect(id1).not.toBe(id2);
+      expect(id2).toBeGreaterThan(id1);
     });
   });
 
@@ -100,7 +101,7 @@ describe('SpecLinkStore', () => {
     it('calculates coverage with linked tests', async () => {
       const store = await SpecLinkStore.open(TEST_DB);
       const reqId1 = await store.createRequirement('PROJ-123', 'Login requirement', 1);
-      await store.createRequirement('PROJ-123', 'Logout requirement', 2);
+      const reqId2 = await store.createRequirement('PROJ-123', 'Logout requirement', 2);
       await store.linkTestToRequirement(reqId1, 'test-001', 'Login Test', 'PASSED');
 
       const coverage = await store.getRequirementCoverage('PROJ-123');
@@ -109,6 +110,7 @@ describe('SpecLinkStore', () => {
       expect(coverage[0].has_passed_test).toBe(true);
       expect(coverage[1].linked_test_count).toBe(0);
       expect(coverage[1].has_passed_test).toBe(false);
+      expect(reqId2).toBeGreaterThan(reqId1);
     });
 
     it('includes all test names and IDs in coverage', async () => {
@@ -128,7 +130,7 @@ describe('SpecLinkStore', () => {
     it('reports total and covered requirements', async () => {
       const store = await SpecLinkStore.open(TEST_DB);
       await store.createRequirement('PROJ-123', 'Covered req', 1);
-      await store.createRequirement('PROJ-123', 'Uncovered req', 2);
+      const reqId2 = await store.createRequirement('PROJ-123', 'Uncovered req', 2);
       await store.createRequirement('PROJ-123', 'Uncovered req 2', 3);
       await store.linkTestToRequirement(1, 'test-001', 'Test One', 'PASSED');
 
@@ -136,6 +138,7 @@ describe('SpecLinkStore', () => {
       expect(validation.total).toBe(3);
       expect(validation.covered).toBe(1);
       expect(validation.uncovered).toEqual(['Uncovered req', 'Uncovered req 2']);
+      expect(reqId2).toBeGreaterThan(1);
     });
   });
 
@@ -155,6 +158,8 @@ describe('SpecLinkStore', () => {
       const extended = await store.extendTestMetadata('test-001', { custom: 'value' });
       expect(extended.jira_issue_key).toBe('PROJ-123');
       expect(extended.requirement_text).toBe('Test requirement');
+      expect(extended.accept_criteria_id).toEqual(expect.any(Number));
+      expect(extended.coverage_pct).toBe(100);
       expect(extended.test_status).toBe('PASSED');
       expect(extended.custom).toBe('value');
     });
@@ -321,6 +326,33 @@ Then user sees dashboard`;
       expect(result.ok).toBe(false);
     });
 
+    it('accepts the Studio accept_criteria_id field', async () => {
+      const created = await createSpecLinks({
+        jiraIssueKey: 'PROJ-123',
+        specText: '- Login requirement',
+        databasePath: TEST_DB
+      });
+      expect(created.ok).toBe(true);
+      const requirements = await getRequirementsCoverage('PROJ-123', TEST_DB);
+      expect(requirements).toHaveLength(1);
+
+      const store = await SpecLinkStore.open(TEST_DB);
+      const stored = await store.getRequirements('PROJ-123');
+      const result = await linkTest({
+        testId: 'studio-test-1',
+        testName: 'Studio login test',
+        jiraIssueKey: 'PROJ-123',
+        acceptCriteriaId: stored[0].id,
+        databasePath: TEST_DB
+      });
+
+      expect(result).toEqual(expect.objectContaining({
+        ok: true,
+        acceptCriteriaId: stored[0].id,
+        requirementOrder: 1
+      }));
+    });
+
     it('validates test ID is not empty', async () => {
       const result = await linkTest({
         testId: '',
@@ -392,6 +424,8 @@ Then user sees dashboard`;
       const extended = await extendTestMetadata('test-001', TEST_DB, { custom: 'field' });
       expect(extended.jira_issue_key).toBe('PROJ-123');
       expect(extended.requirement_text).toBe('Test requirement');
+      expect(extended.accept_criteria_id).toBe(1);
+      expect(extended.coverage_pct).toBe(100);
       expect(extended.test_status).toBe('PASSED');
       expect(extended.custom).toBe('field');
     });
