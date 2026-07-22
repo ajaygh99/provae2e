@@ -72,6 +72,22 @@ describe('nightly-run.ps1 — LENS fallback is tied to the current head', () => 
   });
 });
 
+describe('nightly-run.ps1 — Phase 3 seed is one-time and fail-fast', () => {
+  const script = readFileSync(path.join(__dirname, '../../scripts/nightly-run.ps1'), 'utf-8');
+  const seed = readFileSync(path.join(__dirname, '../../scripts/create-phase3-studio-issues.ps1'), 'utf-8');
+
+  it('runs the idempotent Studio seed only when no Studio epic issue exists', () => {
+    expect(script).toMatch(/--label "epic:studio" --limit 1/);
+    expect(script).toMatch(/create-phase3-studio-issues\.ps1/);
+    expect(script).toMatch(/Phase 3 Studio issue seed failed/);
+    expect(seed).toMatch(/\$existingTitles -contains \$issue\.title/);
+  });
+
+  it('checks native gh exit codes instead of treating failed commands as success', () => {
+    expect(seed).toMatch(/\$result = & gh @args 2>&1[\s\S]{0,180}\$LASTEXITCODE -ne 0/);
+  });
+});
+
 describe('nightly-run.ps1 — concurrent/overlapping run guard', () => {
   const script = readFileSync(path.join(__dirname, '../../scripts/nightly-run.ps1'), 'utf-8');
 

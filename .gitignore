@@ -45,6 +45,7 @@ logs/
 
 # Nightly automation run lock (runtime artifact, never source)
 daily/*.lock
+daily/*-phase3-seed.md
 
 # SQLite
 *.sqlite
