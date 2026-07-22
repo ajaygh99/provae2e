@@ -83,6 +83,21 @@ describe('runK6', () => {
       .resolves.toEqual({ ok: false, error: 'k6 did not produce a valid JSON summary' });
   });
 
+  it('supports request options and redacts header secrets from failures', async () => {
+    const script = createK6Script('https://example.com', 1, 1, {
+      method: 'POST', headers: { Authorization: 'Bearer secret-value' }, body: { ok: true }
+    });
+    expect(script).toContain('http.request("POST"');
+    expect(script).toContain('Authorization');
+    const executor: K6CommandExecutor = {
+      run: async () => ({ ok: false, error: 'failed with Bearer secret-value' })
+    };
+    await expect(runK6({
+      url: 'https://example.com', vus: 1, durationSeconds: 1,
+      headers: { Authorization: 'Bearer secret-value' }, executor
+    })).resolves.toEqual({ ok: false, error: 'failed with [REDACTED]' });
+  });
+
   it('returns a safe error when the injected executor throws', async () => {
     const executor: K6CommandExecutor = { run: async () => { throw new Error('adapter crashed'); } };
     await expect(runK6({ url: 'https://example.com', vus: 1, durationSeconds: 1, executor }))

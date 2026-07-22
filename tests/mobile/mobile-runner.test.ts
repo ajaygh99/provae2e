@@ -146,7 +146,5 @@ describe('Mobile Runner', () => {
     expect(result.status).toBe('PASS');
     expect(result.screenshotPath).toContain('screenshots');
     expect(existsSync(defaultDir)).toBe(true);
-
-    rmSync(defaultDir, { recursive: true, force: true });
   });
 });

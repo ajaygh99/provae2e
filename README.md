@@ -131,6 +131,24 @@ qe-tool generate --spec ./create-user.md --type api \
 
 `--schema` on `generate` is available only for API tests. Schema composition and references such as `$ref`, `oneOf`, `anyOf`, and `allOf` are rejected with a clear message rather than silently approximated.
 
+Advanced Faker-backed generation supports reproducible seeds, local `$ref`, edge cases, and multiple formats:
+
+```bash
+qe-tool data --schema ./schemas/user.json --count 10 --seed 42 --format csv --output ./users.csv
+qe-tool data --schema ./schemas/user.json --edge-cases --format sql --table users
+```
+
+## Deterministic Acceptance-Criteria Generation
+
+Generate Playwright skeletons without requiring a live model:
+
+```bash
+qe-tool ai-gen --spec ./login.feature --url https://app.example.com \
+  --lang en --browsers chromium,firefox,webkit --output ./generated-tests
+```
+
+English, Spanish, and French Given/When/Then plus bullet criteria are supported. Product-specific steps become explicit TODO comments rather than guessed selectors.
+
 ## Figma Screen Ingestion
 
 Set a Figma personal access token in the environment so it is never passed as a command-line argument:
@@ -180,21 +198,24 @@ qe-tool perf --url https://yourapp.com --vus 10 --duration 30 \
 
 The baseline stores p95 response time, HTTP error rate, and requests per second. A comparison fails when p95 latency or error rate is more than 20% worse than the stored value. Requests per second is reported and retained for visibility but does not currently fail the check. A missing baseline fails unless `--update-baseline` is supplied, in which case PROVA creates it after a successful k6 run.
 
-## Multi-environment Promotion Gates
-
-Copy `.env.promotion.example`, set each environment URL and map credential names to
-environment variables. Credentials are read at runtime and are never stored in the config.
+SQLite history adds p50/p95/p99, error-rate, throughput, CSV trends, and separate baselines per load profile:
 
 ```bash
-qe-tool promote --config ./.env.promotion.json --chain release \
-  --from dev --to qe --test ./e2e/smoke.spec.ts --coverage 85 --block-on-fail \
-  --report ./promotion-report.json
+qe-tool perf --action set --url https://api.example.com --vus 10 --duration 30
+qe-tool perf --action check --url https://api.example.com --threshold 10 --vus 10 --duration 30
+qe-tool perf --action report --days 7 --output ./performance-history.csv
 ```
 
-Only adjacent ordered transitions are accepted: `dev` to `qe`, then `qe` to `staging`.
-Skipped, reversed, same-environment, and unknown transitions fail before tests run. A failed
-gate exits with code 1 and writes a detailed JSON report. Tests receive the
-current/source URL as `PROVA_BASE_URL` and optional fixture path as `PROVA_TEST_DATA`.
+## Figma OAuth and Component Stubs
+
+Copy `templates/figma.env.example` into your secret manager or local environment, then:
+
+```bash
+qe-tool figma --auth --database ./prova-credentials.sqlite
+qe-tool figma --sync AbCdEf123 --node 12:34 --output ./generated-tests/figma
+```
+
+OAuth tokens are AES-256-GCM encrypted inside SQLite. The encryption key remains in `PROVA_CREDENTIAL_KEY` and is never stored with the database.
 
 ## Browser Testing (`--type browser`)
 

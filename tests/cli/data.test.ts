@@ -60,7 +60,9 @@ describe('dataCommand', () => {
 describe('data CLI registration', () => {
   it('exposes schema, count, and output flags', () => {
     const command = buildProgram().commands.find((candidate) => candidate.name() === 'data');
-    expect(command?.options.map((option) => option.long)).toEqual(['--schema', '--count', '--output']);
+    expect(command?.options.map((option) => option.long)).toEqual([
+      '--schema', '--count', '--format', '--seed', '--edge-cases', '--table', '--output'
+    ]);
     expect(command?.options.filter((option) => option.mandatory).map((option) => option.long)).toEqual(['--schema']);
   });
 });
