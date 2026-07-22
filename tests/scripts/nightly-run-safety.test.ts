@@ -59,6 +59,18 @@ describe('nightly-run.ps1 — critical git commands fail fast instead of continu
     expect(pushBlockMatch?.[1]).toMatch(/if\s*\(\$LASTEXITCODE -ne 0\)/);
     expect(pushBlockMatch?.[1]).toMatch(/exit 1/);
   });
+
+  it('does not leak gh check output into the boolean quality-gate result', () => {
+    expect(script).toMatch(/gh pr checks .*--watch --fail-fast[^\r\n]*\| Out-Null/);
+    expect(script).toMatch(/if\s*\(\$LASTEXITCODE -ne 0\)[\s\S]{0,180}return \$false/);
+  });
+
+  it('merges only after checks pass and confirms the merged state', () => {
+    expect(script).toMatch(/gh pr merge .*--squash --delete-branch/);
+    expect(script).not.toMatch(/gh pr merge .*--auto/);
+    expect(script).toMatch(/gh pr view .*--json state/);
+    expect(script).toMatch(/\$mergedState -ne 'MERGED'/);
+  });
 });
 
 describe('nightly-run.ps1 — LENS fallback is tied to the current head', () => {

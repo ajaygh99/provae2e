@@ -9,7 +9,7 @@
 # re-implements or re-runs that review locally, only observes its outcome.
 #
 # Merge policy:
-#   - LENS approves (no BLOCKER/MAJOR)      -> auto-merge immediately
+#   - LENS approves and all CI passes        -> merge immediately
 #   - LENS flags BLOCKER/MAJOR               -> one automatic FORGE fix-up pass,
 #                                                then LENS re-reviews once
 #   - still not clean after the retry        -> leave the PR open, comment
@@ -18,8 +18,7 @@
 # releases/vN.N.N-approval.md file exists, which is a separate manual step.
 #
 # Requires: gh CLI authenticated, ANTHROPIC_API_KEY set as a user env var,
-# Claude Code CLI installed, and "Allow auto-merge" enabled once in the repo's
-# Settings -> General -> Pull Requests (needed for `gh pr merge --auto`).
+# and Claude Code CLI installed.
 #
 # NOTE: deliberately does NOT use `$ErrorActionPreference = "Stop"` combined
 # with `2>&1` on native commands (git/gh/claude) - in Windows PowerShell that
@@ -135,7 +134,11 @@ function Wait-ForLensReview($prNumber) {
 # branch protection should also mark these checks as required in GitHub.
 function Wait-ForQualityChecks($prNumber) {
     Log "Waiting for all CI checks on PR #$prNumber..."
-    gh pr checks $prNumber --repo $RepoSlug --watch --fail-fast --interval 15
+    # Suppress gh's success/failure text. PowerShell functions emit every
+    # uncaptured pipeline value; returning that text alongside `$false` makes
+    # `[bool](Wait-ForQualityChecks ...)` evaluate a non-empty array as true.
+    # That previously enabled auto-merge even after a required CI check failed.
+    gh pr checks $prNumber --repo $RepoSlug --watch --fail-fast --interval 15 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Log "CI checks for PR #$prNumber did not all pass."
         return $false
@@ -353,11 +356,18 @@ Re-run npm run typecheck && npm run lint && npm test and make sure everything is
     }
 
     if ($clean) {
-        Log "PR #$prNumber is clean. Auto-merging (squash, delete branch)."
-        gh pr merge $prNumber --repo $RepoSlug --squash --auto --delete-branch
+        Log "PR #$prNumber is clean. Merging (squash, delete branch)."
+        gh pr merge $prNumber --repo $RepoSlug --squash --delete-branch | Out-Null
         Log "gh pr merge exit code: $LASTEXITCODE"
         if ($LASTEXITCODE -ne 0) {
-            Log "WARNING: auto-merge command failed. Check that 'Allow auto-merge' is enabled in repo Settings > General. PR left open: $($pr[0].url)"
+            Log "WARNING: merge command failed. PR left open: $($pr[0].url)"
+        } else {
+            $mergedState = gh pr view $prNumber --repo $RepoSlug --json state --jq '.state'
+            if ($LASTEXITCODE -ne 0 -or $mergedState -ne 'MERGED') {
+                Log "WARNING: merge was not confirmed. PR left for inspection: $($pr[0].url)"
+            } else {
+                Log "Confirmed PR #$prNumber is merged."
+            }
         }
     } else {
         Log "PR #$prNumber still not clean after one fix-up attempt. Leaving open for manual review."
