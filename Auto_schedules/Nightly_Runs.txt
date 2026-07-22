@@ -1,0 +1,6 @@
+Quick Reference
+Action	Command
+Run immediately	.\scripts\nightly-run.ps1 from PowerShell
+Run in background	Start-Process powershell -ArgumentList "-NoProfile", "-File .\scripts\nightly-run.ps1"
+Check latest log	cat .\daily\2026-07-22-nightlyrun.log
+Re-enable 10 PM auto	Enable-ScheduledTask -TaskName "PROVA Nightly Agent Run"

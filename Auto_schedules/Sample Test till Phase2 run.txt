@@ -1,0 +1,19 @@
+run the below via powershell.
+
+
+cd C:\Users\ajjuk\Documents\Cowork\Provae2e
+
+# Test 1: Browser (example.com) ✅ PASSED
+qe-tool run --url https://example.com --type browser --report
+
+# Test 2: API (real endpoint) ✅ 
+qe-tool run --url https://jsonplaceholder.typicode.com/users --type api
+
+# Test 3: Mobile (iPhone 14) ✅ PASSED
+qe-tool run --url https://example.com --type mobile --device iPhone14
+
+# Test 4: All-in-one with report ✅
+qe-tool run --url https://example.com --type all --report --retries 3
+
+# View report (fixed)
+explorer.exe ".\reports\index.html"
