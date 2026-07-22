@@ -83,6 +83,10 @@ describe('nightly-run.ps1 — Phase 3 seed is one-time and fail-fast', () => {
     expect(seed).toMatch(/\$existingTitles -contains \$issue\.title/);
   });
 
+  it('filters the null produced by ConvertFrom-Json for an empty gh result', () => {
+    expect(script).toMatch(/ConvertFrom-Json\s*\|\s*Where-Object\s*\{\s*\$_\s*\}/);
+  });
+
   it('checks native gh exit codes instead of treating failed commands as success', () => {
     expect(seed).toMatch(/\$result = & gh @args 2>&1[\s\S]{0,180}\$LASTEXITCODE -ne 0/);
   });
@@ -106,6 +110,12 @@ describe('nightly-run.ps1 — concurrent/overlapping run guard', () => {
     expect(script).toMatch(/finally\s*\{[\s\S]*Remove-Item \$LockFile/);
     expect(script).toMatch(/finally\s*\{[\s\S]*ReleaseMutex\(\)/);
     expect(script).toMatch(/finally\s*\{[\s\S]*\.Dispose\(\)/);
+  });
+
+  it('does not release or dispose the mutex in the dirty-tree early-exit block', () => {
+    const dirtyBlock = script.match(/if\s*\(\$dirty\)\s*\{([\s\S]*?)exit 1\s*\}/)?.[1] ?? '';
+    expect(dirtyBlock).not.toMatch(/\$RunMutex\.ReleaseMutex\(\)/);
+    expect(dirtyBlock).not.toMatch(/\$RunMutex\.Dispose\(\)/);
   });
 
   it('checks for a dirty tree before attempting checkout or pull', () => {

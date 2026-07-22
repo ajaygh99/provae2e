@@ -183,15 +183,21 @@ try {
     if ($dirty) {
         Log "FATAL: working tree is not clean at start. Refusing to proceed automatically - inspect and resolve manually before the next run:"
         Log ($dirty -join "`n")
-        # Explicit cleanup here (not just relying on the outer finally block):
-        # PowerShell's `exit` can terminate the host process before a pending
-        # `finally` runs, which previously left daily/nightly-run.lock behind
-        # and caused the *next* run to see a dirty tree consisting only of its
-        # own stale lock file. Belt-and-suspenders so that specific failure
-        # mode can't repeat, regardless of finally's behavior on this host.
+        # Explicit lock-file cleanup here (not just relying on the outer finally
+        # block): PowerShell's `exit` can terminate the host process before a
+        # pending `finally` runs, which previously left daily/nightly-run.lock
+        # behind and caused the *next* run to see a dirty tree consisting only
+        # of its own stale lock file. Belt-and-suspenders so that specific
+        # failure mode can't repeat, regardless of finally's behavior on this
+        # host.
+        #
+        # Do NOT release or dispose the mutex here: the `finally` block already
+        # does that (guarded by try/catch). Releasing + disposing it here and
+        # then falling through to `exit 1` made `finally` call ReleaseMutex() on
+        # an already-disposed handle, throwing ObjectDisposedException ("Safe
+        # handle has been closed"). If `exit` skips `finally` entirely, the OS
+        # reclaims the mutex on process exit anyway, so no leak either way.
         Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
-        if ($RunMutexAcquired) { $RunMutex.ReleaseMutex() }
-        $RunMutex.Dispose()
         exit 1
     }
 
@@ -216,7 +222,12 @@ try {
         Log "FATAL: could not check whether the Phase 3 Studio backlog exists."
         exit 1
     }
-    $phase3Issues = @($phase3Existing | ConvertFrom-Json)
+    # gh prints "[]" when no issues match. In Windows PowerShell,
+    # `'[]' | ConvertFrom-Json` yields $null, and @($null) is a 1-element
+    # array (Count 1) - which previously fooled this check into believing a
+    # backlog already existed and skipped the seed forever. Filter out the
+    # null so a genuinely empty result reports Count 0 and seeding runs.
+    $phase3Issues = @($phase3Existing | ConvertFrom-Json | Where-Object { $_ })
     if ($phase3Issues.Count -eq 0) {
         Log "No Phase 3 Studio backlog found. Running the one-time idempotent issue seed."
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "create-phase3-studio-issues.ps1")
@@ -366,7 +377,15 @@ finally {
         Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
     }
     if ($RunMutexAcquired) {
-        $RunMutex.ReleaseMutex()
+        try {
+            $RunMutex.ReleaseMutex()
+        } catch {
+            # Mutex already released or disposed, ignore
+        }
     }
-    $RunMutex.Dispose()
+    try {
+        $RunMutex.Dispose()
+    } catch {
+        # Mutex already disposed, ignore
+    }
 }

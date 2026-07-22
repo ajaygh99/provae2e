@@ -52,4 +52,9 @@ describe('LENS review — single mechanism', () => {
     expect(agentTriggerWorkflow).toMatch(/You are LENS/);
     expect(nightlyScript).not.toMatch(/You are LENS/);
   });
+
+  it('does not embed YAML comments inside multiline Claude CLI arguments', () => {
+    const args = agentTriggerWorkflow.match(/claude_args:\s*\|([\s\S]*?)\n\s*prompt:/)?.[1] ?? '';
+    expect(args).not.toMatch(/\s#/);
+  });
 });
