@@ -33,6 +33,24 @@ Reusable Studio controls live in `studio/src/components/ui`. Run
 `npm run storybook --prefix studio` and open `http://localhost:6006` to explore
 the documented button, form, modal, select, and notification components.
 
+### Studio TypeScript Setup
+
+Both the CLI and Studio use **TypeScript strict mode** to ensure type safety and prevent implicit `any` types.
+
+**Enabled compiler options:**
+- `strict: true` — Enables all strict type-checking options
+- `noImplicitAny: true` — Error on expressions with an inferred type of `any`
+- `strictNullChecks: true` — Error when `null` or `undefined` is not handled
+- `noImplicitThis: true` — Error on `this` used without an explicit type
+- `alwaysStrict: true` — Parse in strict mode and emit `"use strict"` for each file
+
+**ESLint enforcement:**
+```javascript
+// @typescript-eslint/no-explicit-any: 'error'
+```
+
+No `@ts-ignore` comments or `any` type bypasses are permitted. All source code must be fully and correctly typed. See `tsconfig.json` (CLI) and `studio/tsconfig.app.json` (Studio) for the complete configuration.
+
 ## Quick Start
 
 ```bash
