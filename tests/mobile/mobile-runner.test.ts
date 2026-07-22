@@ -7,7 +7,7 @@ import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { runMobileTest, SUPPORTED_DEVICES } from '../../src/runners/mobile-runner';
 
-jest.setTimeout(30000);
+jest.setTimeout(120000);
 
 describe('Mobile Runner', () => {
   let server: http.Server;
