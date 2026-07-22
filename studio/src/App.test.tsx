@@ -1,0 +1,45 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, expect, it } from 'vitest';
+import { App } from './App';
+
+function renderRoute(route: string): void {
+  render(<MemoryRouter initialEntries={[route]}><App /></MemoryRouter>);
+}
+
+describe('PROVA Studio application shell', () => {
+  it('redirects the root route to the dashboard', async () => {
+    renderRoute('/');
+    expect(await screen.findByRole('heading', { name: 'Quality at a glance' })).toBeInTheDocument();
+  });
+
+  it('shows persistent workspace and profile controls', () => {
+    renderRoute('/dashboard');
+    expect(screen.getByText('Beta Engineering')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Log out of PROVA Studio' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['/dashboard', 'Dashboard', 'Quality at a glance'],
+    ['/builder', 'Test builder', 'Test builder'],
+    ['/execution', 'Executions', 'Executions'],
+    ['/settings', 'Settings', 'Settings']
+  ])('routes %s and highlights %s', (route, linkName, heading) => {
+    renderRoute(route);
+    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: linkName })).toHaveClass('active');
+  });
+
+  it('navigates between primary sections', async () => {
+    const user = userEvent.setup();
+    renderRoute('/dashboard');
+    await user.click(screen.getByRole('link', { name: 'Test builder' }));
+    expect(screen.getByRole('heading', { name: 'Test builder' })).toBeInTheDocument();
+  });
+
+  it('redirects unknown routes to the dashboard', async () => {
+    renderRoute('/missing');
+    expect(await screen.findByRole('heading', { name: 'Quality at a glance' })).toBeInTheDocument();
+  });
+});
