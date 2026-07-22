@@ -49,6 +49,7 @@ import {
 import { loadPromotionConfig } from '../promotions/env-config-loader.js';
 import { runPromotionChain } from '../promotions/env-chain-manager.js';
 import { writePromotionReport } from '../promotions/promotion-reporter.js';
+import { syncCommand } from './sync.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -1038,6 +1039,22 @@ export function buildProgram(): Command {
     .option('--block-on-fail', 'Stop promotion after the first failed environment', true)
     .option('--report <file>', 'Detailed JSON promotion report', './promotion-report.json')
     .action(promoteCommand);
+
+  program
+    .command('sync')
+    .description('Sync JIRA acceptance criteria to spec-link database for test coverage tracking')
+    .requiredOption('--jira-key <PROJ-123>', 'JIRA issue key')
+    .option('--jira-url <url>', 'JIRA instance URL (or JIRA_URL env var)')
+    .option('--jira-token <token>', 'JIRA API token or OAuth2 access token (or env vars)')
+    .option('--jira-cloud-id <id>', 'Atlassian cloud ID for OAuth2 (or JIRA_CLOUD_ID env var)')
+    .option('--database <file>', 'SQLite spec-link database path', './prova-spec-links.db')
+    .action((opts) => syncCommand({
+      jiraKey: opts.jiraKey,
+      jiraUrl: opts.jiraUrl,
+      jiraToken: opts.jiraToken,
+      jiraCloudId: opts.jiraCloudId,
+      database: opts.database
+    }));
 
   return program;
 }

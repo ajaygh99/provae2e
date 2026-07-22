@@ -52,6 +52,23 @@ export type { PerformanceRegression } from './perf/regression-detector.js';
 export { FigmaCredentialStore } from './storage/figma-credentials.js';
 export type { FigmaCredentials } from './storage/figma-credentials.js';
 export { generateFigmaTests } from './generators/figma-test-generator.js';
+export { SpecLinkStore } from './core/spec-link-store.js';
+export type { Requirement, RequirementTest, RequirementCoverage } from './core/spec-link-store.js';
+export {
+  createSpecLinks,
+  validateSpecLinks,
+  linkTest,
+  getRequirementsCoverage,
+  extendTestMetadata
+} from './core/spec-linker.js';
+export type {
+  SpecLinkOptions,
+  SpecLinkCreateResult,
+  SpecLinkValidationOptions,
+  SpecLinkValidation,
+  LinkTestOptions,
+  LinkTestResult
+} from './core/spec-linker.js';
 export { GoldenThreadStore } from './core/golden-thread-store.js';
 export type { Stage, StageStatus, DeploymentStatus, StageLog, GoldenThreadChain } from './core/golden-thread-store.js';
 export { GoldenThreadLinker } from './core/golden-thread-linker.js';
