@@ -60,9 +60,9 @@ describe('nightly-run.ps1 — critical git commands fail fast instead of continu
     expect(pushBlockMatch?.[1]).toMatch(/exit 1/);
   });
 
-  it('does not leak gh check output into the boolean quality-gate result', () => {
-    expect(script).toMatch(/gh pr checks .*--watch --fail-fast[^\r\n]*\| Out-Null/);
-    expect(script).toMatch(/if\s*\(\$LASTEXITCODE -ne 0\)[\s\S]{0,180}return \$false/);
+  it('returns one boolean from the exact-head quality workflow result', () => {
+    expect(script).toMatch(/currentRun\.conclusion -eq "success"/);
+    expect(script).toMatch(/CI did not complete for commit \$headSha[\s\S]{0,100}return \$false/);
   });
 
   it('merges only after checks pass and confirms the merged state', () => {
@@ -81,6 +81,27 @@ describe('nightly-run.ps1 — LENS fallback is tied to the current head', () => 
     expect(script).toMatch(/pulls\/\$prNumber\/reviews/);
     expect(script).toMatch(/\$_\.commit_id -eq \$headSha/);
     expect(script).toMatch(/BLOCKER\|MAJOR/);
+  });
+});
+
+describe('nightly-run.ps1 — CI observation is tied to the current head', () => {
+  const script = readFileSync(path.join(__dirname, '../../scripts/nightly-run.ps1'), 'utf-8');
+
+  it('waits for the quality workflow run matching the exact PR head SHA', () => {
+    expect(script).toContain('$CiWorkflowFile            = "prova-ci.yml"');
+    expect(script).toMatch(/function Wait-ForQualityChecks[\s\S]*headRefOid[\s\S]*headSha -eq \$headSha/);
+    expect(script).toMatch(/currentRun\.status -eq "completed"/);
+    expect(script).toMatch(/currentRun\.conclusion -eq "success"/);
+  });
+
+  it('does not use gh pr checks --watch, which can read an old head or no checks', () => {
+    const qualityFunction = script.match(/function Wait-ForQualityChecks[\s\S]*?\n}/)?.[0] ?? '';
+    expect(qualityFunction).not.toMatch(/^\s*gh pr checks/m);
+  });
+
+  it('tells FORGE to inspect CI logs as well as LENS comments', () => {
+    expect(script).toContain('gh run view <run-id> --repo $RepoSlug --log-failed');
+    expect(script).toContain('never lower a quality threshold');
   });
 });
 
