@@ -2075,15 +2075,10 @@ function Create-GitHubIssue {
     )
 
     try {
-        $args = @(
-            "issue", "create",
-            "--repo", $RepoSlug,
-            "--title", $Title,
-            "--body", $Body,
-            "--label", ($Labels -join ",")
-        )
-
-        $result = & gh @args 2>&1
+        # Windows PowerShell 5.1 can split native-command arguments when an
+        # inline body contains quotation marks. Stream the body over stdin so
+        # Markdown, quotes, and newlines reach GitHub without reinterpretation.
+        $result = $Body | & gh issue create --repo $RepoSlug --title $Title --body-file - --label ($Labels -join ",") 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Failed to create issue: $Title - $result" -ForegroundColor Red
             return $false

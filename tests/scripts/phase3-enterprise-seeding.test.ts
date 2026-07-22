@@ -54,6 +54,11 @@ describe('Phase 3 enterprise seeder safety', () => {
     expect(script).toMatch(/Check-RateLimit/);
   });
 
+  it('streams issue bodies through stdin so Windows preserves quotes and newlines', () => {
+    expect(script).toMatch(/\$Body \| & gh issue create .*--body-file -/);
+    expect(script).not.toMatch(/"--body", \$Body/);
+  });
+
   it('applies common and feature-specific epic labels', () => {
     for (const label of [
       'phase3', 'feature', 'epic:enterprise', 'epic:golden-thread',
@@ -84,9 +89,11 @@ describe('Phase 3 enterprise seeder safety', () => {
 describe('nightly Phase 3 integration', () => {
   it('repairs partial seeds using authoritative counts', () => {
     expect(nightly).toMatch(/--label "epic:studio" --limit 100/);
-    expect(nightly).toMatch(/\$phase3StudioIssues\.Count -lt 40/);
+    expect(nightly).toMatch(/\$phase3StudioCount -lt 40/);
     expect(nightly).toMatch(/--label "epic:enterprise" --limit 100/);
-    expect(nightly).toMatch(/\$phase3EnterpriseIssues\.Count -lt 80/);
+    expect(nightly).toMatch(/\$phase3EnterpriseCount -lt 80/);
+    expect(nightly).toMatch(/\$phase3StudioParsed\.Count/);
+    expect(nightly).toMatch(/\$phase3EnterpriseParsed\.Count/);
   });
 
   it('exits after a seed but reaches implementation when both seeds are complete', () => {

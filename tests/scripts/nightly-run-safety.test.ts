@@ -95,8 +95,9 @@ describe('nightly-run.ps1 — Phase 3 seed is one-time and fail-fast', () => {
     expect(seed).toMatch(/\$existingTitles -contains \$issue\.title/);
   });
 
-  it('filters the null produced by ConvertFrom-Json for an empty gh result', () => {
-    expect(script).toMatch(/ConvertFrom-Json\s*\|\s*Where-Object\s*\{\s*\$_\s*\}/);
+  it('counts parsed JSON arrays correctly and treats an empty result as zero', () => {
+    expect(script).toMatch(/\$phase3StudioCount = if \(\$null -eq \$phase3StudioParsed\) \{ 0 \} else \{ \$phase3StudioParsed\.Count \}/);
+    expect(script).toMatch(/\$phase3EnterpriseCount = if \(\$null -eq \$phase3EnterpriseParsed\) \{ 0 \} else \{ \$phase3EnterpriseParsed\.Count \}/);
   });
 
   it('checks native gh exit codes instead of treating failed commands as success', () => {
