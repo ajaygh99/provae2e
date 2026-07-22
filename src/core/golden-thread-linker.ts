@@ -1,5 +1,5 @@
 /** High-level Golden Thread chain operations. */
-import { GoldenThreadStore, type Stage, type StageStatus, type GoldenThreadChain } from './golden-thread-store.js';
+import { GoldenThreadStore, type Stage, type StageStatus, type DeploymentStatus, type GoldenThreadChain } from './golden-thread-store.js';
 
 /** Options for linking a stage to a chain. */
 export interface LinkStageOptions {
@@ -9,6 +9,8 @@ export interface LinkStageOptions {
   actor: string;
   artifact_url: string;
   metadata?: Record<string, unknown>;
+  deployment_status?: DeploymentStatus;
+  deployment_metadata?: string;
 }
 
 /** Options for initiating a new chain. */
@@ -36,13 +38,15 @@ export class GoldenThreadLinker {
    * @param opts Stage linking options
    */
   async linkStage(opts: LinkStageOptions): Promise<void> {
-    return this.store.linkStage(
+    await this.store.linkStage(
       opts.golden_thread_id,
       opts.stage,
       opts.status,
       opts.actor,
       opts.artifact_url,
-      opts.metadata
+      opts.metadata,
+      opts.deployment_status,
+      opts.deployment_metadata
     );
   }
 

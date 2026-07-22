@@ -20,6 +20,9 @@ export const STAGE_NAMES: Record<Stage, string> = {
 /** Status of a stage in the chain. */
 export type StageStatus = 'PENDING' | 'IN_PROGRESS' | 'PASSED' | 'FAILED';
 
+/** Deployment status indicator. */
+export type DeploymentStatus = 'GREEN' | 'YELLOW' | 'RED';
+
 /** One log entry in a Golden Thread chain. */
 export interface StageLog {
   id?: number;
@@ -31,6 +34,8 @@ export interface StageLog {
   artifact_url: string;
   parent_id: string | null;
   metadata: string;
+  deployment_status?: DeploymentStatus;
+  deployment_metadata?: string;
 }
 
 /** Complete 7-stage chain. */
@@ -73,6 +78,8 @@ export class GoldenThreadStore {
         artifact_url TEXT NOT NULL,
         parent_id TEXT,
         metadata TEXT NOT NULL,
+        deployment_status TEXT CHECK(deployment_status IN ('GREEN','YELLOW','RED')),
+        deployment_metadata TEXT,
         FOREIGN KEY (golden_thread_id) REFERENCES golden_thread_chains(golden_thread_id),
         UNIQUE(golden_thread_id, stage)
       );
@@ -112,7 +119,7 @@ export class GoldenThreadStore {
   }
 
   /** Logs a new stage in an existing chain. */
-  async linkStage(golden_thread_id: string, stage: Stage, status: StageStatus, actor: string, artifact_url: string, metadata?: Record<string, unknown>): Promise<void> {
+  async linkStage(golden_thread_id: string, stage: Stage, status: StageStatus, actor: string, artifact_url: string, metadata?: Record<string, unknown>, deployment_status?: DeploymentStatus, deployment_metadata?: string): Promise<void> {
     if (stage < 1 || stage > 7) throw new Error(`Stage must be between 1 and 7, got ${stage}`);
     const chain = await this.getChain(golden_thread_id);
     if (!chain) throw new Error(`Golden Thread ${golden_thread_id} not found`);
@@ -129,7 +136,9 @@ export class GoldenThreadStore {
       actor,
       artifact_url,
       parent_id,
-      metadata: JSON.stringify(metadata || {})
+      metadata: JSON.stringify(metadata || {}),
+      deployment_status,
+      deployment_metadata
     });
     await this.persist();
   }
@@ -145,7 +154,7 @@ export class GoldenThreadStore {
     const [chainId, created_at] = chainRows[0].values[0] as [string, string];
 
     const stageRows = this.database.exec(
-      'SELECT id, golden_thread_id, stage, status, timestamp, actor, artifact_url, parent_id, metadata FROM stage_logs WHERE golden_thread_id = ? ORDER BY stage ASC',
+      'SELECT id, golden_thread_id, stage, status, timestamp, actor, artifact_url, parent_id, metadata, deployment_status, deployment_metadata FROM stage_logs WHERE golden_thread_id = ? ORDER BY stage ASC',
       [golden_thread_id]
     );
 
@@ -158,7 +167,9 @@ export class GoldenThreadStore {
       actor: row[5] as string,
       artifact_url: row[6] as string,
       parent_id: row[7] as string | null,
-      metadata: row[8] as string
+      metadata: row[8] as string,
+      deployment_status: row[9] as DeploymentStatus | undefined,
+      deployment_metadata: row[10] as string | undefined
     })) || [];
 
     return { golden_thread_id: chainId, created_at, stages };
@@ -197,8 +208,8 @@ export class GoldenThreadStore {
   private async insertStage(stage: StageLog): Promise<void> {
     this.database.run(
       `INSERT INTO stage_logs
-       (golden_thread_id, stage, status, timestamp, actor, artifact_url, parent_id, metadata)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (golden_thread_id, stage, status, timestamp, actor, artifact_url, parent_id, metadata, deployment_status, deployment_metadata)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         stage.golden_thread_id,
         stage.stage,
@@ -207,7 +218,9 @@ export class GoldenThreadStore {
         stage.actor,
         stage.artifact_url,
         stage.parent_id,
-        stage.metadata
+        stage.metadata,
+        stage.deployment_status || null,
+        stage.deployment_metadata || null
       ]
     );
   }
