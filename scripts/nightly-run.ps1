@@ -79,7 +79,11 @@ function Wait-ForLensReview($prNumber) {
     while ((Get-Date) -lt $deadline) {
         $runsJson = gh run list --repo $RepoSlug --workflow $LensWorkflowFile --branch $branch --json headSha,status,conclusion --limit 10
         if ($LASTEXITCODE -eq 0 -and $runsJson) {
-            $runs = @($runsJson | ConvertFrom-Json)
+            # Windows PowerShell 5.1 can preserve a JSON array as one nested
+            # pipeline object when wrapped directly in @(...). Assign first so
+            # Where-Object receives individual runs, not an object whose
+            # properties become arrays (for example "success failure").
+            $runs = $runsJson | ConvertFrom-Json
             $currentRun = $runs | Where-Object { $_.headSha -eq $headSha } | Select-Object -First 1
             if ($currentRun -and $currentRun.status -eq "completed") {
                 Log "LENS review run for commit $headSha finished (conclusion: $($currentRun.conclusion))."
@@ -151,7 +155,7 @@ function Wait-ForQualityChecks($prNumber) {
     while ((Get-Date) -lt $deadline) {
         $runsJson = gh run list --repo $RepoSlug --workflow $CiWorkflowFile --branch $branch --json databaseId,headSha,status,conclusion --limit 10
         if ($LASTEXITCODE -eq 0 -and $runsJson) {
-            $runs = @($runsJson | ConvertFrom-Json)
+            $runs = $runsJson | ConvertFrom-Json
             $currentRun = $runs | Where-Object { $_.headSha -eq $headSha } | Select-Object -First 1
             if ($currentRun -and $currentRun.status -eq "completed") {
                 Log "CI run $($currentRun.databaseId) for commit $headSha finished (conclusion: $($currentRun.conclusion))."

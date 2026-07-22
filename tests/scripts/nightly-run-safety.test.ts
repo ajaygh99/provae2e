@@ -94,6 +94,11 @@ describe('nightly-run.ps1 — CI observation is tied to the current head', () =>
     expect(script).toMatch(/currentRun\.conclusion -eq "success"/);
   });
 
+  it('does not nest ConvertFrom-Json workflow arrays on Windows PowerShell 5.1', () => {
+    expect(script).not.toMatch(/\$runs\s*=\s*@\(\$runsJson\s*\|\s*ConvertFrom-Json\)/);
+    expect(script.match(/\$runs\s*=\s*\$runsJson\s*\|\s*ConvertFrom-Json/g)).toHaveLength(2);
+  });
+
   it('does not use gh pr checks --watch, which can read an old head or no checks', () => {
     const qualityFunction = script.match(/function Wait-ForQualityChecks[\s\S]*?\n}/)?.[0] ?? '';
     expect(qualityFunction).not.toMatch(/^\s*gh pr checks/m);
