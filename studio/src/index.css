@@ -262,9 +262,44 @@
       @apply text-inherit bg-transparent border-0 cursor-pointer text-xl;
     }
   }
+
+  /* Responsive layout utilities */
+  .layout-container {
+    @apply w-full mx-auto;
+  }
+
+  .layout-container--sm {
+    @apply max-w-sm;
+  }
+
+  .layout-container--md {
+    @apply max-w-md;
+  }
+
+  .layout-container--lg {
+    @apply max-w-lg;
+  }
+
+  .layout-container--xl {
+    @apply max-w-xl;
+  }
+
+  .layout-container--2xl {
+    @apply max-w-2xl;
+  }
+
+  /* Responsive padding utilities */
+  .responsive-padding {
+    @apply px-4.5 py-5 sm:px-6 sm:py-6 md:px-8 md:py-7 lg:px-10.5 lg:py-10.5;
+  }
+
+  /* Responsive gap utilities for flex containers */
+  .responsive-gap {
+    @apply gap-3 sm:gap-4 md:gap-5 lg:gap-6;
+  }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px) {
   .app-shell {
     @apply grid-cols-app-mobile;
   }
