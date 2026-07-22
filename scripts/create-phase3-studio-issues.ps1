@@ -1,7 +1,7 @@
 #requires -version 5.0
 <#
 .SYNOPSIS
-    PROVA Phase 3 — Night 1 Studio Issues Creator (PowerShell)
+    PROVA Phase 3 - Night 1 Studio Issues Creator (PowerShell)
 
 .DESCRIPTION
     Creates 40 PROVA Studio feature issues on GitHub using the 'gh' CLI.
@@ -415,41 +415,45 @@ $studioIssues += @(
 # ============================================================================
 
 function Verify-GitHubAuth {
-    Write-Host "🔍 Verifying GitHub authentication..." -ForegroundColor Cyan
+    Write-Host "Verifying GitHub authentication..." -ForegroundColor Cyan
 
     try {
         $authStatus = & gh auth status 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ $authStatus" -ForegroundColor Green
+            Write-Host "Authenticated: $authStatus" -ForegroundColor Green
             return $true
         } else {
-            Write-Host "❌ GitHub auth failed: $authStatus" -ForegroundColor Red
+            Write-Host "GitHub auth failed: $authStatus" -ForegroundColor Red
             return $false
         }
     }
     catch {
-        Write-Host "❌ GitHub CLI (gh) not found. Install from: https://cli.github.com/" -ForegroundColor Red
+        Write-Host "GitHub CLI (gh) not found. Install from: https://cli.github.com/" -ForegroundColor Red
         return $false
     }
 }
 
 function Check-RateLimit {
-    Write-Host "🔍 Checking GitHub API rate limit..." -ForegroundColor Cyan
+    Write-Host "Checking GitHub API rate limit..." -ForegroundColor Cyan
 
     try {
-        $rateLimit = & gh api rate-limit --jq '.resources.core | .remaining' 2>&1
+        $rateLimit = & gh api rate_limit --jq '.resources.core.remaining' 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Failed to check rate limit: $rateLimit" -ForegroundColor Red
+            return $false
+        }
         $remaining = [int]$rateLimit
 
         if ($remaining -lt 100) {
-            Write-Host "⚠️  Low rate limit: $remaining requests remaining (need 100+)" -ForegroundColor Yellow
+            Write-Host "Low rate limit: $remaining requests remaining (need 100+)" -ForegroundColor Yellow
             return $false
         }
 
-        Write-Host "✅ Rate limit: $remaining requests remaining" -ForegroundColor Green
+        Write-Host "Rate limit: $remaining requests remaining" -ForegroundColor Green
         return $true
     }
     catch {
-        Write-Host "❌ Failed to check rate limit: $_" -ForegroundColor Red
+        Write-Host "Failed to check rate limit: $_" -ForegroundColor Red
         return $false
     }
 }
@@ -475,11 +479,11 @@ function Create-GitHubIssue {
             Write-Host "Failed to create issue: $Title - $result" -ForegroundColor Red
             return $false
         }
-        Write-Host "✅ Created: $Title" -ForegroundColor Green
+        Write-Host "Created: $Title" -ForegroundColor Green
         return $true
     }
     catch {
-        Write-Host "❌ Failed to create issue: $Title" -ForegroundColor Red
+        Write-Host "Failed to create issue: $Title" -ForegroundColor Red
         Write-Host "   Error: $_" -ForegroundColor Red
         return $false
     }

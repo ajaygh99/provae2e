@@ -89,6 +89,11 @@ describe('nightly-run.ps1 — Phase 3 seed is one-time and fail-fast', () => {
 
   it('checks native gh exit codes instead of treating failed commands as success', () => {
     expect(seed).toMatch(/\$result = & gh @args 2>&1[\s\S]{0,180}\$LASTEXITCODE -ne 0/);
+    expect(seed).toMatch(/gh api rate_limit[\s\S]{0,180}\$LASTEXITCODE -ne 0/);
+  });
+
+  it('remains ASCII-compatible with Windows PowerShell 5.1', () => {
+    expect(seed).not.toMatch(/[^\x00-\x7F]/);
   });
 });
 
