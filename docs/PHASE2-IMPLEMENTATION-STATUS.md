@@ -16,7 +16,7 @@ Last verified: 2026-07-21. Repository: `ajaygh99/provae2e`.
 - Test-data generation for primitive/nested JSON Schema, arrays, formats, constraints, and descriptor shapes.
 - k6 execution, summary parsing, JSON baselines, and p95/error regression checks.
 - Performance baseline monitoring, Figma ingestion, test-data factory, and AI generation are therefore not missing features.
-- Draft PR #41 implements ordered multi-environment promotion gates; it remains intentionally unmerged while Phase 2 governance is blocked.
+- PR #41 merged ordered multi-environment promotion gates.
 - Cross-platform npm release validation, CI coverage gates, nightly-run safety, smoke tests, package hardening, and recovery backups.
 
 ## Added on this enhancement branch
@@ -34,6 +34,8 @@ Last verified: 2026-07-21. Repository: `ajaygh99/provae2e`.
 
 ## Governance and release state
 
-- Do not merge Phase 2 PRs or deploy v0.1.2 until `releases/phase-2-approval.md` records the required customer milestone and GO decision.
+- Phase 2 implementation completed and passed protected-branch checks on 2026-07-21.
+- Repository owner authorized the v0.2.0 release; the decision is recorded in `releases/phase-2-approval.md`.
+- Publish only the exact version declared in `package.json` after its matching release approval is committed.
 - Do not recreate features listed above under alternate filenames.
 - Continue from current source and tests; preserve backward-compatible CLI flags.

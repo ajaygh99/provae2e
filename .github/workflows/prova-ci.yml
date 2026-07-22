@@ -86,19 +86,18 @@ jobs:
       - name: Install Playwright browser for prepublish checks
         run: npx playwright install --with-deps chromium
 
-      - name: Bump version and publish
+      - name: Publish approved package version
         run: |
           git config user.email "prova-ship@provae2e.com"
           git config user.name "PROVA SHIP Agent"
-          npm version patch --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
           npm publish
-          git add package.json
-          git commit -m "chore: release v${VERSION} [skip ci]"
           git tag "v${VERSION}"
-          git push && git push --tags
+          git push origin "v${VERSION}"
+          gh release create "v${VERSION}" --title "PROVA v${VERSION}" --notes-file "releases/v${VERSION}.md"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ── Post-deploy smoke suite ─────────────────────────────────────
   smoke:

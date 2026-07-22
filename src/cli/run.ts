@@ -732,7 +732,7 @@ export function buildProgram(): Command {
   program
     .name('qe-tool')
     .description('PROVA — AI-native QE automation platform | provae2e.com')
-    .version('0.1.0');
+    .version('0.2.0');
 
   program
     .command('run')
