@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude --version)",
+      "Bash(claude config *)",
+      "Read(//c/Users/ajjuk/**)"
+    ]
+  }
+}
