@@ -50,6 +50,7 @@ import { loadPromotionConfig } from '../promotions/env-config-loader.js';
 import { runPromotionChain } from '../promotions/env-chain-manager.js';
 import { writePromotionReport } from '../promotions/promotion-reporter.js';
 import { syncCommand } from './sync.js';
+import { dashboardCommand } from './dashboard.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -1054,6 +1055,30 @@ export function buildProgram(): Command {
       jiraToken: opts.jiraToken,
       jiraCloudId: opts.jiraCloudId,
       database: opts.database
+    }));
+
+  program
+    .command('dashboard')
+    .description('Generate interactive Golden Thread dashboard and PDF traceability report')
+    .option('--database <file>', 'SQLite Golden Thread database path', './prova-golden-thread.sqlite')
+    .option('--output <file>', 'HTML dashboard output path', './prova-dashboard.html')
+    .option('--pdf <file>', 'PDF report output path (generates HTML suitable for PDF conversion)')
+    .option('--dark-mode', 'Dark mode for HTML dashboard', false)
+    .option('--date-start <YYYY-MM-DD>', 'Filter chains created after this date')
+    .option('--date-end <YYYY-MM-DD>', 'Filter chains created before this date')
+    .option('--environment <name>', 'Filter by environment (e.g., prod, staging, dev)')
+    .option('--team <name>', 'Filter by team name')
+    .option('--project <name>', 'Filter by project name')
+    .action((opts) => dashboardCommand({
+      database: opts.database,
+      output: opts.output,
+      pdf: opts.pdf,
+      darkMode: opts.darkMode,
+      dateStart: opts.dateStart,
+      dateEnd: opts.dateEnd,
+      environment: opts.environment,
+      team: opts.team,
+      project: opts.project
     }));
 
   return program;
