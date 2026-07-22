@@ -29,6 +29,10 @@ Open `http://localhost:4173` to use the dashboard shell. Validate it with
 `npm run typecheck --prefix studio`, `npm run lint --prefix studio`, and
 `npm test --prefix studio`.
 
+Reusable Studio controls live in `studio/src/components/ui`. Run
+`npm run storybook --prefix studio` and open `http://localhost:6006` to explore
+the documented button, form, modal, select, and notification components.
+
 ## Quick Start
 
 ```bash

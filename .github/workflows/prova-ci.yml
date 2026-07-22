@@ -51,7 +51,7 @@ jobs:
       - name: Run full test suite with coverage gate
         run: npm run test:ci
       - name: Test and build PROVA Studio
-        run: npm test --prefix studio && npm run build --prefix studio
+        run: npm test --prefix studio && npm run build --prefix studio && npm run build-storybook --prefix studio
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         if: always()
