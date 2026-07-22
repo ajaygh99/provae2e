@@ -217,10 +217,11 @@ try {
         exit 1
     }
 
-    # Seed the approved Phase 3 Studio backlog once. The creator is
-    # idempotent, while this label check avoids spending time on it nightly.
+    # Seed the approved Phase 3 backlog (Night 1: Studio, Night 2-3: Enterprise) once.
+    # Creators are idempotent; label checks avoid redundant nightly runs.
     # This run stops after seeding; implementation begins on the next run.
-    $phase3Existing = gh issue list --repo $RepoSlug --state all --label "epic:studio" --limit 1 --json number
+
+    $phase3StudioExisting = gh issue list --repo $RepoSlug --state all --label "epic:studio" --limit 100 --json number
     if ($LASTEXITCODE -ne 0) {
         Log "FATAL: could not check whether the Phase 3 Studio backlog exists."
         exit 1
@@ -230,17 +231,43 @@ try {
     # array (Count 1) - which previously fooled this check into believing a
     # backlog already existed and skipped the seed forever. Filter out the
     # null so a genuinely empty result reports Count 0 and seeding runs.
-    $phase3Issues = @($phase3Existing | ConvertFrom-Json | Where-Object { $_ })
-    if ($phase3Issues.Count -eq 0) {
-        Log "No Phase 3 Studio backlog found. Running the one-time idempotent issue seed."
+    $phase3StudioIssues = @($phase3StudioExisting | ConvertFrom-Json | Where-Object { $_ })
+    if ($phase3StudioIssues.Count -lt 40) {
+        Log "Phase 3 Studio backlog is incomplete (N=$($phase3StudioIssues.Count)/40). Running the idempotent Studio issue seed."
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "create-phase3-studio-issues.ps1")
         if ($LASTEXITCODE -ne 0) {
             Log "FATAL: Phase 3 Studio issue seed failed (exit code $LASTEXITCODE)."
             exit 1
         }
-        Log "Phase 3 Studio backlog seed completed. Implementation begins on the next nightly run."
+        Log "Phase 3 Studio backlog seed completed."
         exit 0
+    } else {
+        Log "Phase 3 Studio backlog already exists (N=$($phase3StudioIssues.Count))."
     }
+
+    # Seed enterprise backlog (Golden Thread, Sentinel, Appium, ZAP, Knowledge Graph)
+    # once the Studio backlog exists. Again, idempotent and label-based checks.
+    $phase3EnterpriseExisting = gh issue list --repo $RepoSlug --state all --label "epic:enterprise" --limit 100 --json number
+    if ($LASTEXITCODE -ne 0) {
+        Log "FATAL: could not check whether the Phase 3 enterprise backlog exists."
+        exit 1
+    }
+    $phase3EnterpriseIssues = @($phase3EnterpriseExisting | ConvertFrom-Json | Where-Object { $_ })
+    if ($phase3EnterpriseIssues.Count -lt 80) {
+        Log "Phase 3 enterprise backlog is incomplete (N=$($phase3EnterpriseIssues.Count)/80). Running the idempotent enterprise issue seed."
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "create-phase3-enterprise-issues.ps1")
+        if ($LASTEXITCODE -ne 0) {
+            Log "FATAL: Phase 3 enterprise issue seed failed (exit code $LASTEXITCODE)."
+            exit 1
+        }
+        Log "Phase 3 enterprise backlog seed completed."
+        exit 0
+    } else {
+        Log "Phase 3 enterprise backlog already exists (N=$($phase3EnterpriseIssues.Count))."
+    }
+
+    # Both backlog seeds are complete. Continue into the normal implementation flow.
+    Log "All Phase 3 backlog seeds are complete. Continuing to the implementation queue."
 
     # 2. Find the oldest open Issue labeled agent-implement
     Log "Looking for Issues labeled agent-implement..."
