@@ -4,6 +4,7 @@ node_modules/
 
 # Build
 dist/
+storybook-static/
 *.js.map
 *.tsbuildinfo
 
