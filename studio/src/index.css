@@ -1,0 +1,304 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+    color: theme('colors.prova.text.DEFAULT');
+    background-color: theme('colors.prova.bg.DEFAULT');
+    font-synthesis: none;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    @apply text-3xl font-semibold my-1.5 mb-3 leading-snug tracking-tight;
+  }
+
+  h2 {
+    @apply text-lg;
+  }
+
+  h3 {
+    @apply text-base font-semibold;
+  }
+
+  p {
+    @apply text-text-tertiary;
+  }
+
+  button {
+    @apply font-inherit;
+  }
+
+  a {
+    @apply font-inherit;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply font-inherit;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply grid grid-cols-app min-h-screen;
+  }
+
+  .sidebar {
+    @apply bg-prova-sidebar text-prova-sidebar-text p-7 flex flex-col gap-10.5;
+  }
+
+  .brand {
+    @apply flex items-center gap-3;
+  }
+
+  .brand-mark {
+    @apply grid place-items-center w-9.5 h-9.5 rounded-lg bg-prova-primary text-white font-extrabold;
+  }
+
+  .brand div {
+    @apply grid leading-tight;
+  }
+
+  .brand span:last-child {
+    @apply text-prova-sidebar-text-muted text-xs mt-1;
+  }
+
+  nav {
+    @apply grid gap-2;
+  }
+
+  .nav-link {
+    @apply text-prova-sidebar-text-muted no-underline flex items-center gap-3 p-3 rounded-lg transition-colors;
+
+    &:hover,
+    &.active {
+      @apply text-white bg-prova-sidebar-hover;
+    }
+  }
+
+  .nav-icon {
+    @apply grid place-items-center w-6.5 h-6.5 rounded-lg bg-prova-sidebar-dark text-xs font-bold;
+  }
+
+  .sidebar-status {
+    @apply mt-auto text-prova-sidebar-text-muted text-sm flex items-center gap-2;
+  }
+
+  .status-dot {
+    @apply w-2 h-2 rounded-full bg-prova-success;
+  }
+
+  .app-workspace {
+    @apply min-w-0;
+  }
+
+  .app-header {
+    @apply min-h-19 bg-white border-b border-prova-border px-8 py-3.5 flex items-center justify-between;
+  }
+
+  .app-header > div {
+    @apply flex items-center gap-2.5;
+  }
+
+  .app-header > div:first-child {
+    @apply grid gap-0.75;
+  }
+
+  .eyebrow {
+    @apply text-prova-text-muted text-xs font-bold uppercase tracking-wide;
+  }
+
+  .profile {
+    @apply text-prova-text-secondary;
+  }
+
+  .avatar {
+    @apply grid place-items-center w-8.5 h-8.5 rounded-full bg-prova-bg-elevated text-prova-primary font-extrabold;
+  }
+
+  .logout-button {
+    @apply bg-transparent border border-prova-border-light rounded-lg text-prova-text-secondary px-2.5 py-1.75 cursor-pointer transition-colors hover:bg-gray-50;
+  }
+
+  .app-content {
+    @apply px-10.5 py-10.5 max-w-5xl mx-auto;
+  }
+
+  .page-heading {
+    @apply flex items-center justify-between gap-5;
+  }
+
+  .primary-action {
+    @apply bg-prova-primary text-white px-4 py-2.75 rounded-lg no-underline font-bold transition-colors hover:bg-prova-primary-light;
+  }
+
+  .metric-grid {
+    @apply grid grid-cols-3-col gap-4.5 my-7;
+  }
+
+  .metric-card,
+  .panel {
+    @apply bg-white border border-prova-border rounded-2xl p-5.5 shadow-md;
+  }
+
+  .metric-card {
+    @apply grid gap-2.5 text-prova-text-muted;
+  }
+
+  .metric-card strong {
+    @apply text-prova-text-DEFAULT text-3xl;
+  }
+
+  .panel p,
+  section > p {
+    @apply text-prova-text-tertiary;
+  }
+
+  .ui-button {
+    @apply border border-transparent rounded-lg px-3.5 py-2.25 cursor-pointer font-bold transition-colors;
+
+    &:disabled {
+      @apply cursor-not-allowed opacity-55;
+    }
+
+    &--primary {
+      @apply text-white bg-prova-primary hover:bg-prova-primary-light;
+    }
+
+    &--secondary {
+      @apply text-prova-text-secondary bg-white border-prova-border-light hover:bg-gray-50;
+    }
+
+    &--danger {
+      @apply text-white bg-prova-warning hover:bg-red-700;
+    }
+  }
+
+  .ui-field {
+    @apply grid gap-1.75 text-prova-text-secondary;
+  }
+
+  .ui-field__label {
+    @apply text-base font-bold;
+  }
+
+  .ui-input {
+    @apply w-full border border-prova-border-lighter rounded-lg px-3 py-2.5 text-prova-text-DEFAULT bg-white transition-colors;
+
+    &:focus {
+      @apply outline-none ring-3 ring-prova-primary-disabled border-prova-primary;
+    }
+
+    &--invalid {
+      @apply border-prova-error-DEFAULT;
+    }
+  }
+
+  .ui-field__hint {
+    @apply text-prova-text-tertiary text-xs;
+  }
+
+  .ui-field__error {
+    @apply text-prova-error-secondary text-xs;
+  }
+
+  .ui-textarea {
+    @apply min-h-28 resize-vertical;
+  }
+
+  .ui-select {
+    @apply appearance-auto;
+  }
+
+  .ui-modal-backdrop {
+    @apply fixed inset-0 z-modal-backdrop grid place-items-center px-5 bg-black/62;
+  }
+
+  .ui-modal {
+    @apply w-full max-w-sm rounded-2xl bg-white shadow-lg;
+  }
+
+  .ui-modal__header {
+    @apply flex items-center justify-between px-5 py-4.5 border-b border-prova-border;
+  }
+
+  .ui-modal__header h2 {
+    @apply m-0;
+  }
+
+  .ui-modal__body {
+    @apply p-5;
+  }
+
+  .ui-toast {
+    @apply fixed right-6 bottom-6 z-toast flex items-center gap-4.5 max-w-sm rounded-2.5 p-3 text-white shadow-xl;
+
+    &--info {
+      @apply bg-prova-info;
+    }
+
+    &--success {
+      @apply bg-prova-success;
+    }
+
+    &--error {
+      @apply bg-prova-error-tertiary;
+    }
+
+    button {
+      @apply text-inherit bg-transparent border-0 cursor-pointer text-xl;
+    }
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    @apply grid-cols-app-mobile;
+  }
+
+  .sidebar {
+    @apply p-5.5 px-3;
+  }
+
+  .brand div,
+  .nav-link:not(.active) {
+    @apply text-0;
+  }
+
+  .nav-link {
+    @apply justify-center px-2.5;
+  }
+
+  .sidebar-status {
+    @apply hidden;
+  }
+
+  .app-header {
+    @apply px-4.5 py-3;
+  }
+
+  .profile-name {
+    @apply hidden;
+  }
+
+  .app-content {
+    @apply px-6.5 py-6.5;
+  }
+
+  .metric-grid {
+    @apply grid-cols-1;
+  }
+}
