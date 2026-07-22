@@ -28,13 +28,15 @@ describe('PROVA Studio application shell', () => {
   ])('routes %s and highlights %s', (route, linkName, heading) => {
     renderRoute(route);
     expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: linkName })).toHaveClass('active');
+    const links = screen.getAllByRole('link', { name: linkName });
+    expect(links[0]).toHaveClass('active');
   });
 
   it('navigates between primary sections', async () => {
     const user = userEvent.setup();
     renderRoute('/dashboard');
-    await user.click(screen.getByRole('link', { name: 'Test builder' }));
+    const links = screen.getAllByRole('link', { name: 'Test builder' });
+    await user.click(links[0]);
     expect(screen.getByRole('heading', { name: 'Test builder' })).toBeInTheDocument();
   });
 
