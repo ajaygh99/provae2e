@@ -831,6 +831,19 @@ export function buildProgram(): Command {
     .option('--database <file>', 'Encrypted credential SQLite database', './prova-credentials.sqlite')
     .action(figmaCommand);
 
+  program
+    .command('promote')
+    .description('Run a Playwright test through an ordered environment promotion chain')
+    .requiredOption('--config <file>', 'Promotion configuration JSON file')
+    .requiredOption('--chain <name>', 'Named environment chain')
+    .requiredOption('--from <environment>', 'Current/source environment')
+    .requiredOption('--to <environment>', 'Next/target environment')
+    .requiredOption('--test <suite.spec.ts>', 'Playwright test file to run at each gate')
+    .option('--coverage <percent>', 'Observed statement coverage for configured coverage gates')
+    .option('--block-on-fail', 'Stop promotion after the first failed environment', true)
+    .option('--report <file>', 'Detailed JSON promotion report', './promotion-report.json')
+    .action(promoteCommand);
+
   return program;
 }
 
