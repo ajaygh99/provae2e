@@ -337,6 +337,95 @@ export async function traceCommand(opts: TraceActionOptions): Promise<void> {
   }
 }
 
+/** Raw CLI values accepted by the `trace` command with commit SHA. */
+export interface TraceCommitActionOptions {
+  commit: string;
+  repo?: string;
+  database: string;
+  output?: string;
+  json: boolean;
+  githubToken?: string;
+}
+
+/** Generates a Golden Thread traceability report for a commit SHA. */
+export async function traceCommitCommand(opts: TraceCommitActionOptions): Promise<void> {
+  try {
+    const { GoldenThreadStore } = await import('../core/golden-thread-store.js');
+    const { GoldenThreadLinker } = await import('../core/golden-thread-linker.js');
+    const { linkGitHubBuildAndDeploy } = await import('../core/golden-thread-github.js');
+    const { renderCommitTraceHtml, renderCommitTraceJson } = await import('../reporters/golden-thread-commit-reporter.js');
+    const { writeFile } = await import('node:fs/promises');
+
+    const repoStr = opts.repo || process.env['GITHUB_REPO'];
+    const githubToken = opts.githubToken || process.env['GITHUB_TOKEN'];
+
+    if (!repoStr || !githubToken) {
+      log.error('GitHub credentials required: --repo owner/repo and --github-token, or GITHUB_REPO and GITHUB_TOKEN environment variables');
+      process.exitCode = 1;
+      return;
+    }
+
+    const [repo_owner, repo_name] = repoStr.split('/');
+    if (!repo_owner || !repo_name) {
+      log.error('Invalid repo format. Use --repo owner/repo');
+      process.exitCode = 1;
+      return;
+    }
+
+    const store = await GoldenThreadStore.open(opts.database);
+    const linker = new GoldenThreadLinker(store);
+
+    log.info(`Initiating Golden Thread for commit ${opts.commit}...`);
+
+    let golden_thread_id = '';
+    try {
+      golden_thread_id = await linker.initiateChain({
+        actor: 'github-connector',
+        artifact_url: `https://github.com/${repo_owner}/${repo_name}/commit/${opts.commit}`,
+        metadata: { commit_sha: opts.commit, repo: repoStr }
+      });
+
+      await linkGitHubBuildAndDeploy({
+        golden_thread_id,
+        commit_sha: opts.commit,
+        repo_owner,
+        repo_name,
+        github_token: githubToken,
+        golden_thread_linker: linker
+      });
+    } catch (error) {
+      log.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+      return;
+    }
+
+    const chain = await linker.getChain(golden_thread_id);
+    if (!chain) {
+      log.error('Failed to retrieve created chain');
+      process.exitCode = 1;
+      return;
+    }
+
+    if (opts.json) {
+      const jsonReport = renderCommitTraceJson(chain, opts.commit);
+      if (opts.output) {
+        await writeFile(opts.output, jsonReport);
+        log.success(`Golden Thread JSON report written to ${opts.output}`);
+      } else {
+        log.info('Golden Thread JSON report', { report: jsonReport });
+      }
+    } else {
+      const htmlReport = renderCommitTraceHtml(chain, opts.commit);
+      const outputPath = opts.output || `golden-thread-commit-${opts.commit.substring(0, 7)}.html`;
+      await writeFile(outputPath, htmlReport);
+      log.success(`Golden Thread HTML report written to ${outputPath}`);
+    }
+  } catch (error) {
+    log.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
+}
+
 /** Raw CLI values accepted by the `promote` command. */
 export interface PromoteActionOptions {
   config: string;
@@ -917,6 +1006,24 @@ export function buildProgram(): Command {
       jiraUrl: opts.jiraUrl,
       jiraUsername: opts.jiraUsername,
       jiraApiToken: opts.jiraApiToken
+    }));
+
+  program
+    .command('trace-commit')
+    .description('Generate a Golden Thread traceability report for a GitHub commit')
+    .requiredOption('--commit <SHA>', 'Git commit SHA')
+    .option('--repo <owner/repo>', 'GitHub repo (or GITHUB_REPO env var)')
+    .option('--database <file>', 'SQLite database path', './prova-golden-thread.sqlite')
+    .option('--output <file>', 'Report output file path (auto-named if omitted)')
+    .option('--json', 'Output JSON instead of HTML', false)
+    .option('--github-token <token>', 'GitHub API token (or GITHUB_TOKEN env var)')
+    .action((opts) => traceCommitCommand({
+      commit: opts.commit,
+      repo: opts.repo,
+      database: opts.database,
+      output: opts.output,
+      json: opts.json,
+      githubToken: opts.githubToken
     }));
 
   program
