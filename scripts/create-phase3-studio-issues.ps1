@@ -26,7 +26,7 @@
 
 param(
     [switch]$DryRun,
-    [string]$ReportPath = "sprint/phase3-sprint.md"
+    [string]$ReportPath = "daily/phase3-studio-issues-phase3-seed.md"
 )
 
 # ============================================================================
@@ -464,12 +464,17 @@ function Create-GitHubIssue {
     try {
         $args = @(
             "issue", "create",
+            "--repo", "ajaygh99/provae2e",
             "--title", $Title,
             "--body", $Body,
             "--label", ($Labels -join ",")
         )
 
-        $result = & gh @args
+        $result = & gh @args 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Failed to create issue: $Title - $result" -ForegroundColor Red
+            return $false
+        }
         Write-Host "✅ Created: $Title" -ForegroundColor Green
         return $true
     }
@@ -481,12 +486,15 @@ function Create-GitHubIssue {
 }
 
 function Show-DryRun {
-    Write-Host "`n📋 DRY RUN: Would create $($studioIssues.Count) Studio issues`n" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "DRY RUN: Would create $($studioIssues.Count) Studio issues" -ForegroundColor Cyan
+    Write-Host ""
 
     $byCategory = $studioIssues | Group-Object -Property category
 
     foreach ($group in $byCategory) {
-        Write-Host "$($group.Name.ToUpper()) ($($group.Count) issues)" -ForegroundColor White
+        $categoryLine = $group.Name.ToUpper() + ' (' + $group.Count + ' issues)'
+        Write-Host $categoryLine -ForegroundColor White
         Write-Host ("-" * 60)
 
         foreach ($issue in $group.Group) {
@@ -497,30 +505,55 @@ function Show-DryRun {
     }
 
     Write-Host ("=" * 60) -ForegroundColor Green
-    Write-Host "✅ Total: $($studioIssues.Count) issues ready for creation" -ForegroundColor Green
+    Write-Host "Total: $($studioIssues.Count) issues ready for creation" -ForegroundColor Green
     Write-Host "   Labels: phase3, epic:studio, feature" -ForegroundColor Green
 }
 
 function Create-AllIssues {
-    Write-Host "📝 Creating $($studioIssues.Count) Studio issues...`n" -ForegroundColor Cyan
+    Write-Host "Creating $($studioIssues.Count) Studio issues..." -ForegroundColor Cyan
 
     if (-not (Verify-GitHubAuth)) {
-        Write-Host "❌ GitHub authentication failed. Aborting." -ForegroundColor Red
+        Write-Host "GitHub authentication failed. Aborting." -ForegroundColor Red
         return $false
     }
 
     if (-not (Check-RateLimit)) {
-        Write-Host "❌ Insufficient API rate limit. Aborting." -ForegroundColor Red
+        Write-Host "Insufficient API rate limit. Aborting." -ForegroundColor Red
         return $false
     }
 
+    foreach ($label in @(
+        @{ Name = 'phase3'; Color = '5319E7'; Description = 'Phase 3 Platform roadmap work' },
+        @{ Name = 'epic:studio'; Color = '1D76DB'; Description = 'PROVA Studio epic' },
+        @{ Name = 'feature'; Color = '0E8A16'; Description = 'Product feature' },
+        @{ Name = 'agent-implement'; Color = '0E8A16'; Description = 'Queued for nightly implementation' }
+    )) {
+        & gh label create $label.Name --repo "ajaygh99/provae2e" --color $label.Color --description $label.Description --force 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Failed to ensure GitHub label: $($label.Name)" -ForegroundColor Red
+            return $false
+        }
+    }
+
+    $existingJson = & gh issue list --repo "ajaygh99/provae2e" --state all --limit 1000 --json title 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Failed to list existing GitHub issues: $existingJson" -ForegroundColor Red
+        return $false
+    }
+    $existingTitles = @($existingJson | ConvertFrom-Json | ForEach-Object { $_.title })
     $created = 0
+    $skipped = 0
     $failed = 0
-    $createdNumbers = @()
 
     foreach ($issue in $studioIssues) {
+        if ($existingTitles -contains $issue.title) {
+            Write-Host "Skipped existing issue: $($issue.title)" -ForegroundColor Yellow
+            $skipped++
+            continue
+        }
         $body = "$($issue.description)`n`n---`n**Story Points:** $($issue.storyPoints)"
         $labels = @("phase3", "epic:studio", "feature")
+        if ($issue.num -le 5) { $labels += "agent-implement" }
 
         if (Create-GitHubIssue -Title $issue.title -Body $body -Labels $labels) {
             $created++
@@ -532,36 +565,33 @@ function Create-AllIssues {
         Start-Sleep -Milliseconds 500
     }
 
-    Write-Host "`n$("=" * 60)" -ForegroundColor Green
-    Write-Host "📊 RESULTS:" -ForegroundColor Green
+    Write-Host ""
+    Write-Host ("=" * 60) -ForegroundColor Green
+    Write-Host "RESULTS:" -ForegroundColor Green
     Write-Host "   Created: $created/$($studioIssues.Count)" -ForegroundColor Green
+    Write-Host "   Skipped: $skipped/$($studioIssues.Count)" -ForegroundColor Yellow
     Write-Host "   Failed:  $failed/$($studioIssues.Count)" -ForegroundColor Green
 
-    return ($failed -eq 0)
+    return ($failed -eq 0 -and ($created + $skipped) -eq $studioIssues.Count)
 }
 
 function Update-SprintProgress {
     param([bool]$Success)
 
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $status = if ($Success) { "✅ COMPLETE" } else { "⚠️  PARTIAL" }
+    $status = if ($Success) { "COMPLETE" } else { "PARTIAL" }
 
-    $progressEntry = @"
-
-## Night 1 — Studio Issues (2026-07-22 22:00)
-**Time:** $timestamp
-**Status:** $status
-- Created: 40 Studio feature issues
-- Labels: `phase3`, `epic:studio`, `feature`
-- Story Points: Fibonacci mix (2-8 points)
-- Categories:
-  - UI Framework & Scaffolding (5 issues)
-  - Test Builder UI (15 issues)
-  - Execution Viewer (10 issues)
-  - Integration & Auth (10 issues)
-- Git commit: "chore: create Phase 3 Studio issues batch 1/3"
-
-"@
+    $progressEntry = @(
+        "",
+        "## Night 1 - Studio Issues (2026-07-22 22:00)",
+        "**Time:** $timestamp",
+        "**Status:** $status",
+        "- Target: 40 Studio feature issues",
+        "- Labels: phase3, epic:studio, feature",
+        "- Story Points: Fibonacci mix (2-8 points)",
+        "- Categories: Framework, Builder, Viewer, Integration",
+        ""
+    ) -join "`r`n"
 
     if (Test-Path $ReportPath) {
         Add-Content -Path $ReportPath -Value $progressEntry -Encoding UTF8
@@ -569,16 +599,18 @@ function Update-SprintProgress {
         Set-Content -Path $ReportPath -Value $progressEntry -Encoding UTF8
     }
 
-    Write-Host "✅ Progress logged to $ReportPath" -ForegroundColor Green
+    Write-Host "Progress logged to $ReportPath" -ForegroundColor Green
 }
 
 # ============================================================================
 # MAIN EXECUTION
 # ============================================================================
 
-Write-Host "`n$("=" * 60)" -ForegroundColor Cyan
-Write-Host "PROVA Phase 3 — Night 1 Studio Issues Creator" -ForegroundColor Cyan
-Write-Host "$("=" * 60)`n" -ForegroundColor Cyan
+Write-Host ""
+Write-Host ("=" * 60) -ForegroundColor Cyan
+Write-Host "PROVA Phase 3 - Night 1 Studio Issues Creator" -ForegroundColor Cyan
+Write-Host ("=" * 60) -ForegroundColor Cyan
+Write-Host ""
 
 if ($DryRun) {
     Show-DryRun
@@ -587,11 +619,14 @@ if ($DryRun) {
     Update-SprintProgress -Success $success
 
     if ($success) {
-        Write-Host "`n✅ All issues created successfully!" -ForegroundColor Green
-        Write-Host "Next step: git commit and push" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "All issues created successfully!" -ForegroundColor Green
+        Write-Host "Phase 3 Studio issue seed is complete and safe to rerun." -ForegroundColor Cyan
     } else {
-        Write-Host "`n⚠️  Some issues failed to create." -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Some issues failed to create." -ForegroundColor Yellow
+        exit 1
     }
 }
 
-Write-Host "`n"
+Write-Host ""

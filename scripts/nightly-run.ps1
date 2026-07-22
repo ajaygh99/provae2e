@@ -208,6 +208,26 @@ try {
         exit 1
     }
 
+    # Seed the approved Phase 3 Studio backlog once. The creator is
+    # idempotent, while this label check avoids spending time on it nightly.
+    # This run stops after seeding; implementation begins on the next run.
+    $phase3Existing = gh issue list --repo $RepoSlug --state all --label "epic:studio" --limit 1 --json number
+    if ($LASTEXITCODE -ne 0) {
+        Log "FATAL: could not check whether the Phase 3 Studio backlog exists."
+        exit 1
+    }
+    $phase3Issues = @($phase3Existing | ConvertFrom-Json)
+    if ($phase3Issues.Count -eq 0) {
+        Log "No Phase 3 Studio backlog found. Running the one-time idempotent issue seed."
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "create-phase3-studio-issues.ps1")
+        if ($LASTEXITCODE -ne 0) {
+            Log "FATAL: Phase 3 Studio issue seed failed (exit code $LASTEXITCODE)."
+            exit 1
+        }
+        Log "Phase 3 Studio backlog seed completed. Implementation begins on the next nightly run."
+        exit 0
+    }
+
     # 2. Find the oldest open Issue labeled agent-implement
     Log "Looking for Issues labeled agent-implement..."
     $issuesJson = gh issue list --label "agent-implement" --state open --json number,title,body --limit 5
