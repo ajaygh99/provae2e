@@ -12,6 +12,11 @@ test-results/
 prova-reports/
 allure-results/
 allure-report/
+reports/
+tests/**/.tmp-*/
+
+# Local operational preflight reports (machine/date-specific)
+sprint/*PREFLIGHT*.md
 
 # Environment — NEVER COMMIT
 .env

@@ -52,11 +52,23 @@ describe('nightly-run.ps1 — critical git commands fail fast instead of continu
     }
   });
 
-  it('the final push that logs sprint completion also fails fast on error', () => {
-    const pushBlockMatch = script.match(/git push origin main \| Out-Null([\s\S]{0,200})/);
+  it('puts sprint bookkeeping on the protected PR branch and fails fast if that push fails', () => {
+    expect(script).not.toMatch(/git push origin main/);
+    const pushBlockMatch = script.match(/git push origin \$branch \| Out-Null([\s\S]{0,220})/);
     expect(pushBlockMatch).not.toBeNull();
     expect(pushBlockMatch?.[1]).toMatch(/if\s*\(\$LASTEXITCODE -ne 0\)/);
     expect(pushBlockMatch?.[1]).toMatch(/exit 1/);
+  });
+});
+
+describe('nightly-run.ps1 — LENS fallback is tied to the current head', () => {
+  const script = readFileSync(path.join(__dirname, '../../scripts/nightly-run.ps1'), 'utf-8');
+
+  it('accepts a successful LENS run without a label only when the current head has no blocking findings', () => {
+    expect(script).toMatch(/pulls\/\$prNumber\/comments/);
+    expect(script).toMatch(/pulls\/\$prNumber\/reviews/);
+    expect(script).toMatch(/\$_\.commit_id -eq \$headSha/);
+    expect(script).toMatch(/BLOCKER\|MAJOR/);
   });
 });
 
