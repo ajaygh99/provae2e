@@ -38,6 +38,9 @@ $RepoSlug = "ajaygh99/provae2e"
 $LensWorkflowFile          = "agent-trigger.yml"
 $LensReviewTimeoutMinutes  = 10
 $LensPollIntervalSeconds   = 15
+$CiWorkflowFile            = "prova-ci.yml"
+$CiTimeoutMinutes          = 15
+$CiPollIntervalSeconds     = 15
 # Guards against two overlapping invocations of this script (e.g. a manual
 # Start-ScheduledTask run overlapping the scheduled 10pm one, or a previous
 # run still mid-flight) picking up and processing the same Issue twice.
@@ -134,16 +137,32 @@ function Wait-ForLensReview($prNumber) {
 # branch protection should also mark these checks as required in GitHub.
 function Wait-ForQualityChecks($prNumber) {
     Log "Waiting for all CI checks on PR #$prNumber..."
-    # Suppress gh's success/failure text. PowerShell functions emit every
-    # uncaptured pipeline value; returning that text alongside `$false` makes
-    # `[bool](Wait-ForQualityChecks ...)` evaluate a non-empty array as true.
-    # That previously enabled auto-merge even after a required CI check failed.
-    gh pr checks $prNumber --repo $RepoSlug --watch --fail-fast --interval 15 | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Log "CI checks for PR #$prNumber did not all pass."
+    $deadline = (Get-Date).AddMinutes($CiTimeoutMinutes)
+    $headSha = gh pr view $prNumber --repo $RepoSlug --json headRefOid --jq ".headRefOid"
+    if ($LASTEXITCODE -ne 0 -or -not $headSha) {
+        Log "FATAL: could not resolve the CI head commit for PR #$prNumber."
         return $false
     }
-    return $true
+
+    # A synchronize push can briefly leave `gh pr checks` with no checks, or
+    # showing checks from the previous head. Observe the CI workflow run whose
+    # headSha exactly matches the current PR head instead of failing early or
+    # accepting stale results.
+    while ((Get-Date) -lt $deadline) {
+        $runsJson = gh run list --repo $RepoSlug --workflow $CiWorkflowFile --branch $branch --json databaseId,headSha,status,conclusion --limit 10
+        if ($LASTEXITCODE -eq 0 -and $runsJson) {
+            $runs = @($runsJson | ConvertFrom-Json)
+            $currentRun = $runs | Where-Object { $_.headSha -eq $headSha } | Select-Object -First 1
+            if ($currentRun -and $currentRun.status -eq "completed") {
+                Log "CI run $($currentRun.databaseId) for commit $headSha finished (conclusion: $($currentRun.conclusion))."
+                return ($currentRun.conclusion -eq "success")
+            }
+        }
+        Start-Sleep -Seconds $CiPollIntervalSeconds
+    }
+
+    Log "CI did not complete for commit $headSha within $CiTimeoutMinutes minutes."
+    return $false
 }
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
@@ -368,11 +387,15 @@ Do not stop until typecheck, lint, and tests all pass and the PR is open. Work a
     }
 
     if (-not $clean) {
-        Log "LENS flagged BLOCKER/MAJOR items. Giving FORGE one automatic fix-up pass."
+        Log "LENS or CI did not pass. Giving FORGE one automatic fix-up pass."
         $fixPrompt = @"
 You are FORGE. Read the review comments LENS left on PR #${prNumber} (see:
   gh pr view $prNumber --repo $RepoSlug --comments )
+Also inspect all PR checks and any failing GitHub Actions logs (see:
+  gh pr checks $prNumber --repo $RepoSlug
+  gh run view <run-id> --repo $RepoSlug --log-failed )
 Address every BLOCKER and MAJOR item LENS raised. Do not touch MINOR/SUGGESTION items unless trivial.
+Fix every failing CI test, typecheck, lint, or coverage gate; never lower a quality threshold.
 Commit and push the fixes to the same branch '$branch'.
 Re-run npm run typecheck && npm run lint && npm test and make sure everything is still green before finishing.
 "@

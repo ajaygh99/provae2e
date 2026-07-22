@@ -42,7 +42,9 @@ describe('LENS review — single mechanism', () => {
 
   it('requires all GitHub checks to pass before the script requests a merge', () => {
     expect(nightlyScript).toMatch(/Wait-ForQualityChecks/);
-    expect(nightlyScript).toMatch(/gh pr checks .*--watch --fail-fast/);
+    expect(nightlyScript).toMatch(/gh run list .*--workflow \$CiWorkflowFile/);
+    expect(nightlyScript).toMatch(/headSha -eq \$headSha/);
+    expect(nightlyScript).toMatch(/currentRun\.conclusion -eq "success"/);
     expect(nightlyScript.indexOf('Wait-ForQualityChecks')).toBeLessThan(
       nightlyScript.lastIndexOf('gh pr merge')
     );
