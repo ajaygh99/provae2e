@@ -33,21 +33,21 @@
   }
 
   p {
-    @apply text-text-tertiary;
+    @apply text-prova-text-tertiary;
   }
 
   button {
-    @apply font-inherit;
+    font: inherit;
   }
 
   a {
-    @apply font-inherit;
+    font: inherit;
   }
 
   input,
   textarea,
   select {
-    @apply font-inherit;
+    font: inherit;
   }
 }
 
@@ -159,7 +159,7 @@
   }
 
   .metric-card strong {
-    @apply text-prova-text-DEFAULT text-3xl;
+    @apply text-prova-text text-3xl;
   }
 
   .panel p,
@@ -196,14 +196,14 @@
   }
 
   .ui-input {
-    @apply w-full border border-prova-border-lighter rounded-lg px-3 py-2.5 text-prova-text-DEFAULT bg-white transition-colors;
+    @apply w-full border border-prova-border-lighter rounded-lg px-3 py-2.5 text-prova-text bg-white transition-colors;
 
     &:focus {
       @apply outline-none ring-3 ring-prova-primary-disabled border-prova-primary;
     }
 
     &--invalid {
-      @apply border-prova-error-DEFAULT;
+      @apply border-prova-error;
     }
   }
 
@@ -216,7 +216,7 @@
   }
 
   .ui-textarea {
-    @apply min-h-28 resize-vertical;
+    @apply min-h-28 resize-y;
   }
 
   .ui-select {
