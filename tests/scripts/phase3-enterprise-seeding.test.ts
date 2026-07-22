@@ -7,6 +7,7 @@ const seederPath = join(repoRoot, 'scripts', 'create-phase3-enterprise-issues.ps
 const nightlyPath = join(repoRoot, 'scripts', 'nightly-run.ps1');
 const script = readFileSync(seederPath, 'utf8');
 const nightly = readFileSync(nightlyPath, 'utf8');
+const windowsIt = process.platform === 'win32' ? it : it.skip;
 
 type IssueDefinition = { num: number; title: string; category: string };
 
@@ -67,7 +68,7 @@ describe('Phase 3 enterprise seeder safety', () => {
     expect(script).not.toMatch(/\$labels \+= "agent-implement"[\s\S]{0,80}\b(?:Sentinel|Appium|OWASP ZAP|Knowledge Graph)\b/);
   });
 
-  it('executes a mutation-free 80-issue dry run', () => {
+  windowsIt('executes a mutation-free 80-issue dry run', () => {
     const report = join(repoRoot, 'daily', '.phase3-seeder-dry-run-test.md');
     if (existsSync(report)) rmSync(report);
     const output = execFileSync('powershell.exe', [
