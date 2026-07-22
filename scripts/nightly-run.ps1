@@ -231,9 +231,12 @@ try {
     # array (Count 1) - which previously fooled this check into believing a
     # backlog already existed and skipped the seed forever. Filter out the
     # null so a genuinely empty result reports Count 0 and seeding runs.
-    $phase3StudioIssues = @($phase3StudioExisting | ConvertFrom-Json | Where-Object { $_ })
-    if ($phase3StudioIssues.Count -lt 40) {
-        Log "Phase 3 Studio backlog is incomplete (N=$($phase3StudioIssues.Count)/40). Running the idempotent Studio issue seed."
+    # Windows PowerShell 5.1 may preserve a JSON array as one pipeline object;
+    # use the parsed array's own Count instead of wrapping pipeline output.
+    $phase3StudioParsed = $phase3StudioExisting | ConvertFrom-Json
+    $phase3StudioCount = if ($null -eq $phase3StudioParsed) { 0 } else { $phase3StudioParsed.Count }
+    if ($phase3StudioCount -lt 40) {
+        Log "Phase 3 Studio backlog is incomplete (N=$phase3StudioCount/40). Running the idempotent Studio issue seed."
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "create-phase3-studio-issues.ps1")
         if ($LASTEXITCODE -ne 0) {
             Log "FATAL: Phase 3 Studio issue seed failed (exit code $LASTEXITCODE)."
@@ -242,7 +245,7 @@ try {
         Log "Phase 3 Studio backlog seed completed."
         exit 0
     } else {
-        Log "Phase 3 Studio backlog already exists (N=$($phase3StudioIssues.Count))."
+        Log "Phase 3 Studio backlog already exists (N=$phase3StudioCount)."
     }
 
     # Seed enterprise backlog (Golden Thread, Sentinel, Appium, ZAP, Knowledge Graph)
@@ -252,9 +255,10 @@ try {
         Log "FATAL: could not check whether the Phase 3 enterprise backlog exists."
         exit 1
     }
-    $phase3EnterpriseIssues = @($phase3EnterpriseExisting | ConvertFrom-Json | Where-Object { $_ })
-    if ($phase3EnterpriseIssues.Count -lt 80) {
-        Log "Phase 3 enterprise backlog is incomplete (N=$($phase3EnterpriseIssues.Count)/80). Running the idempotent enterprise issue seed."
+    $phase3EnterpriseParsed = $phase3EnterpriseExisting | ConvertFrom-Json
+    $phase3EnterpriseCount = if ($null -eq $phase3EnterpriseParsed) { 0 } else { $phase3EnterpriseParsed.Count }
+    if ($phase3EnterpriseCount -lt 80) {
+        Log "Phase 3 enterprise backlog is incomplete (N=$phase3EnterpriseCount/80). Running the idempotent enterprise issue seed."
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "create-phase3-enterprise-issues.ps1")
         if ($LASTEXITCODE -ne 0) {
             Log "FATAL: Phase 3 enterprise issue seed failed (exit code $LASTEXITCODE)."
@@ -263,7 +267,7 @@ try {
         Log "Phase 3 enterprise backlog seed completed."
         exit 0
     } else {
-        Log "Phase 3 enterprise backlog already exists (N=$($phase3EnterpriseIssues.Count))."
+        Log "Phase 3 enterprise backlog already exists (N=$phase3EnterpriseCount)."
     }
 
     # Both backlog seeds are complete. Continue into the normal implementation flow.
