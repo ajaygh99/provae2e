@@ -269,6 +269,74 @@ async function perfHistoryCommand(opts: PerfActionOptions, vus: number, duration
   } finally { store.close(); }
 }
 
+/** Raw CLI values accepted by the `trace` command. */
+export interface TraceActionOptions {
+  issueKey: string;
+  database: string;
+  output?: string;
+  json: boolean;
+  jiraUrl?: string;
+  jiraUsername?: string;
+  jiraApiToken?: string;
+}
+
+/** Generates a Golden Thread traceability report for a JIRA issue. */
+export async function traceCommand(opts: TraceActionOptions): Promise<void> {
+  try {
+    const { GoldenThreadStore } = await import('../core/golden-thread-store.js');
+    const { GoldenThreadLinker } = await import('../core/golden-thread-linker.js');
+    const { initiateFromJira } = await import('../core/golden-thread-jira.js');
+    const { generateHtmlReport, generateJsonReport } = await import('../reporters/golden-thread-reporter.js');
+    const { writeFile } = await import('node:fs/promises');
+
+    const jiraUrl = opts.jiraUrl || process.env['JIRA_URL'];
+    const jiraApiToken = opts.jiraApiToken || process.env['JIRA_API_TOKEN'];
+
+    if (!jiraUrl || !jiraApiToken) {
+      log.error('JIRA credentials required: --jiraUrl, --jiraApiToken or JIRA_URL and JIRA_API_TOKEN environment variables');
+      process.exitCode = 1;
+      return;
+    }
+
+    const store = await GoldenThreadStore.open(opts.database);
+    const linker = new GoldenThreadLinker(store);
+
+    log.info(`Initiating Golden Thread for ${opts.issueKey}...`);
+    const golden_thread_id = await initiateFromJira({
+      issue_key: opts.issueKey,
+      golden_thread_linker: linker,
+      baseUrl: jiraUrl,
+      apiToken: jiraApiToken,
+      ticketKey: opts.issueKey
+    });
+
+    const chain = await linker.getChain(golden_thread_id);
+    if (!chain) {
+      log.error('Failed to retrieve created chain');
+      process.exitCode = 1;
+      return;
+    }
+
+    if (opts.json) {
+      const jsonReport = generateJsonReport(chain);
+      if (opts.output) {
+        await writeFile(opts.output, jsonReport);
+        log.success(`Golden Thread JSON report written to ${opts.output}`);
+      } else {
+        log.info('Golden Thread JSON report', { report: jsonReport });
+      }
+    } else {
+      const htmlReport = generateHtmlReport(chain, { title: `Golden Thread — ${opts.issueKey}` });
+      const outputPath = opts.output || `golden-thread-${opts.issueKey}.html`;
+      await writeFile(outputPath, htmlReport);
+      log.success(`Golden Thread HTML report written to ${outputPath}`);
+    }
+  } catch (error) {
+    log.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
+}
+
 /** Raw CLI values accepted by the `promote` command. */
 export interface PromoteActionOptions {
   config: string;
@@ -830,6 +898,26 @@ export function buildProgram(): Command {
     .option('--output <dir>', 'Generated Figma test directory', './generated-tests/figma')
     .option('--database <file>', 'Encrypted credential SQLite database', './prova-credentials.sqlite')
     .action(figmaCommand);
+
+  program
+    .command('trace')
+    .description('Generate a 7-stage Golden Thread traceability report for a JIRA issue')
+    .requiredOption('--issue-key <PROJ-123>', 'JIRA issue key')
+    .option('--database <file>', 'SQLite database path', './prova-golden-thread.sqlite')
+    .option('--output <file>', 'Report output file path (auto-named if omitted)')
+    .option('--json', 'Output JSON instead of HTML', false)
+    .option('--jira-url <url>', 'JIRA instance URL (or JIRA_URL env var)')
+    .option('--jira-username <username>', 'JIRA username (or JIRA_USERNAME env var)')
+    .option('--jira-api-token <token>', 'JIRA API token (or JIRA_API_TOKEN env var)')
+    .action((opts) => traceCommand({
+      issueKey: opts.issueKey,
+      database: opts.database,
+      output: opts.output,
+      json: opts.json,
+      jiraUrl: opts.jiraUrl,
+      jiraUsername: opts.jiraUsername,
+      jiraApiToken: opts.jiraApiToken
+    }));
 
   program
     .command('promote')
