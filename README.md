@@ -16,6 +16,19 @@ npx playwright install chromium
 
 The second command installs the Chromium runtime used by browser and mobile tests.
 
+## PROVA Studio (Phase 3)
+
+The codeless web application is isolated in `studio/` so the published CLI remains lightweight.
+
+```bash
+npm ci --prefix studio
+npm run dev --prefix studio
+```
+
+Open `http://localhost:4173` to use the dashboard shell. Validate it with
+`npm run typecheck --prefix studio`, `npm run lint --prefix studio`, and
+`npm test --prefix studio`.
+
 ## Quick Start
 
 ```bash

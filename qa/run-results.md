@@ -3,13 +3,19 @@
 # Format updated by qa-summary skill.
 
 ## Latest Run
-Status: PASS — Issue #28 API schema validation hardening: nested objects, arrays, nullable, optional fields, path-based errors
-Last updated: 2026-07-21
+Status: PASS — Issue #49 PROVA Studio React dashboard skeleton
+Last updated: 2026-07-22
 
 Details:
-- typecheck: PASS (`npm run typecheck`)
-- lint: PASS (`npm run lint`)
-- unit tests: PASS — 289/289 across all suites (`npm test`)
+- CLI typecheck and lint: PASS
+- CLI tests: PASS — 518/518 across 44 suites with coverage gate
+- Studio strict typecheck and ESLint: PASS
+- Studio component tests: PASS — 8/8
+- Studio production Vite build: PASS
+- Routes: dashboard, builder, execution, settings, and unknown-route fallback
+- Persistent shell: sidebar, active navigation, workspace header, user profile, and logout
+
+Previous Issue #28 details:
 - New module `src/core/schema-validator.ts` — comprehensive nested schema validation with:
   - Support for nested objects, arrays, and primitive types
   - Nullable fields (value can be null)
