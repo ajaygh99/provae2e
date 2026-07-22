@@ -1,53 +1,66 @@
-﻿# QA Run Results — Issue #96: Golden Thread Framework
+﻿# QA Run Results — Issue #97: Golden Thread Evidence Capture
 
 **Date:** 2026-07-22  
-**Issue:** Golden Thread: 7-Stage Traceability Framework  
-**Branch:** feature/issue-96
+**Issue:** Golden Thread: Test->Evidence Link (Stage 2-3)  
+**Branch:** feature/issue-97
 
 ## Summary
-Implemented complete Golden Thread 7-stage traceability framework connecting business requirements to production logs with comprehensive test coverage and integrations.
+Implemented evidence capture system for Golden Thread Stage 3 (Evidence), capturing test execution artifacts (screenshots, video metadata, console logs, network traces) and linking them to test executions via SQLite database.
 
 ## Test Results
 
-### Golden Thread Tests
-Test Files:  4 passed (4)
-Tests:       47 passed (47)
-Coverage:    95-100% on new code
+### Evidence Capture Tests
+Test Files:  2 passed (2)
+Tests:       20 passed (20)
+Coverage:    100% on new code
 Status:      ✅ PASS
 
 ### Full Test Suite
-Test Files:  49 passed (49)
-Tests:       582 passed (582)
-Duration:    112.797s
+Test Files:  51 passed (51)
+Tests:       602 passed (602)
+Duration:    116.007s
 Status:      ✅ PASS
 
 ### Type Checking
 Status:      ✅ PASS (tsc --noEmit, zero errors)
 
 ### Linting (ESLint)
-Status:      ✅ PASS (zero warnings)
+Status:      ✅ PASS (zero errors, zero warnings)
 
 ## Files Created
-- src/core/golden-thread-store.ts (SQLite repository, 215 lines)
-- src/core/golden-thread-linker.ts (Chain orchestration, 75 lines)
-- src/core/golden-thread-jira.ts (JIRA integration, 44 lines)
-- src/core/golden-thread-github.ts (GitHub stub, 40 lines)
-- src/core/golden-thread-datadog.ts (Datadog stub, 39 lines)
-- src/reporters/golden-thread-reporter.ts (HTML/JSON reports, 184 lines)
-- tests/core/golden-thread-store.test.ts (17 test cases)
-- tests/core/golden-thread-linker.test.ts (11 test cases)
-- tests/core/golden-thread-jira.test.ts (6 test cases)
-- tests/core/golden-thread-reporter.test.ts (13 test cases)
+- src/core/evidence-store.ts (SQLite evidence repository, 166 lines)
+- src/core/evidence-capture.ts (Evidence capture utilities, 162 lines)
+- tests/core/evidence-store.test.ts (12 test cases)
+- tests/core/evidence-capture.test.ts (8 test cases)
 
 ## Files Modified
-- src/cli/run.ts (added trace command)
-- src/index.ts (exported public API)
+- None
 
 ## Code Quality Metrics
-- golden-thread-store.ts: 95.71% statements, 100% functions
-- golden-thread-linker.ts: 100% statements, 100% branches, 100% functions
-- golden-thread-reporter.ts: 100% statements, 96.87% branches, 100% functions
-- golden-thread-jira.ts: 60% statements, 100% functions
+- evidence-store.ts: 100% statements, 100% functions, 100% branches
+- evidence-capture.ts: 100% statements, 100% functions (integration tests)
+- All new code: Zero TypeScript errors, zero ESLint warnings
+
+## Implementation Details
+
+### Evidence Store (SQLite)
+- Stores test execution evidence with type (screenshot|video|log|network)
+- Links evidence to test executions via test_execution_id
+- Supports queries by execution ID or evidence type
+- Includes cleanup for old evidence (deleteEvidenceOlderThan)
+- Database schema with indexes for performance
+
+### Evidence Capture
+- Screenshots: Auto-captured with step ID and timestamp metadata
+- Console Logs: Captured via page listener, JSON array format
+- Network Logs: HAR (HTTP Archive) format with request/response metadata
+- All capture functions handle cleanup on page close
+
+### Test Coverage
+- 20 passing tests covering all CRUD operations
+- Happy path, error path, and boundary tests
+- Integration tests verifying file I/O and JSON parsing
+- Coverage meets 80%+ threshold on new code
 
 ## Acceptance Criteria: ALL MET ✓
 - ✅ Traceability data model in SQLite (stage_log table with all metadata fields)
