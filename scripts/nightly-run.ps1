@@ -222,7 +222,12 @@ try {
         Log "FATAL: could not check whether the Phase 3 Studio backlog exists."
         exit 1
     }
-    $phase3Issues = @($phase3Existing | ConvertFrom-Json)
+    # gh prints "[]" when no issues match. In Windows PowerShell,
+    # `'[]' | ConvertFrom-Json` yields $null, and @($null) is a 1-element
+    # array (Count 1) - which previously fooled this check into believing a
+    # backlog already existed and skipped the seed forever. Filter out the
+    # null so a genuinely empty result reports Count 0 and seeding runs.
+    $phase3Issues = @($phase3Existing | ConvertFrom-Json | Where-Object { $_ })
     if ($phase3Issues.Count -eq 0) {
         Log "No Phase 3 Studio backlog found. Running the one-time idempotent issue seed."
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "create-phase3-studio-issues.ps1")
