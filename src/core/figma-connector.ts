@@ -15,7 +15,9 @@ export interface FigmaConnectorOptions {
   /** Frame/node ID copied from the design URL or Figma UI. */
   nodeId: string;
   /** Personal access token read by the CLI from `FIGMA_API_TOKEN`. */
-  apiToken: string;
+  apiToken?: string;
+  /** OAuth2 access token; preferred over a personal token when supplied. */
+  accessToken?: string;
   /** Request timeout in milliseconds. Defaults to 30000. */
   timeoutMs?: number;
 }
@@ -92,15 +94,18 @@ export async function fetchFigmaElements(options: FigmaConnectorOptions): Promis
   if (!nodeId || !/^[A-Za-z0-9:_-]+$/.test(nodeId)) {
     return { ok: false, error: `Invalid Figma node ID "${options.nodeId}"` };
   }
-  if (!options.apiToken.trim()) {
-    return { ok: false, error: 'FIGMA_API_TOKEN is required to fetch a Figma frame' };
+  const token = options.accessToken?.trim() || options.apiToken?.trim();
+  if (!token) {
+    return { ok: false, error: 'A Figma OAuth access token or FIGMA_API_TOKEN is required' };
   }
 
   try {
     const response = await axios.get<FigmaNodesResponse>(
       `https://api.figma.com/v1/files/${encodeURIComponent(fileKey)}/nodes`,
       {
-        headers: { 'X-Figma-Token': options.apiToken },
+        headers: options.accessToken
+          ? { Authorization: `Bearer ${options.accessToken}` }
+          : { 'X-Figma-Token': options.apiToken },
         params: { ids: nodeId },
         timeout: options.timeoutMs ?? 30000
       }
@@ -127,7 +132,7 @@ export async function fetchFigmaElements(options: FigmaConnectorOptions): Promis
         return { ok: false, error: `Figma file ${fileKey} or node ${nodeId} was not found (404)` };
       }
     }
-    const message = redactToken(error instanceof Error ? error.message : String(error), options.apiToken);
+    const message = redactToken(error instanceof Error ? error.message : String(error), token);
     return { ok: false, error: `Unable to fetch Figma frame ${nodeId}: ${message}` };
   }
 }

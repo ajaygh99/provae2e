@@ -21,14 +21,26 @@ import { validateRunOptions } from './validate.js';
 import type { RunOptionsInput } from './validate.js';
 import { generateTestsFromSpec } from '../generators/spec-test-generator.js';
 import type { GeneratedTestType } from '../generators/spec-test-generator.js';
+import { generateAiSpec } from '../generators/ai-spec-generator.js';
+import type { AcceptanceLanguage } from '../parsers/gherkin-parser.js';
 import { fetchJiraTicketDescription, syncJiraTestStatus } from '../core/jira-connector.js';
 import { parseJiraEnvironments, resolveJiraEnvironment } from '../core/jira-environments.js';
 import { generateTestDataFromFile } from '../core/test-data-factory.js';
+import {
+  generateAdvancedTestDataFromFile,
+  serializeTestData
+} from '../generators/test-data-factory.js';
+import type { DataFormat } from '../generators/test-data-factory.js';
 import { writeFile } from 'node:fs/promises';
 import { fetchFigmaElements } from '../core/figma-connector.js';
 import type { FigmaElement } from '../core/figma-connector.js';
+import { generateFigmaTests } from '../generators/figma-test-generator.js';
+import { FigmaCredentialStore } from '../storage/figma-credentials.js';
 import { runK6 } from '../core/k6-runner.js';
 import type { K6Metrics } from '../core/k6-runner.js';
+import { PerformanceStore } from '../perf/performance-store.js';
+import type { PerformanceRun } from '../perf/performance-store.js';
+import { detectRegressions, hasDegradingTrend, performanceRunsToCsv } from '../perf/regression-detector.js';
 import {
   comparePerformanceMetrics,
   loadPerformanceBaseline,
@@ -62,20 +74,199 @@ export interface GenerateActionOptions {
   figmaNode?: string;
 }
 
+/** Values accepted by deterministic `ai-gen`. */
+export interface AiGenActionOptions {
+  spec: string;
+  output: string;
+  url: string;
+  lang: string;
+  browsers: string;
+}
+
+/** Values accepted by Figma credential and sync workflows. */
+export interface FigmaActionOptions {
+  auth: boolean;
+  sync?: string;
+  node?: string;
+  output: string;
+  database: string;
+}
+
+/** Stores encrypted OAuth credentials or creates tests from a Figma frame. */
+export async function figmaCommand(opts: FigmaActionOptions): Promise<void> {
+  if (opts.auth === Boolean(opts.sync)) {
+    log.error('Choose exactly one Figma action: --auth or --sync <file-key>'); process.exitCode = 1; return;
+  }
+  const secret = process.env['PROVA_CREDENTIAL_KEY'];
+  if (opts.auth) {
+    const accessToken = process.env['FIGMA_OAUTH_ACCESS_TOKEN'];
+    if (!secret || !accessToken) {
+      log.error('PROVA_CREDENTIAL_KEY and FIGMA_OAUTH_ACCESS_TOKEN are required for --auth'); process.exitCode = 1; return;
+    }
+    const store = await FigmaCredentialStore.open(opts.database, secret);
+    try {
+      await store.save({
+        accessToken,
+        ...(process.env['FIGMA_OAUTH_REFRESH_TOKEN'] ? { refreshToken: process.env['FIGMA_OAUTH_REFRESH_TOKEN'] } : {}),
+        ...(process.env['FIGMA_OAUTH_EXPIRES_AT'] ? { expiresAt: process.env['FIGMA_OAUTH_EXPIRES_AT'] } : {})
+      });
+    } finally { store.close(); }
+    log.success('Encrypted Figma OAuth credentials saved');
+    return;
+  }
+  if (!opts.sync || !opts.node) {
+    log.error('--sync requires --node <node-id>'); process.exitCode = 1; return;
+  }
+  let accessToken: string | undefined;
+  if (secret) {
+    const store = await FigmaCredentialStore.open(opts.database, secret);
+    try { accessToken = store.load()?.accessToken; } finally { store.close(); }
+  }
+  const apiToken = process.env['FIGMA_API_TOKEN'];
+  const fetched = await fetchFigmaElements({
+    fileKey: opts.sync, nodeId: opts.node,
+    ...(accessToken ? { accessToken } : { apiToken })
+  });
+  if (!fetched.ok) { log.error(fetched.error); process.exitCode = 1; return; }
+  try {
+    const files = await generateFigmaTests(fetched.elements, opts.output);
+    log.success('Figma component tests generated', { files });
+  } catch (error) {
+    log.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1;
+  }
+}
+
+/** Generates a deterministic Playwright skeleton from acceptance criteria. */
+export async function aiGenCommand(opts: AiGenActionOptions): Promise<void> {
+  if (!['en', 'es', 'fr'].includes(opts.lang)) {
+    log.error('--lang must be one of en, es, fr'); process.exitCode = 1; return;
+  }
+  const result = await generateAiSpec({
+    specFile: opts.spec, outputDir: opts.output, url: opts.url,
+    language: opts.lang as AcceptanceLanguage,
+    browsers: opts.browsers.split(',').map((browser) => browser.trim()).filter(Boolean)
+  });
+  if (!result.ok) { log.error(result.error); process.exitCode = 1; return; }
+  log.success('Playwright specification generated', { file: result.file, scenarios: result.scenarios });
+}
+
 /** Raw CLI values accepted by the `data` command. */
 export interface DataActionOptions {
   schema: string;
   count: string;
   output?: string;
+  format?: string;
+  seed?: string;
+  edgeCases?: boolean;
+  table?: string;
 }
 
 /** Raw CLI values accepted by the `perf` command. */
 export interface PerfActionOptions {
-  url: string;
+  url?: string;
   vus: string;
   duration: string;
   baseline?: string;
   updateBaseline: boolean;
+  action?: string;
+  database?: string;
+  threshold?: string;
+  days?: string;
+  output?: string;
+  method?: string;
+  headers?: string;
+  body?: string;
+}
+
+function storedMetrics(metrics: K6Metrics): Pick<PerformanceRun,
+'p50ResponseTimeMs' | 'p95ResponseTimeMs' | 'p99ResponseTimeMs' | 'errorRate' | 'requestsPerSecond'> {
+  return {
+    p50ResponseTimeMs: metrics.p50ResponseTimeMs ?? metrics.p95ResponseTimeMs,
+    p95ResponseTimeMs: metrics.p95ResponseTimeMs,
+    p99ResponseTimeMs: metrics.p99ResponseTimeMs ?? metrics.p95ResponseTimeMs,
+    errorRate: metrics.errorRate,
+    requestsPerSecond: metrics.requestsPerSecond
+  };
+}
+
+async function perfHistoryCommand(opts: PerfActionOptions, vus: number, durationSeconds: number): Promise<void> {
+  const action = opts.action;
+  if (action !== 'set' && action !== 'check' && action !== 'report') {
+    log.error('--action must be one of set, check, report');
+    process.exitCode = 1;
+    return;
+  }
+  const threshold = Number(opts.threshold ?? '10');
+  const days = Number(opts.days ?? '7');
+  if (!Number.isFinite(threshold) || threshold < 0 || !Number.isInteger(days) || days < 1) {
+    log.error('--threshold must be non-negative and --days must be a positive integer');
+    process.exitCode = 1;
+    return;
+  }
+  const store = await PerformanceStore.open(opts.database ?? './prova-performance.sqlite');
+  try {
+    if (action === 'report') {
+      const since = new Date(Date.now() - days * 86_400_000).toISOString();
+      const runs = store.listRuns({ ...(opts.url ? { url: opts.url } : {}), since });
+      const report = performanceRunsToCsv(runs);
+      if (opts.output) await writeFile(opts.output, report, 'utf-8');
+      else process.stdout.write(report);
+      log.info('Performance history report complete', { runs: runs.length, degradingTrend: hasDegradingTrend(runs) });
+      return;
+    }
+    if (!opts.url || !isHttpUrl(opts.url)) {
+      log.error('--url must be an absolute HTTP(S) URL for set/check');
+      process.exitCode = 1;
+      return;
+    }
+    let headers: Record<string, string> | undefined;
+    let body: unknown;
+    try {
+      if (opts.headers) headers = JSON.parse(opts.headers) as Record<string, string>;
+      if (opts.body) body = JSON.parse(opts.body) as unknown;
+    } catch {
+      log.error('--headers and --body must contain valid JSON');
+      process.exitCode = 1;
+      return;
+    }
+    if (headers && (typeof headers !== 'object' || Array.isArray(headers)
+      || Object.values(headers).some((value) => typeof value !== 'string'))) {
+      log.error('--headers must be a JSON object containing string values');
+      process.exitCode = 1;
+      return;
+    }
+    const method = (opts.method ?? 'GET').toUpperCase();
+    if (!['GET', 'POST', 'PUT', 'DELETE'].includes(method)) {
+      log.error('--method must be GET, POST, PUT, or DELETE'); process.exitCode = 1; return;
+    }
+    const result = await runK6({
+      url: opts.url, vus, durationSeconds,
+      method: method as 'GET' | 'POST' | 'PUT' | 'DELETE', headers, body
+    });
+    if (!result.ok) { log.error(result.error); process.exitCode = 1; return; }
+    const timestamp = new Date().toISOString();
+    const metrics = storedMetrics(result.metrics);
+    if (action === 'set') {
+      const run: PerformanceRun = { url: opts.url, vus, durationSeconds, ...metrics, status: 'PASS', timestamp };
+      await store.setBaseline(run);
+      await store.addRun(run);
+      log.success('SQLite performance baseline saved', { url: opts.url, vus, durationSeconds });
+      return;
+    }
+    const baseline = store.getBaseline(opts.url, vus, durationSeconds);
+    if (!baseline) { log.error('No SQLite baseline found for this URL/load profile'); process.exitCode = 1; return; }
+    const regressions = detectRegressions(metrics, baseline, threshold);
+    await store.addRun({
+      url: opts.url, vus, durationSeconds, ...metrics,
+      status: regressions.length ? 'FAIL' : 'PASS', timestamp
+    });
+    if (regressions.length) {
+      for (const regression of regressions) log.error(regression.message);
+      process.exitCode = 1;
+      return;
+    }
+    log.success('Performance regression check passed');
+  } finally { store.close(); }
 }
 
 /** Raw CLI values accepted by the `promote` command. */
@@ -141,7 +332,7 @@ function isHttpUrl(value: string): boolean {
  * @param opts - Parsed `perf` command options.
  */
 export async function perfCommand(opts: PerfActionOptions): Promise<void> {
-  if (!isHttpUrl(opts.url)) {
+  if (opts.action === undefined && (!opts.url || !isHttpUrl(opts.url))) {
     log.error(`Invalid --url "${opts.url}": use an absolute http:// or https:// URL`);
     process.exitCode = 1;
     return;
@@ -163,6 +354,11 @@ export async function perfCommand(opts: PerfActionOptions): Promise<void> {
     process.exitCode = 1;
     return;
   }
+  if (opts.action !== undefined) {
+    await perfHistoryCommand(opts, vus, durationSeconds);
+    return;
+  }
+  if (!opts.url) return;
 
   let storedBaseline: K6Metrics | undefined;
   if (opts.baseline) {
@@ -225,19 +421,45 @@ export async function dataCommand(opts: DataActionOptions): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  const result = await generateTestDataFromFile(opts.schema, { count });
+  const format = opts.format ?? 'json';
+  const formats = ['json', 'csv', 'env', 'sql'];
+  if (!formats.includes(format)) {
+    log.error('--format must be one of json, csv, env, sql');
+    process.exitCode = 1;
+    return;
+  }
+  const seed = opts.seed === undefined ? undefined : Number(opts.seed);
+  if (seed !== undefined && !Number.isInteger(seed)) {
+    log.error('--seed must be an integer');
+    process.exitCode = 1;
+    return;
+  }
+  const legacyCall = opts.format === undefined && opts.seed === undefined && opts.edgeCases === undefined;
+  const result = legacyCall
+    ? await generateTestDataFromFile(opts.schema, { count })
+    : await generateAdvancedTestDataFromFile(opts.schema, { count, seed, edgeCases: opts.edgeCases });
   if (!result.ok) {
     log.error(result.error);
     process.exitCode = 1;
     return;
   }
-  const json = `${JSON.stringify(result.data, null, 2)}\n`;
+  let output: string;
+  try {
+    const records = 'records' in result
+      ? result.records
+      : Array.isArray(result.data) && count > 1 ? result.data : [result.data];
+    output = serializeTestData(records, format as DataFormat, opts.table ?? 'test_data');
+  } catch (error) {
+    log.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+    return;
+  }
   if (!opts.output) {
-    process.stdout.write(json);
+    process.stdout.write(output);
     return;
   }
   try {
-    await writeFile(opts.output, json, { encoding: 'utf-8' });
+    await writeFile(opts.output, output, { encoding: 'utf-8' });
     log.success('Test data written', { output: opts.output, count });
   } catch (error) {
     log.error(`Unable to write test data file "${opts.output}"`, error);
@@ -545,7 +767,15 @@ export function buildProgram(): Command {
   program
     .command('perf')
     .description('Run a k6 performance check and compare it with a stored baseline')
-    .requiredOption('--url <target>', 'Target URL for the k6 load test')
+    .option('--url <target>', 'Target URL for the k6 load test')
+    .option('--action <action>', 'SQLite workflow: set|check|report')
+    .option('--database <file>', 'SQLite performance database', './prova-performance.sqlite')
+    .option('--threshold <percent>', 'Allowed regression percentage', '10')
+    .option('--days <n>', 'History days included in reports', '7')
+    .option('--output <file.csv>', 'CSV report destination')
+    .option('--method <method>', 'HTTP method: GET|POST|PUT|DELETE', 'GET')
+    .option('--headers <json>', 'Request headers as JSON; use environment expansion for secrets')
+    .option('--body <json>', 'JSON request payload for POST/PUT')
     .option('--vus <n>', 'Number of virtual users', '10')
     .option('--duration <s>', 'Test duration in seconds', '30')
     .option('--baseline <file>', 'Performance baseline JSON file')
@@ -557,7 +787,11 @@ export function buildProgram(): Command {
     .description('Generate realistic JSON test data from a schema or example file')
     .requiredOption('--schema <file.json>', 'JSON Schema, descriptor shape, or example JSON file')
     .option('--count <n>', 'Number of records to generate', '1')
-    .option('--output <file.json>', 'Write JSON to a file instead of stdout')
+    .option('--format <format>', 'Output format: json|csv|env|sql', 'json')
+    .option('--seed <integer>', 'Seed for reproducible Faker output')
+    .option('--edge-cases', 'Generate nullable, empty, and maximum boundary values', false)
+    .option('--table <name>', 'SQL table name when --format sql is used', 'test_data')
+    .option('--output <file>', 'Write output to a file instead of stdout')
     .action(dataCommand);
 
   program
@@ -576,6 +810,26 @@ export function buildProgram(): Command {
     .option('--output <dir>', 'Directory for generated test files', './generated-tests')
     .option('--schema <file.json>', 'Populate API request bodies from a schema or example JSON file')
     .action(generateCommand);
+
+  program
+    .command('ai-gen')
+    .description('Generate deterministic Playwright tests from multilingual acceptance criteria')
+    .requiredOption('--spec <file.md>', 'Markdown, text, or Gherkin specification')
+    .requiredOption('--url <url>', 'Default application URL')
+    .option('--output <dir>', 'Generated test directory', './generated-tests')
+    .option('--lang <language>', 'Acceptance-criteria language: en|es|fr', 'en')
+    .option('--browsers <list>', 'Comma-separated tags: chromium,firefox,webkit', 'chromium,firefox,webkit')
+    .action(aiGenCommand);
+
+  program
+    .command('figma')
+    .description('Store encrypted Figma OAuth credentials or generate component test stubs')
+    .option('--auth', 'Encrypt FIGMA_OAUTH_ACCESS_TOKEN into SQLite', false)
+    .option('--sync <file-key>', 'Figma file key to synchronize')
+    .option('--node <node-id>', 'Frame/node ID used with --sync')
+    .option('--output <dir>', 'Generated Figma test directory', './generated-tests/figma')
+    .option('--database <file>', 'Encrypted credential SQLite database', './prova-credentials.sqlite')
+    .action(figmaCommand);
 
   program
     .command('promote')

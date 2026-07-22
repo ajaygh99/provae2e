@@ -1,0 +1,68 @@
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { PerformanceStore, type PerformanceRun } from '../../src/perf/performance-store';
+import { detectRegressions, hasDegradingTrend, performanceRunsToCsv } from '../../src/perf/regression-detector';
+
+const run: PerformanceRun = {
+  url: 'https://api.example.com', vus: 10, durationSeconds: 30,
+  p50ResponseTimeMs: 50, p95ResponseTimeMs: 100, p99ResponseTimeMs: 150,
+  errorRate: 0.01, requestsPerSecond: 25, status: 'PASS', timestamp: '2026-07-21T00:00:00.000Z'
+};
+
+describe('PerformanceStore', () => {
+  it('persists baselines and history in a reopenable SQLite file', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'prova-sqlite-'));
+    const file = path.join(directory, 'performance.sqlite');
+    const first = await PerformanceStore.open(file);
+    await first.setBaseline(run);
+    await first.addRun(run);
+    first.close();
+    const reopened = await PerformanceStore.open(file);
+    expect(reopened.getBaseline(run.url, 10, 30)).toMatchObject(run);
+    expect(reopened.listRuns({ url: run.url })).toEqual([expect.objectContaining(run)]);
+    reopened.close();
+  });
+
+  it('stores separate baselines for different load profiles', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'prova-sqlite-'));
+    const store = await PerformanceStore.open(path.join(directory, 'performance.sqlite'));
+    await store.setBaseline(run);
+    await store.setBaseline({ ...run, vus: 20, p95ResponseTimeMs: 200 });
+    expect(store.getBaseline(run.url, 10, 30)?.p95ResponseTimeMs).toBe(100);
+    expect(store.getBaseline(run.url, 20, 30)?.p95ResponseTimeMs).toBe(200);
+    expect(store.getBaseline(run.url, 99, 30)).toBeUndefined();
+    store.close();
+  });
+
+  it('rejects invalid persisted runs', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'prova-sqlite-'));
+    const store = await PerformanceStore.open(path.join(directory, 'performance.sqlite'));
+    await expect(store.addRun({ ...run, url: 'bad' })).rejects.toThrow('HTTP(S)');
+    await expect(store.addRun({ ...run, errorRate: 2 })).rejects.toThrow('between 0 and 1');
+    store.close();
+  });
+});
+
+describe('performance regression reporting', () => {
+  it('detects latency/error/throughput regressions above threshold', () => {
+    const regressions = detectRegressions({
+      p50ResponseTimeMs: 70, p95ResponseTimeMs: 120, p99ResponseTimeMs: 180,
+      errorRate: 0.02, requestsPerSecond: 20
+    }, run, 10);
+    expect(regressions.map((item) => item.metric)).toEqual([
+      'p50ResponseTimeMs', 'p95ResponseTimeMs', 'p99ResponseTimeMs', 'errorRate', 'requestsPerSecond'
+    ]);
+  });
+
+  it('ignores fluctuations below the two-percent noise floor', () => {
+    expect(detectRegressions({ ...run, p95ResponseTimeMs: 101 }, run, 0)).toEqual([]);
+  });
+
+  it('exports CSV safely and identifies three-run degradation', () => {
+    const runs = [run, { ...run, p95ResponseTimeMs: 110 }, { ...run, p95ResponseTimeMs: 120 }];
+    expect(hasDegradingTrend(runs)).toBe(true);
+    expect(performanceRunsToCsv(runs)).toContain('https://api.example.com');
+    expect(hasDegradingTrend(runs.slice(0, 2))).toBe(false);
+  });
+});
