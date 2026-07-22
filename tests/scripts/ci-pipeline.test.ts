@@ -83,7 +83,7 @@ describe('prova-ci.yml - safe SHIP workflow', () => {
   const doc = yaml.load(readFileSync(workflowPath, 'utf-8')) as Workflow;
   const ship = doc.jobs['ship'];
 
-  it('grants the release job permission to push its version commit and tag', () => {
+  it('grants the release job permission to push its tag', () => {
     expect(ship.permissions?.['contents']).toBe('write');
   });
 
@@ -102,8 +102,10 @@ describe('prova-ci.yml - safe SHIP workflow', () => {
 
   it('publishes before creating and pushing release metadata', () => {
     const releaseStep = ship.steps.find((step) => step.run?.includes('npm publish'))?.run ?? '';
-    expect(releaseStep.indexOf('npm publish')).toBeLessThan(releaseStep.indexOf('git commit'));
     expect(releaseStep.indexOf('npm publish')).toBeLessThan(releaseStep.indexOf('git tag'));
     expect(releaseStep.indexOf('npm publish')).toBeLessThan(releaseStep.indexOf('git push'));
+    expect(releaseStep.indexOf('npm publish')).toBeLessThan(releaseStep.indexOf('gh release create'));
+    expect(releaseStep).not.toContain('npm version');
+    expect(releaseStep).not.toContain('git commit');
   });
 });
