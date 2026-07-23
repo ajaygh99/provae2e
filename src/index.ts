@@ -303,3 +303,18 @@ export type {
   ZapCoverageDashboard,
   ZapFinding
 } from './core/zap-vulnerability-classifier.js';
+export {
+  GraphQueryCache,
+  KnowledgeGraphQueryApi,
+  KnowledgeGraphQueryEngine
+} from './core/knowledge-graph-query.js';
+export type {
+  BusinessQuestion,
+  GraphAggregateQuery,
+  GraphEdge,
+  GraphPath,
+  GraphQueryRequest,
+  GraphQueryResponse,
+  GraphVertex,
+  GraphVertexType
+} from './core/knowledge-graph-query.js';
