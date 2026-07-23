@@ -195,6 +195,21 @@ export type {
   QuarterlyImpactReport,
   UserTrace
 } from './core/sentinel-user-impact.js';
+export {
+  SentinelRemediationEngine,
+  parseRemediationRules
+} from './core/sentinel-remediation.js';
+export type {
+  ActionExecutionResult,
+  RemediationAction,
+  RemediationActionType,
+  RemediationAuditEntry,
+  RemediationExecutor,
+  RemediationObservation,
+  RemediationRule,
+  RemediationRun,
+  TriggerOperator
+} from './core/sentinel-remediation.js';
 export type {
   ApiExchange,
   ComplianceReport,
