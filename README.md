@@ -382,3 +382,9 @@ See `docs/ARCHITECTURE.md` for the full system design.
 ## License
 
 MIT Â© PROVA
+
+
+---
+
+© 2026 Ajay. All rights reserved. Licensed under MIT.
+
