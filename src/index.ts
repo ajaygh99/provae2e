@@ -210,6 +210,21 @@ export type {
   RemediationRun,
   TriggerOperator
 } from './core/sentinel-remediation.js';
+export {
+  SentinelCostOptimizer,
+  recommendation
+} from './core/sentinel-cost-optimizer.js';
+export type {
+  CloudCostCollector,
+  CloudCostRecord,
+  CloudProvider,
+  CostOpportunity,
+  CostOptimizerOptions,
+  CostRecommendation,
+  MonthlyCostReport,
+  ResourceKind,
+  ServiceCostTrend
+} from './core/sentinel-cost-optimizer.js';
 export type {
   ApiExchange,
   ComplianceReport,
