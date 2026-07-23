@@ -297,6 +297,66 @@
   .responsive-gap {
     @apply gap-3 sm:gap-4 md:gap-5 lg:gap-6;
   }
+
+  .selector-tool {
+    @apply mt-7 grid gap-5;
+  }
+
+  .selector-tool__heading,
+  .selector-toolbar,
+  .selector-result {
+    @apply flex items-end justify-between gap-4;
+  }
+
+  .selector-tool__heading h2 {
+    @apply mt-1 mb-0 font-semibold;
+  }
+
+  .selector-status {
+    @apply rounded-full px-3 py-1 text-xs font-bold bg-prova-bg-elevated text-prova-text-secondary;
+  }
+
+  .selector-status--active {
+    @apply bg-prova-primary-disabled text-prova-primary;
+  }
+
+  .selector-toolbar {
+    @apply items-end;
+  }
+
+  .selector-toolbar .ui-field:first-child {
+    @apply flex-1;
+  }
+
+  .selector-preview {
+    @apply w-full min-h-96 border border-prova-border-lighter rounded-xl bg-white;
+  }
+
+  .selector-instructions {
+    @apply m-0 rounded-lg bg-prova-bg-elevated px-3 py-2 text-sm;
+  }
+
+  .selector-result {
+    @apply items-center rounded-xl border border-prova-border bg-prova-bg-elevated p-4;
+  }
+
+  .selector-result > div {
+    @apply grid gap-1 min-w-0;
+  }
+
+  .selector-result code {
+    @apply break-all text-sm text-prova-text;
+  }
+
+  .selector-result small {
+    @apply truncate text-prova-text-tertiary;
+  }
+}
+
+.prova-selector-highlight {
+  outline: 3px solid #6554c0 !important;
+  outline-offset: 2px !important;
+  cursor: crosshair !important;
 }
 
 @media (max-width: 767px) {
@@ -335,5 +395,9 @@
 
   .metric-grid {
     @apply grid-cols-1;
+  }
+
+  .selector-toolbar {
+    @apply grid items-stretch;
   }
 }

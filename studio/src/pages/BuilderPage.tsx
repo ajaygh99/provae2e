@@ -1,6 +1,7 @@
 import { KnowledgeGraphPanel } from '../components/KnowledgeGraphPanel';
+import { ElementSelectorTool } from '../components/ElementSelectorTool';
 
-/** Displays graph-informed coverage suggestions while building a test. */
+/** Displays graph-informed coverage and interactive selector tools while building a test. */
 export function BuilderPage(): React.JSX.Element {
   return (
     <section>
@@ -11,6 +12,7 @@ export function BuilderPage(): React.JSX.Element {
         rootId=""
         nodes={[]}
       />
+      <ElementSelectorTool />
     </section>
   );
 }
