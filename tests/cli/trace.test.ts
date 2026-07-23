@@ -108,6 +108,15 @@ describe('qe-tool trace CLI', () => {
       expect(process.exitCode).toBe(1);
       process.exitCode = originalExit;
     });
+
+    it('should print issue JSON when no output file is provided', async () => {
+      await setupDatabase();
+      const originalExit = process.exitCode;
+      process.exitCode = 0;
+      await traceCommand({ issueKey: 'PROJ-123', database: dbPath, format: 'json' });
+      expect(process.exitCode).toBe(0);
+      process.exitCode = originalExit;
+    });
   });
 
   describe('query by commit', () => {
@@ -144,6 +153,15 @@ describe('qe-tool trace CLI', () => {
       expect(process.exitCode).toBe(1);
       process.exitCode = originalExit;
     });
+
+    it('should print commit JSON when no output file is provided', async () => {
+      await setupDatabase();
+      const originalExit = process.exitCode;
+      process.exitCode = 0;
+      await traceCommand({ commit: 'abc123def456', database: dbPath, format: 'json' });
+      expect(process.exitCode).toBe(0);
+      process.exitCode = originalExit;
+    });
   });
 
   describe('query by test-id', () => {
@@ -178,6 +196,15 @@ describe('qe-tool trace CLI', () => {
       await traceCommand(opts);
 
       expect(process.exitCode).toBe(1);
+      process.exitCode = originalExit;
+    });
+
+    it('should print test JSON when no output file is provided', async () => {
+      await setupDatabase();
+      const originalExit = process.exitCode;
+      process.exitCode = 0;
+      await traceCommand({ testId: 'test-uuid-001', database: dbPath, format: 'json' });
+      expect(process.exitCode).toBe(0);
       process.exitCode = originalExit;
     });
   });
@@ -257,6 +284,28 @@ describe('qe-tool trace CLI', () => {
       expect(process.exitCode).toBe(0);
       process.exitCode = originalExit;
     });
+
+    it('should print date-range JSON and CSV when no output file is provided', async () => {
+      await setupDatabase();
+      const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const to = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const originalExit = process.exitCode;
+      process.exitCode = 0;
+      await traceCommand({ from, to, database: dbPath, format: 'json' });
+      expect(process.exitCode).toBe(0);
+      await traceCommand({ from, to, database: dbPath, format: 'csv' });
+      expect(process.exitCode).toBe(0);
+      process.exitCode = originalExit;
+    });
+
+    it('should reject an invalid date range', async () => {
+      await setupDatabase();
+      const originalExit = process.exitCode;
+      process.exitCode = 0;
+      await traceCommand({ from: 'invalid', to: 'also-invalid', database: dbPath });
+      expect(process.exitCode).toBe(1);
+      process.exitCode = originalExit;
+    });
   });
 
   describe('verify SLA', () => {
@@ -297,6 +346,28 @@ describe('qe-tool trace CLI', () => {
 
       // Should be 0 or 2 depending on whether thresholds are met
       expect([0, 2]).toContain(process.exitCode);
+      process.exitCode = originalExit;
+    });
+
+    it('should pass when there are no chains to verify', async () => {
+      const emptyDb = join(tmpdir(), `empty-trace-${Date.now()}.db`);
+      const originalExit = process.exitCode;
+      process.exitCode = 0;
+      await traceCommand({ sla: true, database: emptyDb });
+      expect(process.exitCode).toBe(0);
+      await rm(emptyDb, { force: true });
+      process.exitCode = originalExit;
+    });
+
+    it('should exit with code 2 when an SLA is breached', async () => {
+      const store = await GoldenThreadStore.open(dbPath);
+      const threadId = await store.initiate('alice', 'https://spec.example.com');
+      await new Promise(resolve => setTimeout(resolve, 10));
+      await store.linkStage(threadId, 2 as Stage, 'PASSED', 'bob', 'https://test.example.com');
+      const originalExit = process.exitCode;
+      process.exitCode = 0;
+      await traceCommand({ sla: true, database: dbPath, maxStageDurationMs: 1, maxTotalDurationMs: 1 });
+      expect(process.exitCode).toBe(2);
       process.exitCode = originalExit;
     });
   });
