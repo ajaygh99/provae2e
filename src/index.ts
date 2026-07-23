@@ -270,6 +270,18 @@ export type {
   PerformanceAlert,
   PerformanceThresholds
 } from './core/appium-performance-monitor.js';
+export { ZapFalsePositiveFilter, parseZapFilterRules, zapFindingKey } from './core/zap-false-positive-filter.js';
+export type {
+  FilterAction,
+  FilteredZapFinding,
+  FindingDisposition,
+  FindingWhitelist,
+  ZapAccuracyPoint,
+  ZapFilterRule,
+  ZapFinding as ZapFilterFinding,
+  ZapRisk,
+  ZapScanResult
+} from './core/zap-false-positive-filter.js';
 export type {
   ApiExchange,
   ComplianceReport,
