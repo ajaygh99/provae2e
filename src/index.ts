@@ -131,6 +131,15 @@ export type {
   TrendMetrics,
   TrendRun
 } from './core/regression-trend-analyzer.js';
+export { IncidentPatternRecognizer, incidentSignature, textSimilarity } from './core/incident-pattern-recognizer.js';
+export type {
+  HistoricalIncident,
+  IncidentMatch,
+  IncidentPattern,
+  IncidentPatternMetrics,
+  IncidentPatternReport,
+  IncidentRootCause
+} from './core/incident-pattern-recognizer.js';
 export type {
   ApiExchange,
   ComplianceReport,
