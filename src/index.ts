@@ -253,6 +253,23 @@ export type {
   CrossCloudFinding,
   InfrastructureCloud
 } from './core/sentinel-multicloud.js';
+export {
+  AndroidAdbMetricCollector,
+  AppiumPerformanceMonitor,
+  analyzeSamples,
+  parseAndroidBattery,
+  parseAndroidCpu,
+  parseAndroidFps,
+  parseAndroidMemoryMb
+} from './core/appium-performance-monitor.js';
+export type {
+  DeviceMetricCollector,
+  DevicePerformanceRun,
+  DevicePerformanceSample,
+  MonitorOptions,
+  PerformanceAlert,
+  PerformanceThresholds
+} from './core/appium-performance-monitor.js';
 export type {
   ApiExchange,
   ComplianceReport,
