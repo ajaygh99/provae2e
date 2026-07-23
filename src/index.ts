@@ -175,6 +175,15 @@ export type {
   ProductionDependency,
   Soc2CveReport
 } from './core/sentinel-dependency-monitor.js';
+export { SentinelErrorBudgetTracker, monthlyBudgetMs, parseSlaConfig } from './core/sentinel-error-budget.js';
+export type {
+  DowntimeEvent,
+  ErrorBudgetAlert,
+  ErrorBudgetComplianceReport,
+  ErrorBudgetStatus,
+  ServiceSlaConfig,
+  SlaTarget
+} from './core/sentinel-error-budget.js';
 export type {
   ApiExchange,
   ComplianceReport,
