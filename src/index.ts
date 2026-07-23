@@ -92,3 +92,37 @@ export { generateDashboardHtml } from './reporters/dashboard-generator.js';
 export { generatePdfReportHtml } from './reporters/dashboard-pdf-export.js';
 export { dashboardCommand } from './cli/dashboard.js';
 export type { DashboardOptions } from './cli/dashboard.js';
+export {
+  ContractRegistry,
+  detectProductionDrift,
+  generateComplianceReport,
+  parseOpenApiContract,
+  parsePactContract,
+  validateApiExchange
+} from './core/contract-testing.js';
+export { analyzeRegressionTrend, calculateMetricBaseline } from './core/regression-trend-analyzer.js';
+export type {
+  MetricAssessment,
+  MetricBaseline,
+  RegressionJiraCreator,
+  RegressionJiraIssue,
+  RegressionJiraResult,
+  RegressionTrendOptions,
+  RegressionTrendReport,
+  StageTiming,
+  TrendMetricName,
+  TrendMetrics,
+  TrendRun
+} from './core/regression-trend-analyzer.js';
+export type {
+  ApiExchange,
+  ComplianceReport,
+  ContractDriftAlert,
+  ContractFetch,
+  ContractOperation,
+  ContractSource,
+  ContractValidationResult,
+  DriftNotifier,
+  JsonSchema,
+  RegisteredContract
+} from './core/contract-testing.js';
