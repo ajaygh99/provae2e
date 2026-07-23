@@ -225,6 +225,22 @@ export type {
   ResourceKind,
   ServiceCostTrend
 } from './core/sentinel-cost-optimizer.js';
+export {
+  SentinelForecastingEngine,
+  linearTrend
+} from './core/sentinel-forecasting.js';
+export type {
+  ForecastAccuracy,
+  ForecastActionExecutor,
+  ForecastActionResult,
+  ForecastDirection,
+  ForecastFeedback,
+  ForecastHorizonHours,
+  ForecastPoint,
+  ForecastRule,
+  ForecastRun,
+  MetricForecast
+} from './core/sentinel-forecasting.js';
 export type {
   ApiExchange,
   ComplianceReport,
