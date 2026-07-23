@@ -278,7 +278,7 @@ export type {
   FindingWhitelist,
   ZapAccuracyPoint,
   ZapFilterRule,
-  ZapFinding,
+  ZapFinding as ZapFilterFinding,
   ZapRisk,
   ZapScanResult
 } from './core/zap-false-positive-filter.js';
