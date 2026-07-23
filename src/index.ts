@@ -140,6 +140,17 @@ export type {
   IncidentPatternReport,
   IncidentRootCause
 } from './core/incident-pattern-recognizer.js';
+export { SENTINEL_RESOURCE_BUDGET, SentinelAgent, shouldSample } from './core/sentinel-agent.js';
+export type {
+  SentinelAgentOptions,
+  SentinelCoverage,
+  SentinelCoverageMatcher,
+  SentinelEvidence,
+  SentinelJiraCreator,
+  SentinelJiraIssue,
+  SentinelJiraResult,
+  SentinelProcessResult
+} from './core/sentinel-agent.js';
 export type {
   ApiExchange,
   ComplianceReport,
