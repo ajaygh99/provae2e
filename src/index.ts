@@ -241,6 +241,18 @@ export type {
   ForecastRun,
   MetricForecast
 } from './core/sentinel-forecasting.js';
+export { SentinelMultiCloudMonitor } from './core/sentinel-multicloud.js';
+export type {
+  CloudCompliance,
+  CloudConnector,
+  CloudDashboard,
+  CloudIncident,
+  CloudMetric,
+  CloudScenarioCoverage,
+  ComplianceFramework,
+  CrossCloudFinding,
+  InfrastructureCloud
+} from './core/sentinel-multicloud.js';
 export type {
   ApiExchange,
   ComplianceReport,
