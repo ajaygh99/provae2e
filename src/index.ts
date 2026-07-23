@@ -294,6 +294,18 @@ export type {
   JsonSchema,
   RegisteredContract
 } from './core/contract-testing.js';
+export { KnowledgeGraphIntegration } from './core/knowledge-graph-integration.js';
+export type {
+  CoverageSuggestion,
+  GraphNodeType,
+  GraphQueryResult,
+  KnowledgeGraphDataset,
+  KnowledgeGraphEdge,
+  KnowledgeGraphNode,
+  TestHistory
+} from './core/knowledge-graph-integration.js';
+export { graphCommand } from './cli/graph.js';
+export type { GraphCommandOptions } from './cli/graph.js';
 export { buildZapCoverageDashboard, classifyZapFindings } from './core/zap-vulnerability-classifier.js';
 export type {
   OwaspCategory,
