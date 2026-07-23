@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CODEX Real-Time Progress Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0e27;
+            color: #00ff88;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #00ff88;
+            padding-bottom: 20px;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #00ff88;
+            text-shadow: 0 0 10px #00ff88;
+            margin-bottom: 10px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 1.5s infinite;
+        }
+        .status-running {
+            background: #ff9800;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .progress-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .progress-box {
+            border: 2px solid #00ff88;
+            padding: 20px;
+            background: rgba(0, 255, 136, 0.05);
+            border-radius: 4px;
+        }
+        .progress-box h2 {
+            color: #00ff88;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #00ff88;
+            padding-bottom: 10px;
+        }
+        .progress-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #4caf50;
+            margin-bottom: 10px;
+        }
+        .progress-label {
+            color: #aaa;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+        .progress-bar-container {
+            width: 100%;
+            height: 30px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #00ff88);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: bold;
+            font-size: 0.85em;
+            transition: width 0.3s ease;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        th {
+            background: rgba(0, 255, 136, 0.15);
+            color: #00ff88;
+            padding: 15px;
+            text-align: left;
+            border-bottom: 2px solid #00ff88;
+            font-weight: bold;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #333;
+            color: #ddd;
+        }
+        tr:hover {
+            background: rgba(0, 255, 136, 0.1);
+        }
+        .status-completed {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        .status-in-progress {
+            color: #ff9800;
+            font-weight: bold;
+        }
+        .status-pending {
+            color: #2196f3;
+            font-weight: bold;
+        }
+        .section-title {
+            color: #00ff88;
+            font-size: 1.5em;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 5px #00ff88;
+            border-bottom: 2px solid #00ff88;
+            padding-bottom: 10px;
+        }
+        .current-task {
+            background: rgba(255, 152, 0, 0.15);
+            border-left: 4px solid #ff9800;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .current-task h3 {
+            color: #ff9800;
+            margin-bottom: 10px;
+        }
+        .current-task p {
+            color: #ddd;
+            margin-bottom: 8px;
+        }
+        .timeline {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 30px;
+        }
+        .timeline li {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #333;
+            background: rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+        .timeline li.completed {
+            border-left-color: #4caf50;
+            background: rgba(76, 175, 80, 0.1);
+        }
+        .timeline li.in-progress {
+            border-left-color: #ff9800;
+            background: rgba(255, 152, 0, 0.1);
+        }
+        .timeline li.pending {
+            border-left-color: #2196f3;
+            background: rgba(33, 150, 243, 0.1);
+        }
+        .timeline-marker {
+            display: inline-block;
+            font-weight: bold;
+            margin-right: 10px;
+            min-width: 80px;
+        }
+        .eta {
+            color: #aaa;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        .alert {
+            background: rgba(76, 175, 80, 0.15);
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            color: #ddd;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+            color: #666;
+        }
+        .refresh-hint {
+            color: #666;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span class="status-indicator status-running"></span>🤖 CODEX Real-Time Progress</h1>
+            <p>Last Updated: July 23, 2026 | Status: <span style="color: #ff9800;">IN PROGRESS</span></p>
+            <p class="refresh-hint">⟳ Refresh page periodically for latest updates</p>
+        </header>
+
+        <!-- Overall Progress -->
+        <div class="progress-grid">
+            <div class="progress-box">
+                <h2>✅ Completed</h2>
+                <div class="progress-number">2</div>
+                <div class="progress-label">Batches merged</div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: 28%;">28%</div>
+                </div>
+            </div>
+
+            <div class="progress-box">
+                <h2>🔄 Processing</h2>
+                <div class="progress-number">1</div>
+                <div class="progress-label">PR in validation</div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: 14%;">14%</div>
+                </div>
+            </div>
+
+            <div class="progress-box">
+                <h2>⏳ Pending</h2>
+                <div class="progress-number">5</div>
+                <div class="progress-label">PRs queued</div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: 58%;">58%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Task -->
+        <div class="current-task">
+            <h3>⚙️ Current Task</h3>
+            <p><strong>PR #204 (Sentinel Oncall/PagerDuty)</strong></p>
+            <p>✓ LENS Review: PASSED</p>
+            <p>✓ TypeScript Checks: PASSED</p>
+            <p>⏳ Coverage Job: RUNNING</p>
+            <p style="color: #ff9800; margin-top: 10px;">→ Waiting for coverage gate to complete (5-10 min)</p>
+        </div>
+
+        <!-- Completed PRs -->
+        <div class="section-title">✅ Completed (Fully Merged)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>PR</th>
+                    <th>Issue</th>
+                    <th>Feature</th>
+                    <th>Status</th>
+                    <th>Merged</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>#215-219</strong></td>
+                    <td>#56, #54, #175</td>
+                    <td>Knowledge Graph, Studio, Element Selector</td>
+                    <td><span class="status-completed">✓ FULLY MERGED</span></td>
+                    <td>2h ago</td>
+                </tr>
+                <tr>
+                    <td><strong>#205</strong></td>
+                    <td>#109</td>
+                    <td>Sentinel Datadog/APM</td>
+                    <td><span class="status-completed">✓ UPDATED + GREEN</span></td>
+                    <td>1.5h ago</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- In Progress -->
+        <div class="section-title">🔄 In Progress (Validating)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>PR</th>
+                    <th>Issue</th>
+                    <th>Feature</th>
+                    <th>Current Task</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>#204</strong></td>
+                    <td>#110</td>
+                    <td>Sentinel Oncall (PagerDuty)</td>
+                    <td>Coverage Job</td>
+                    <td><span class="status-in-progress">⏳ RUNNING</span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Pending PRs -->
+        <div class="section-title">⏳ Pending (Still Due)</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>PR</th>
+                    <th>Issue</th>
+                    <th>Feature</th>
+                    <th>Reason</th>
+                    <th>Next Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>#206</strong></td>
+                    <td>#111</td>
+                    <td>Sentinel Security & Intrusion Detection</td>
+                    <td>Behind main</td>
+                    <td><span class="status-pending">Rebase → Merge</span></td>
+                </tr>
+                <tr>
+                    <td><strong>#207</strong></td>
+                    <td>#114</td>
+                    <td>Sentinel Change Management</td>
+                    <td>Behind main</td>
+                    <td><span class="status-pending">Rebase → Merge</span></td>
+                </tr>
+                <tr>
+                    <td><strong>#208</strong></td>
+                    <td>#112</td>
+                    <td>Sentinel Dashboard & Visualization</td>
+                    <td>Behind main</td>
+                    <td><span class="status-pending">Rebase → Merge</span></td>
+                </tr>
+                <tr>
+                    <td><strong>#209</strong></td>
+                    <td>#115</td>
+                    <td>Sentinel Chaos Engineering</td>
+                    <td>Behind main</td>
+                    <td><span class="status-pending">Rebase → Merge</span></td>
+                </tr>
+                <tr>
+                    <td><strong>#211</strong></td>
+                    <td>#167</td>
+                    <td>Sentinel Advanced Analytics & ML</td>
+                    <td>Conflicts</td>
+                    <td><span class="status-pending">Resolve → Merge</span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Timeline -->
+        <div class="section-title">📅 Execution Timeline</div>
+        <ul class="timeline">
+            <li class="completed">
+                <span class="timeline-marker">✅ Phase 1</span> #215-219 Merged
+            </li>
+            <li class="completed">
+                <span class="timeline-marker">✅ Phase 2</span> #205 Updated & Green
+            </li>
+            <li class="in-progress">
+                <span class="timeline-marker">🔄 Phase 3</span> #204 Validating (ETA: 5-10 min)
+            </li>
+            <li class="pending">
+                <span class="timeline-marker">⏳ Phase 4</span> #206-209 Rebase & Merge (ETA: 15-30 min)
+            </li>
+            <li class="pending">
+                <span class="timeline-marker">⏳ Phase 5</span> #211 Conflict Resolution (ETA: 5-10 min)
+            </li>
+            <li class="pending">
+                <span class="timeline-marker">⏳ Phase 6</span> Release v0.3.0 (ETA: 5 min)
+            </li>
+        </ul>
+
+        <!-- Summary -->
+        <div class="alert">
+            <strong>✅ No manual intervention required.</strong> CODEX is handling everything automatically: LENS reviews, rebasing, conflict resolution, and dependency ordering. Estimated completion time: ~1 hour.
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>CODEX Automation — Phase 3 Release Pipeline</p>
+            <p style="margin-top: 10px; font-size: 0.85em;">Fully automated • Zero manual intervention • Production grade</p>
+        </footer>
+    </div>
+
+    <script>
+        // Auto-refresh every 30 seconds
+        setTimeout(function() {
+            location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>
