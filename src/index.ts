@@ -151,6 +151,50 @@ export type {
   SentinelJiraResult,
   SentinelProcessResult
 } from './core/sentinel-agent.js';
+export { SentinelPatternRecognizer, detectSpike, extractSentinelPattern } from './core/sentinel-pattern-recognizer.js';
+export type {
+  SentinelGapReport,
+  SentinelPatternCoverage,
+  SentinelPatternCoverageMatcher,
+  SentinelPatternEvent,
+  SentinelPatternOptions,
+  SentinelPatternSignature,
+  SentinelPatternSummary
+} from './core/sentinel-pattern-recognizer.js';
+export { SentinelDependencyMonitor, classifyCvss, parseNpmLock, parsePom, parseRequirements } from './core/sentinel-dependency-monitor.js';
+export type {
+  CveMatch,
+  CveProvider,
+  CveSeverity,
+  DependencyAlert,
+  DependencyEcosystem,
+  DependencyFinding,
+  DependencyMonitorOptions,
+  DependencyNotifier,
+  DependencyPollResult,
+  ProductionDependency,
+  Soc2CveReport
+} from './core/sentinel-dependency-monitor.js';
+export { SentinelErrorBudgetTracker, monthlyBudgetMs, parseSlaConfig } from './core/sentinel-error-budget.js';
+export type {
+  DowntimeEvent,
+  ErrorBudgetAlert,
+  ErrorBudgetComplianceReport,
+  ErrorBudgetStatus,
+  ServiceSlaConfig,
+  SlaTarget
+} from './core/sentinel-error-budget.js';
+export {
+  SentinelUserImpactAssessor,
+  impactAlert,
+  preventionRecommendation
+} from './core/sentinel-user-impact.js';
+export type {
+  IncidentImpactAssessment,
+  IncidentImpactInput,
+  QuarterlyImpactReport,
+  UserTrace
+} from './core/sentinel-user-impact.js';
 export type {
   ApiExchange,
   ComplianceReport,
