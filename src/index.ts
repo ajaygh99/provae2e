@@ -184,6 +184,17 @@ export type {
   ServiceSlaConfig,
   SlaTarget
 } from './core/sentinel-error-budget.js';
+export {
+  SentinelUserImpactAssessor,
+  impactAlert,
+  preventionRecommendation
+} from './core/sentinel-user-impact.js';
+export type {
+  IncidentImpactAssessment,
+  IncidentImpactInput,
+  QuarterlyImpactReport,
+  UserTrace
+} from './core/sentinel-user-impact.js';
 export type {
   ApiExchange,
   ComplianceReport,
