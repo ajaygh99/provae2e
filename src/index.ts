@@ -151,6 +151,16 @@ export type {
   SentinelJiraResult,
   SentinelProcessResult
 } from './core/sentinel-agent.js';
+export { SentinelPatternRecognizer, detectSpike, extractSentinelPattern } from './core/sentinel-pattern-recognizer.js';
+export type {
+  SentinelGapReport,
+  SentinelPatternCoverage,
+  SentinelPatternCoverageMatcher,
+  SentinelPatternEvent,
+  SentinelPatternOptions,
+  SentinelPatternSignature,
+  SentinelPatternSummary
+} from './core/sentinel-pattern-recognizer.js';
 export type {
   ApiExchange,
   ComplianceReport,
