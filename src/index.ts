@@ -293,6 +293,15 @@ export type {
   ZapRisk,
   ZapScanResult
 } from './core/zap-false-positive-filter.js';
+export { SentinelAnalyticsEngine } from './core/sentinel-analytics.js';
+export type {
+  AnalyticsIncident,
+  AnalyticsModelVersion,
+  AnalyticsOptions,
+  IncidentAnalysis,
+  IncidentCluster,
+  IncidentRecommendation
+} from './core/sentinel-analytics.js';
 export type {
   ApiExchange,
   ComplianceReport,
