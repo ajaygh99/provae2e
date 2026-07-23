@@ -100,6 +100,20 @@ export {
   parsePactContract,
   validateApiExchange
 } from './core/contract-testing.js';
+export { analyzeRegressionTrend, calculateMetricBaseline } from './core/regression-trend-analyzer.js';
+export type {
+  MetricAssessment,
+  MetricBaseline,
+  RegressionJiraCreator,
+  RegressionJiraIssue,
+  RegressionJiraResult,
+  RegressionTrendOptions,
+  RegressionTrendReport,
+  StageTiming,
+  TrendMetricName,
+  TrendMetrics,
+  TrendRun
+} from './core/regression-trend-analyzer.js';
 export type {
   ApiExchange,
   ComplianceReport,
