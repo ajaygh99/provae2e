@@ -282,3 +282,12 @@ export type {
   JsonSchema,
   RegisteredContract
 } from './core/contract-testing.js';
+export { buildZapCoverageDashboard, classifyZapFindings } from './core/zap-vulnerability-classifier.js';
+export type {
+  OwaspCategory,
+  OwaspCategoryCoverage,
+  SecurityTestSource,
+  VulnerabilityClassification,
+  ZapCoverageDashboard,
+  ZapFinding
+} from './core/zap-vulnerability-classifier.js';
