@@ -6,10 +6,12 @@
  * and local Ollama models with graceful degradation.
  */
 
-import { Database } from 'better-sqlite3';
+import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
 import { createHash } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { log } from './logger.js';
-import type { GoldenThreadChain } from './golden-thread-store.js';
+import type { GoldenThreadChain, StageLog } from './golden-thread-store.js';
 import Anthropic from '@anthropic-ai/sdk';
 
 /** Root cause classification types. */
@@ -21,6 +23,8 @@ export interface AnalysisOptions {
   local?: boolean;
   /** Skip cache and force re-analysis. */
   skipCache?: boolean;
+  /** Run deterministic local analysis without calling any external AI API. */
+  offline?: boolean;
 }
 
 /** Result of AI-powered root cause analysis. */
@@ -65,14 +69,16 @@ export interface AnalysisFeedback {
  * ```
  */
 export class RootCauseAnalyzer {
-  private db: Database;
+  private db: SqlJsDatabase;
+  private filePath: string;
   private anthropic: Anthropic;
 
   /**
    * Creates a new analyzer instance (private; use {@link open}).
    */
-  private constructor(db: Database) {
+  private constructor(db: SqlJsDatabase, filePath: string) {
     this.db = db;
+    this.filePath = filePath;
     this.anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
@@ -86,13 +92,21 @@ export class RootCauseAnalyzer {
    * @returns New analyzer instance.
    */
   static async open(filePath: string): Promise<RootCauseAnalyzer> {
-    // Lazy-import to avoid circular deps
-    const Database = (await import('better-sqlite3')).default;
-    const db = new Database(filePath);
-    db.pragma('journal_mode = WAL');
+    const SQL = await initSqlJs({
+      locateFile: (file) => require.resolve(`sql.js/dist/${file}`),
+    });
+
+    let bytes: Uint8Array | undefined;
+    try {
+      bytes = new Uint8Array(await readFile(filePath));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+
+    const db = bytes ? new SQL.Database(bytes) : new SQL.Database();
 
     // Create schema if not exists
-    db.exec(`
+    db.run(`
       CREATE TABLE IF NOT EXISTS analyses (
         id TEXT PRIMARY KEY,
         golden_thread_id TEXT NOT NULL,
@@ -118,8 +132,20 @@ export class RootCauseAnalyzer {
       CREATE INDEX IF NOT EXISTS idx_feedback_analysis ON feedback(analysis_id);
     `);
 
+    const analyzer = new RootCauseAnalyzer(db, filePath);
+    await analyzer.persist();
     log.info('Root cause analyzer database initialized', { filePath });
-    return new RootCauseAnalyzer(db);
+    return analyzer;
+  }
+
+  /**
+   * Persists the database to disk.
+   */
+  private async persist(): Promise<void> {
+    await mkdir(path.dirname(this.filePath), { recursive: true });
+    const bytes = this.db.export();
+    const buffer = Buffer.from(bytes);
+    await writeFile(this.filePath, buffer);
   }
 
   /**
@@ -138,10 +164,10 @@ export class RootCauseAnalyzer {
 
     // Check cache unless explicitly skipped
     if (!options.skipCache) {
-      const cached = this.getCachedAnalysis(chain.id, contextHash);
+      const cached = this.getCachedAnalysis(chain.golden_thread_id, contextHash);
       if (cached) {
         log.info('Root cause analysis cache hit', {
-          golden_thread_id: chain.id,
+          golden_thread_id: chain.golden_thread_id,
           model: cached.model_used,
         });
         return { ...cached, cached: true };
@@ -154,7 +180,9 @@ export class RootCauseAnalyzer {
     // Perform analysis via Claude or Ollama
     let analysis: RootCauseAnalysis;
     try {
-      if (options.local) {
+      if (options.offline) {
+        analysis = this.analyzeOffline(chain);
+      } else if (options.local) {
         analysis = await this.analyzeViaOllama(chain, prompt);
       } else {
         analysis = await this.analyzeViaClaudeAPI(chain, prompt);
@@ -163,11 +191,11 @@ export class RootCauseAnalyzer {
       // Graceful degradation: return a minimal error result
       log.warn('Root cause analysis failed, degrading gracefully', {
         error: String(err),
-        golden_thread_id: chain.id,
+        golden_thread_id: chain.golden_thread_id,
       });
       return {
         id: this.generateId(),
-        golden_thread_id: chain.id,
+        golden_thread_id: chain.golden_thread_id,
         root_cause: 'CODE_BUG', // Default assumption
         confidence: 0.5, // Low confidence
         reasoning: 'Analysis unavailable; defaulting to Code Bug',
@@ -179,9 +207,9 @@ export class RootCauseAnalyzer {
     }
 
     // Cache the result
-    this.cacheAnalysis(chain.id, contextHash, analysis);
+    await this.cacheAnalysis(chain.golden_thread_id, contextHash, analysis);
     log.info('Root cause analysis complete', {
-      golden_thread_id: chain.id,
+      golden_thread_id: chain.golden_thread_id,
       root_cause: analysis.root_cause,
       confidence: analysis.confidence,
       model: analysis.model_used,
@@ -203,31 +231,29 @@ export class RootCauseAnalyzer {
     correct: boolean,
     actualCause?: RootCauseType
   ): Promise<void> {
-    const feedback = {
-      id: this.generateId(),
-      analysis_id: analysisId,
-      correct: correct ? 1 : 0,
-      actual_cause: actualCause || null,
-      timestamp: new Date().toISOString(),
-    };
+    try {
+      const feedbackId = this.generateId();
+      const timestamp = new Date().toISOString();
 
-    const stmt = this.db.prepare(
-      `INSERT INTO feedback (id, analysis_id, correct, actual_cause, timestamp)
-       VALUES (?, ?, ?, ?, ?)`
-    );
-    stmt.run(
-      feedback.id,
-      feedback.analysis_id,
-      feedback.correct,
-      feedback.actual_cause,
-      feedback.timestamp
-    );
+      this.db.run(
+        `INSERT INTO feedback (id, analysis_id, correct, actual_cause, timestamp)
+         VALUES (?, ?, ?, ?, ?)`,
+        [feedbackId, analysisId, correct ? 1 : 0, actualCause || null, timestamp]
+      );
 
-    log.info('Analysis feedback recorded', {
-      analysis_id: analysisId,
-      correct,
-      actual_cause: actualCause || 'N/A',
-    });
+      await this.persist();
+
+      log.info('Analysis feedback recorded', {
+        analysis_id: analysisId,
+        correct,
+        actual_cause: actualCause || 'N/A',
+      });
+    } catch (err) {
+      log.warn('Failed to record feedback', {
+        error: String(err),
+        analysis_id: analysisId,
+      });
+    }
   }
 
   /**
@@ -238,7 +264,7 @@ export class RootCauseAnalyzer {
     prompt: string
   ): Promise<RootCauseAnalysis> {
     const message = await this.anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: process.env.PROVA_ANTHROPIC_MODEL || 'claude-sonnet-4-5',
       max_tokens: 1024,
       messages: [
         {
@@ -255,13 +281,45 @@ export class RootCauseAnalyzer {
 
     return {
       id: this.generateId(),
-      golden_thread_id: chain.id,
+      golden_thread_id: chain.golden_thread_id,
       root_cause: parsed.root_cause,
       confidence: parsed.confidence,
       reasoning: parsed.reasoning,
       suggestions: parsed.suggestions,
       timestamp: new Date().toISOString(),
       model_used: 'claude',
+      cached: false,
+    };
+  }
+
+  /**
+   * Provides deterministic analysis for tests and disconnected environments.
+   * This path never makes a network request or consumes AI tokens.
+   */
+  private analyzeOffline(chain: GoldenThreadChain): RootCauseAnalysis {
+    const failedStages = chain.stages.filter((stage) => stage.status === 'FAILED');
+    const firstFailure = failedStages.sort((a, b) => a.stage - b.stage)[0];
+    let rootCause: RootCauseType = 'CODE_BUG';
+
+    if (!chain.stages.some((stage) => stage.stage === 1)) rootCause = 'SPEC_GAP';
+    else if (!chain.stages.some((stage) => stage.stage === 2)) rootCause = 'TEST_GAP';
+    else if (firstFailure?.stage === 5) rootCause = 'DEPLOYMENT';
+
+    return {
+      id: this.generateId(),
+      golden_thread_id: chain.golden_thread_id,
+      root_cause: rootCause,
+      confidence: 0.7,
+      reasoning: firstFailure
+        ? `Deterministic analysis identified the first failure at Stage ${firstFailure.stage}.`
+        : 'Deterministic analysis found no explicit failed stage; review code and evidence.',
+      suggestions: [
+        'Review the first failing Golden Thread stage',
+        'Compare its artifact with the preceding successful stage',
+        'Add a regression test after confirming the cause',
+      ],
+      timestamp: new Date().toISOString(),
+      model_used: 'offline',
       cached: false,
     };
   }
@@ -294,7 +352,7 @@ export class RootCauseAnalyzer {
 
     return {
       id: this.generateId(),
-      golden_thread_id: chain.id,
+      golden_thread_id: chain.golden_thread_id,
       root_cause: parsed.root_cause,
       confidence: parsed.confidence,
       reasoning: parsed.reasoning,
@@ -309,16 +367,31 @@ export class RootCauseAnalyzer {
    * Builds a comprehensive prompt from the full 7-stage Golden Thread chain.
    */
   private buildPrompt(chain: GoldenThreadChain): string {
+    const stageMap = new Map<number, StageLog | undefined>();
+    for (const log of chain.stages) {
+      stageMap.set(log.stage, log);
+    }
+
+    const formatStage = (_stage: number, log: StageLog | undefined): string => {
+      if (!log) return 'N/A';
+      const metadata = log.metadata ? JSON.parse(log.metadata) : {};
+      const metaText = Object.entries(metadata)
+        .map(([k, v]) => `  ${k}: ${v}`)
+        .join('\n');
+      return `${log.status} | ${log.actor} | ${metaText}`.substring(0, 300);
+    };
+
     const stages = [
-      `Stage 1 (Spec): ${chain.stage1_spec || 'N/A'}`,
-      `Stage 2 (Test): ${chain.stage2_test_code ? chain.stage2_test_code.substring(0, 500) : 'N/A'}`,
-      `Stage 3 (Evidence): ${chain.stage3_evidence || 'N/A'}`,
-      `Stage 4-5 (Build/Deploy): ${chain.stage4_build ? 'Build: OK' : 'Build: FAILED'} / ${chain.stage5_deploy ? 'Deploy: OK' : 'Deploy: FAILED'}`,
-      `Stage 6 (Monitoring): ${chain.stage6_prod_logs ? chain.stage6_prod_logs.substring(0, 500) : 'N/A'}`,
-      `Stage 7 (Debug): ${chain.stage7_debug_info || 'N/A'}`,
+      `Stage 1 (Spec): ${formatStage(1, stageMap.get(1))}`,
+      `Stage 2 (Test): ${formatStage(2, stageMap.get(2))}`,
+      `Stage 3 (Evidence): ${formatStage(3, stageMap.get(3))}`,
+      `Stage 4 (Build): ${formatStage(4, stageMap.get(4))}`,
+      `Stage 5 (Deploy): ${formatStage(5, stageMap.get(5))} | Deployment: ${stageMap.get(5)?.deployment_status || 'N/A'}`,
+      `Stage 6 (Monitor): ${formatStage(6, stageMap.get(6))}`,
+      `Stage 7 (Debug): ${formatStage(7, stageMap.get(7))}`,
     ].join('\n\n');
 
-    return `You are a QA expert analyzing a failed test in a CI/CD pipeline. Based on the following 7-stage context, classify the root cause into exactly one category:
+    return `You are a QA expert analyzing a failed test in a CI/CD pipeline. Based on the following 7-stage Golden Thread context, classify the root cause into exactly one category:
 
 ${stages}
 
@@ -378,15 +451,8 @@ Be concise and direct.`;
    * Generates a stable hash of the chain context for caching.
    */
   private hashChainContext(chain: GoldenThreadChain): string {
-    const key = [
-      chain.stage1_spec,
-      chain.stage2_test_code,
-      chain.stage6_prod_logs,
-      chain.stage7_debug_info,
-    ]
-      .filter(Boolean)
-      .join('|');
-    return createHash('sha256').update(key).digest('hex');
+    const logs = chain.stages.map((s) => `${s.stage}:${s.status}:${s.metadata}`).join('|');
+    return createHash('sha256').update(logs).digest('hex');
   }
 
   /**
@@ -396,52 +462,70 @@ Be concise and direct.`;
     threadId: string,
     contextHash: string
   ): RootCauseAnalysis | null {
-    const stmt = this.db.prepare(
-      `SELECT * FROM analyses WHERE golden_thread_id = ? AND context_hash = ? ORDER BY timestamp DESC LIMIT 1`
-    );
-    const row = stmt.get(threadId, contextHash) as any;
+    try {
+      const results = this.db.exec(
+        `SELECT * FROM analyses WHERE golden_thread_id = ? AND context_hash = ? ORDER BY timestamp DESC LIMIT 1`,
+        [threadId, contextHash]
+      );
 
-    if (!row) {
+      if (!results || results.length === 0 || !results[0].values || results[0].values.length === 0) {
+        return null;
+      }
+
+      const cols = results[0].columns;
+      const row = results[0].values[0] as (string | number | null)[];
+
+      const rowMap: Record<string, unknown> = {};
+      cols.forEach((col, idx) => {
+        rowMap[col] = row[idx];
+      });
+
+      return {
+        id: rowMap.id as string,
+        golden_thread_id: rowMap.golden_thread_id as string,
+        root_cause: rowMap.root_cause as RootCauseType,
+        confidence: rowMap.confidence as number,
+        reasoning: rowMap.reasoning as string,
+        suggestions: JSON.parse(rowMap.suggestions as string),
+        timestamp: rowMap.timestamp as string,
+        model_used: rowMap.model_used as string,
+        cached: true,
+      };
+    } catch (err) {
+      log.warn('Cache retrieval failed', { error: String(err) });
       return null;
     }
-
-    return {
-      id: row.id,
-      golden_thread_id: row.golden_thread_id,
-      root_cause: row.root_cause as RootCauseType,
-      confidence: row.confidence,
-      reasoning: row.reasoning,
-      suggestions: JSON.parse(row.suggestions),
-      timestamp: row.timestamp,
-      model_used: row.model_used,
-      cached: true,
-    };
   }
 
   /**
    * Caches an analysis result for future lookups.
    */
-  private cacheAnalysis(
+  private async cacheAnalysis(
     threadId: string,
     contextHash: string,
     analysis: RootCauseAnalysis
-  ): void {
-    const stmt = this.db.prepare(
-      `INSERT INTO analyses
-       (id, golden_thread_id, root_cause, confidence, reasoning, suggestions, timestamp, model_used, context_hash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    );
-    stmt.run(
-      analysis.id,
-      threadId,
-      analysis.root_cause,
-      analysis.confidence,
-      analysis.reasoning,
-      JSON.stringify(analysis.suggestions),
-      analysis.timestamp,
-      analysis.model_used,
-      contextHash
-    );
+  ): Promise<void> {
+    try {
+      this.db.run(
+        `INSERT OR REPLACE INTO analyses
+         (id, golden_thread_id, root_cause, confidence, reasoning, suggestions, timestamp, model_used, context_hash)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          analysis.id,
+          threadId,
+          analysis.root_cause,
+          analysis.confidence,
+          analysis.reasoning,
+          JSON.stringify(analysis.suggestions),
+          analysis.timestamp,
+          analysis.model_used,
+          contextHash,
+        ]
+      );
+      await this.persist();
+    } catch (err) {
+      log.warn('Cache write failed', { error: String(err) });
+    }
   }
 
   /**
