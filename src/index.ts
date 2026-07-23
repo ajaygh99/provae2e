@@ -161,6 +161,20 @@ export type {
   SentinelPatternSignature,
   SentinelPatternSummary
 } from './core/sentinel-pattern-recognizer.js';
+export { SentinelDependencyMonitor, classifyCvss, parseNpmLock, parsePom, parseRequirements } from './core/sentinel-dependency-monitor.js';
+export type {
+  CveMatch,
+  CveProvider,
+  CveSeverity,
+  DependencyAlert,
+  DependencyEcosystem,
+  DependencyFinding,
+  DependencyMonitorOptions,
+  DependencyNotifier,
+  DependencyPollResult,
+  ProductionDependency,
+  Soc2CveReport
+} from './core/sentinel-dependency-monitor.js';
 export type {
   ApiExchange,
   ComplianceReport,
