@@ -318,3 +318,14 @@ export type {
   GraphVertex,
   GraphVertexType
 } from './core/knowledge-graph-query.js';
+export { KnowledgeGraphInsightEngine } from './core/knowledge-graph-insights.js';
+export type {
+  GraphCodeChange,
+  GraphIncident,
+  GraphTest,
+  InsightImpact,
+  InsightOptions,
+  InsightType,
+  KnowledgeGraphInsight,
+  KnowledgeSubgraph
+} from './core/knowledge-graph-insights.js';
