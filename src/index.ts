@@ -32,6 +32,17 @@ export {
   validateWorkers
 } from './core/input-validator.js';
 export type { HttpHeaders } from './core/input-validator.js';
+export { TestStepCanvas } from './studio/test-step-canvas.js';
+export type {
+  CanvasDropLocation,
+  CanvasDropOutcome,
+  CanvasDropResult,
+  NewStudioTestStep,
+  StudioTestStep,
+  TestStepAction,
+  TestStepCanvasOptions,
+  TestStepCanvasSnapshot
+} from './studio/test-step-canvas.js';
 export { extractAcceptanceCriteria, generateTestsFromSpec } from './generators/spec-test-generator.js';
 export type {
   GeneratedTestType,
