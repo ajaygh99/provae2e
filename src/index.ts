@@ -100,6 +100,23 @@ export {
   parsePactContract,
   validateApiExchange
 } from './core/contract-testing.js';
+export { TestDataLineageTracker, validateTestData } from './core/test-data-lineage.js';
+export type {
+  DataEnvironment,
+  DatabaseImpact,
+  DatabaseImpactInput,
+  DataValidationWarning,
+  LineageEdge,
+  LineageNode,
+  RegisterTestDataInput,
+  TestDataCleaner,
+  TestDataCleanupResult,
+  TestDataIsolationReport,
+  TestDataLifecycle,
+  TestDataLineageGraph,
+  TestDataRecord,
+  TestDataSource
+} from './core/test-data-lineage.js';
 export { analyzeRegressionTrend, calculateMetricBaseline } from './core/regression-trend-analyzer.js';
 export type {
   MetricAssessment,
