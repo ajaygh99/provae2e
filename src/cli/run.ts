@@ -51,6 +51,7 @@ import { runPromotionChain } from '../promotions/env-chain-manager.js';
 import { writePromotionReport } from '../promotions/promotion-reporter.js';
 import { syncCommand } from './sync.js';
 import { dashboardCommand } from './dashboard.js';
+import { graphCommand } from './graph.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -1056,6 +1057,16 @@ export function buildProgram(): Command {
       jiraCloudId: opts.jiraCloudId,
       database: opts.database
     }));
+
+  program
+    .command('graph')
+    .description('Query requirement coverage, incident chains, test history, or coverage gaps as JSON')
+    .option('--requirement <PROJ-123>', 'Show all tests covering a requirement')
+    .option('--incident <id>', 'Show the full code, test, deployment, and incident chain')
+    .option('--test <id>', 'Show test run history, code changes, and related incidents')
+    .option('--suggestions', 'Suggest tests for uncovered requirements', false)
+    .option('--database <file>', 'Knowledge graph JSON dataset', './prova-knowledge-graph.json')
+    .action(graphCommand);
 
   program
     .command('dashboard')
