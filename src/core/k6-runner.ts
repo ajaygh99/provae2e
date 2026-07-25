@@ -47,6 +47,7 @@ export interface K6CommandExecutor {
 
 interface K6SummaryMetric {
   values?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 interface K6Summary {
@@ -58,7 +59,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function metricNumber(summary: K6Summary, metric: string, value: string): number | undefined {
-  const candidate = summary.metrics?.[metric]?.values?.[value];
+  const metricSummary = summary.metrics?.[metric];
+  const candidate = metricSummary?.values?.[value] ?? metricSummary?.[value];
   return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : undefined;
 }
 
@@ -82,7 +84,8 @@ export function parseK6Summary(input: unknown): K6RunResult {
   const p95ResponseTimeMs = metricNumber(summary, 'http_req_duration', 'p(95)');
   const p50ResponseTimeMs = metricNumber(summary, 'http_req_duration', 'p(50)');
   const p99ResponseTimeMs = metricNumber(summary, 'http_req_duration', 'p(99)');
-  const errorRate = metricNumber(summary, 'http_req_failed', 'rate');
+  const errorRate = metricNumber(summary, 'http_req_failed', 'rate')
+    ?? metricNumber(summary, 'http_req_failed', 'value');
   const requestsPerSecond = metricNumber(summary, 'http_reqs', 'rate');
   if (p95ResponseTimeMs === undefined || errorRate === undefined || requestsPerSecond === undefined) {
     return { ok: false, error: 'k6 summary is missing http_req_duration p(95), http_req_failed rate, or http_reqs rate' };

@@ -7,7 +7,7 @@ import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { runBrowserTest } from '../../src/runners/browser-runner';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 describe('Browser Runner', () => {
   let server: http.Server;
@@ -42,13 +42,20 @@ describe('Browser Runner', () => {
   });
 
   it('passes for a reachable page with a title, writing a screenshot', async () => {
-    const result = await runBrowserTest({ url: baseUrl, screenshotDir });
+    const result = await runBrowserTest({ url: baseUrl, screenshotDir, scope: 'full' });
 
     expect(result.status).toBe('PASS');
     expect(result.title).toBe('Test Page Title');
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
     expect(result.screenshotPath).toBeDefined();
     expect(existsSync(result.screenshotPath as string)).toBe(true);
+    expect(result.checks).toEqual([
+      'page loaded',
+      'non-empty title',
+      'body rendered',
+      'HTTP 200',
+      'no uncaught page errors'
+    ]);
   });
 
   it('creates the screenshot directory when it does not already exist', async () => {

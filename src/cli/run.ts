@@ -9,6 +9,8 @@ import { runBrowserTest } from '../runners/browser-runner.js';
 import { runApiTest } from '../runners/api-runner.js';
 import type { HttpMethod } from '../runners/api-runner.js';
 import { runMobileTest } from '../runners/mobile-runner.js';
+import { parseDevices } from '../core/input-validator.js';
+import { mapWithConcurrency } from '../core/concurrency.js';
 import {
   generateAllureReport,
   browserResultToCase,
@@ -800,7 +802,13 @@ export async function generateCommand(opts: GenerateActionOptions): Promise<void
  * @param opts - The parsed `run` command options.
  */
 export async function runCommand(opts: RunActionOptions): Promise<void> {
-  log.info('PROVA starting', { url: opts.url, type: opts.type, env: opts.env });
+  log.info('PROVA starting', {
+    url: opts.url,
+    type: opts.type,
+    env: opts.env,
+    scope: opts.scope,
+    workers: Number(opts.workers)
+  });
 
   const validation = validateRunOptions(opts);
   if (!validation.valid) {
@@ -812,67 +820,78 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
   }
 
   const type = opts.type;
-  const cases: ReportTestCase[] = [];
-  let anyFailed = false;
+  const scope = opts.scope as 'smoke' | 'cr' | 'component' | 'full';
+  const tasks: Array<() => Promise<ReportTestCase>> = [];
 
   if (type === 'browser' || type === 'all') {
-    const result = await runBrowserTest({ url: opts.url, retries: Number(opts.retries ?? '3') });
-    log.info('Run result', {
-      status: result.status,
-      durationMs: result.durationMs,
-      screenshotPath: result.screenshotPath
+    tasks.push(async () => {
+      const result = await runBrowserTest({
+        url: opts.url,
+        retries: Number(opts.retries ?? '3'),
+        scope
+      });
+      log.info('Run result', {
+        status: result.status,
+        durationMs: result.durationMs,
+        screenshotPath: result.screenshotPath,
+        checks: result.checks
+      });
+      return browserResultToCase(result);
     });
-    cases.push(browserResultToCase(result));
-    if (result.status === 'FAIL') {
-      anyFailed = true;
-    }
   }
 
   if (type === 'api' || type === 'all') {
     const graphql = opts.graphql
       ? { query: opts.graphql, variables: validation.graphqlVariables ?? {} }
       : undefined;
-
-    const result = await runApiTest({
-      url: opts.url,
-      method: opts.method as HttpMethod,
-      body: graphql ? undefined : validation.restBody,
-      graphql,
-      expectedStatus: Number(opts.expectStatus),
-      headers: validation.headers,
-      timeoutMs: opts.timeout === undefined ? undefined : Number(opts.timeout),
-      retries: Number(opts.retries ?? '3')
+    tasks.push(async () => {
+      const result = await runApiTest({
+        url: opts.url,
+        method: opts.method as HttpMethod,
+        body: graphql ? undefined : validation.restBody,
+        graphql,
+        expectedStatus: Number(opts.expectStatus),
+        headers: validation.headers,
+        timeoutMs: opts.timeout === undefined ? undefined : Number(opts.timeout),
+        retries: Number(opts.retries ?? '3')
+      });
+      log.info('Run result', {
+        status: result.status,
+        statusCode: result.statusCode,
+        durationMs: result.durationMs,
+        responseSummary: result.responseSummary
+      });
+      return apiResultToCase(result);
     });
-
-    log.info('Run result', {
-      status: result.status,
-      statusCode: result.statusCode,
-      durationMs: result.durationMs,
-      responseSummary: result.responseSummary
-    });
-    cases.push(apiResultToCase(result));
-    if (result.status === 'FAIL') {
-      anyFailed = true;
-    }
   }
 
   if (type === 'mobile' || type === 'all') {
-    const result = await runMobileTest({ url: opts.url, device: opts.device, retries: Number(opts.retries ?? '3') });
-    log.info('Run result', {
-      status: result.status,
-      device: result.device,
-      durationMs: result.durationMs,
-      screenshotPath: result.screenshotPath
-    });
-    cases.push(mobileResultToCase(result));
-    if (result.status === 'FAIL') {
-      anyFailed = true;
+    for (const device of parseDevices(opts.device)) {
+      tasks.push(async () => {
+        const result = await runMobileTest({
+          url: opts.url,
+          device,
+          retries: Number(opts.retries ?? '3'),
+          scope
+        });
+        log.info('Run result', {
+          status: result.status,
+          device: result.device,
+          durationMs: result.durationMs,
+          screenshotPath: result.screenshotPath,
+          checks: result.checks
+        });
+        return mobileResultToCase(result);
+      });
     }
   }
 
+  const cases = await mapWithConcurrency(tasks, Number(opts.workers), (task) => task());
+  const anyFailed = cases.some((testCase) => testCase.status === 'FAIL');
+
   if (opts.report) {
-    const { reportPath } = await generateAllureReport({ runs: cases });
-    log.info('HTML report generated', { reportPath });
+    const { reportPath, archivedReportPath } = await generateAllureReport({ runs: cases });
+    log.info('HTML report generated', { reportPath, archivedReportPath });
   }
   if (opts.ai) {
     await printAiSummary({ runs: cases });
@@ -892,17 +911,17 @@ export function buildProgram(): Command {
   program
     .name('qe-tool')
     .description('PROVA — AI-native QE automation platform | provae2e.com')
-    .version('0.2.0');
+    .version('0.3.1-beta.0');
 
   program
     .command('run')
     .description('Run tests against a URL')
     .requiredOption('--url <url>', 'Target URL to test')
     .option('--type <type>', 'Test type: browser|api|mobile|all', 'browser')
-    .option('--device <device>', 'Device for mobile: iPhone14|Pixel7|iPad', 'iPhone14')
-    .option('--workers <n>', 'Parallel workers', '3')
+    .option('--device <devices>', 'Mobile device(s), comma-separated: iPhone14,Pixel7,iPad', 'iPhone14')
+    .option('--workers <n>', 'Maximum concurrent browser/API/mobile runs (1-16)', '3')
     .option('--suite <suite>', 'Test suite name to run')
-    .option('--scope <scope>', 'Scope: full|cr|smoke|component', 'full')
+    .option('--scope <scope>', 'Verification depth: smoke|component|cr|full', 'full')
     .option('--report', 'Generate HTML report', false)
     .option('--ai', 'Enable Ollama AI summaries (requires local Ollama)', false)
     .option('--premium', 'Use cloud LLM instead of local Ollama', false)

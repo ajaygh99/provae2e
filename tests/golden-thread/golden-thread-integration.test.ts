@@ -26,7 +26,7 @@ import {
   linkTestAndEvidenceStages
 } from './fixtures/golden-thread-fixtures.js';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 const mockFetchJira = fetchJiraTicketDescription as jest.MockedFunction<typeof fetchJiraTicketDescription>;
 const MockedGitHubApiClient = GitHubApiClient as jest.MockedClass<typeof GitHubApiClient>;

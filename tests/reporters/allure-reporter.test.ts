@@ -35,7 +35,9 @@ describe('Allure Reporter', () => {
 
       expect(result.summary).toEqual({ total: 2, passed: 1, failed: 1 });
       expect(existsSync(result.reportPath)).toBe(true);
+      expect(existsSync(result.archivedReportPath)).toBe(true);
       expect(existsSync(result.historyPath)).toBe(true);
+      expect(result.archivedReportPath).toContain(path.join('runs', '2026-07-19T10-00-00-000Z'));
 
       const html = readFileSync(result.reportPath, 'utf-8');
       expect(html).toContain('PROVA Test Report');

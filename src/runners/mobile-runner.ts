@@ -53,6 +53,8 @@ export interface MobileRunnerOptions {
   retries?: number;
   /** Initial exponential-backoff delay. Defaults to 1000ms. */
   retryBaseDelayMs?: number;
+  /** Verification depth selected by the CLI. */
+  scope?: 'smoke' | 'cr' | 'component' | 'full';
 }
 
 /** Outcome of a single mobile emulation test run. */
@@ -73,6 +75,8 @@ export interface MobileRunResult {
   selectorTier?: SelectorTier;
   /** Error message, populated only when status is FAIL. */
   error?: string;
+  /** Checks completed by the selected scope. */
+  checks?: string[];
 }
 
 /** Builds a filesystem-safe screenshot filename from a device name, URL, and timestamp. */
@@ -111,8 +115,70 @@ async function runMobileTestOnce(options: MobileRunnerOptions): Promise<MobileRu
     context = await browser.newContext({ ...devices[deviceKey] });
     const page = await context.newPage();
 
-    await page.goto(url, { waitUntil: 'load' });
+    const pageErrors: string[] = [];
+    page.on?.('pageerror', (error) => pageErrors.push(error.message));
+    const response = await page.goto(url, { waitUntil: 'load' });
     const title = await page.title();
+    const scope = options.scope ?? 'smoke';
+    const checks = ['page loaded', 'non-empty title', `emulated ${deviceKey}`];
+
+    if (scope === 'component' || scope === 'cr' || scope === 'full') {
+      if ((await page.locator('body').count()) === 0) {
+        return {
+          status: 'FAIL',
+          url,
+          device: deviceKey,
+          title,
+          durationMs: Date.now() - startedAt,
+          checks,
+          error: 'Page has no body element'
+        };
+      }
+      checks.push('body rendered');
+    }
+    if (scope === 'cr' || scope === 'full') {
+      const status = response?.status();
+      if (status === undefined || status >= 400) {
+        return {
+          status: 'FAIL',
+          url,
+          device: deviceKey,
+          title,
+          durationMs: Date.now() - startedAt,
+          checks,
+          error: `Navigation returned HTTP ${status ?? 'unknown'}`
+        };
+      }
+      checks.push(`HTTP ${status}`);
+    }
+    if (scope === 'full') {
+      if (pageErrors.length > 0) {
+        return {
+          status: 'FAIL',
+          url,
+          device: deviceKey,
+          title,
+          durationMs: Date.now() - startedAt,
+          checks,
+          error: `Uncaught page error: ${pageErrors[0]}`
+        };
+      }
+      const hasHorizontalOverflow = await page.evaluate<boolean>(
+        'document.documentElement.scrollWidth > window.innerWidth + 1'
+      );
+      if (hasHorizontalOverflow) {
+        return {
+          status: 'FAIL',
+          url,
+          device: deviceKey,
+          title,
+          durationMs: Date.now() - startedAt,
+          checks,
+          error: 'Responsive layout has horizontal viewport overflow'
+        };
+      }
+      checks.push('no uncaught page errors', 'no horizontal viewport overflow');
+    }
 
     let selectorTier: SelectorTier | undefined;
     if (options.selector) {
@@ -135,11 +201,21 @@ async function runMobileTestOnce(options: MobileRunnerOptions): Promise<MobileRu
 
     if (!title) {
       log.error('Mobile run failed: page has no title', undefined);
-      return { status: 'FAIL', url, device: deviceKey, title, durationMs, screenshotPath, selectorTier, error: 'Page title is empty' };
+      return {
+        status: 'FAIL',
+        url,
+        device: deviceKey,
+        title,
+        durationMs,
+        screenshotPath,
+        selectorTier,
+        checks,
+        error: 'Page title is empty'
+      };
     }
 
     log.success('Mobile run passed', { url, device: deviceKey, title, durationMs, screenshotPath });
-    return { status: 'PASS', url, device: deviceKey, title, durationMs, screenshotPath, selectorTier };
+    return { status: 'PASS', url, device: deviceKey, title, durationMs, screenshotPath, selectorTier, checks };
   } catch (err) {
     const durationMs = Date.now() - startedAt;
     const message = err instanceof Error ? err.message : String(err);

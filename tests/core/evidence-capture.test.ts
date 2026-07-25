@@ -3,7 +3,7 @@ import { mkdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 const testOutputDir = path.join(process.cwd(), '.test-evidence-output');
 

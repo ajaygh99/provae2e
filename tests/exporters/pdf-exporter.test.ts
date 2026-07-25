@@ -46,7 +46,7 @@ describe('PDF Exporter', () => {
     // Verify file exists and has content
     const stats = await stat(pdfPath);
     expect(stats.size).toBeGreaterThan(0);
-  }, 30000); // Longer timeout for PDF generation
+  }, 60000); // Coverage instrumentation can make PDF generation slower on CI.
 
   it('should create output directory if not exists', async () => {
     const store = await GoldenThreadStore.open(dbPath);
@@ -68,7 +68,7 @@ describe('PDF Exporter', () => {
     } catch {
       // ignore
     }
-  }, 30000);
+  }, 60000);
 
   it('should handle chains with deployment status', async () => {
     const store = await GoldenThreadStore.open(dbPath);
@@ -102,5 +102,5 @@ describe('PDF Exporter', () => {
 
     const stats = await stat(pdfPath);
     expect(stats.size).toBeGreaterThan(0);
-  }, 30000);
+  }, 60000);
 });

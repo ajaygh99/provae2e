@@ -61,6 +61,8 @@ export interface GenerateReportResult {
   historyPath: string;
   /** Pass/fail summary for this run. */
   summary: { total: number; passed: number; failed: number };
+  /** Immutable copy of this run's HTML report. */
+  archivedReportPath: string;
 }
 
 /** Maximum number of past runs kept in the history file / rendered in the trend. */
@@ -153,6 +155,8 @@ export async function generateAllureReport(options: GenerateReportOptions): Prom
   const now = options.now ?? new Date();
   const historyPath = path.join(outputDir, 'history.json');
   const reportPath = path.join(outputDir, 'index.html');
+  const runId = now.toISOString().replace(/[:.]/g, '-');
+  const archivedReportPath = path.join(outputDir, 'runs', runId, 'index.html');
 
   const total = options.runs.length;
   const passed = options.runs.filter((run) => run.status === 'PASS').length;
@@ -221,11 +225,13 @@ ${casesHtml}
 </html>`;
 
   await writeFile(reportPath, html, 'utf-8');
+  await mkdir(path.dirname(archivedReportPath), { recursive: true });
+  await writeFile(archivedReportPath, html, 'utf-8');
   await writeFile(historyPath, JSON.stringify(updatedHistory, null, 2), 'utf-8');
 
   log.success('Report generated', { reportPath, total, passed, failed });
 
-  return { reportPath, historyPath, summary: { total, passed, failed } };
+  return { reportPath, archivedReportPath, historyPath, summary: { total, passed, failed } };
 }
 
 /** Converts a {@link BrowserRunResult} into a {@link ReportTestCase}. */
@@ -233,6 +239,12 @@ export function browserResultToCase(result: BrowserRunResult): ReportTestCase {
   const details: Record<string, string | number> = {};
   if (result.title !== undefined) {
     details['title'] = result.title;
+  }
+  if (result.checks?.length) {
+    details['checks'] = result.checks.join(', ');
+  }
+  if (result.warnings?.length) {
+    details['limitations'] = result.warnings.join('; ');
   }
   return {
     name: `browser: ${result.url}`,
@@ -267,6 +279,9 @@ export function mobileResultToCase(result: MobileRunResult): ReportTestCase {
   const details: Record<string, string | number> = { device: result.device };
   if (result.title !== undefined) {
     details['title'] = result.title;
+  }
+  if (result.checks?.length) {
+    details['checks'] = result.checks.join(', ');
   }
   return {
     name: `mobile (${result.device}): ${result.url}`,

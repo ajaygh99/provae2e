@@ -31,6 +31,25 @@ describe('parseK6Summary', () => {
     });
   });
 
+  it('extracts metrics from the direct-field summary format used by k6 v2', () => {
+    expect(parseK6Summary({
+      metrics: {
+        http_req_duration: { 'p(50)': 75, 'p(95)': 180.5, 'p(99)': 240 },
+        http_req_failed: { value: 0.01, passes: 1, fails: 99 },
+        http_reqs: { count: 100, rate: 42.25 }
+      }
+    })).toEqual({
+      ok: true,
+      metrics: {
+        p50ResponseTimeMs: 75,
+        p95ResponseTimeMs: 180.5,
+        p99ResponseTimeMs: 240,
+        errorRate: 0.01,
+        requestsPerSecond: 42.25
+      }
+    });
+  });
+
   it('rejects malformed, incomplete, and out-of-range summaries', () => {
     expect(parseK6Summary(null)).toEqual({ ok: false, error: 'k6 summary is not a JSON object' });
     expect(parseK6Summary({ metrics: {} })).toEqual({

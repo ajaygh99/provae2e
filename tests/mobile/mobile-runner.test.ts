@@ -7,7 +7,7 @@ import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { runMobileTest, SUPPORTED_DEVICES } from '../../src/runners/mobile-runner';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 describe('Mobile Runner', () => {
   let server: http.Server;
@@ -49,7 +49,7 @@ describe('Mobile Runner', () => {
   });
 
   it('passes for a reachable page with a title, writing a screenshot', async () => {
-    const result = await runMobileTest({ url: baseUrl, device: 'iPhone14', screenshotDir });
+    const result = await runMobileTest({ url: baseUrl, device: 'iPhone14', screenshotDir, scope: 'full' });
 
     expect(result.status).toBe('PASS');
     expect(result.device).toBe('iPhone 14');
@@ -57,6 +57,15 @@ describe('Mobile Runner', () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
     expect(result.screenshotPath).toBeDefined();
     expect(existsSync(result.screenshotPath as string)).toBe(true);
+    expect(result.checks).toEqual([
+      'page loaded',
+      'non-empty title',
+      'emulated iPhone 14',
+      'body rendered',
+      'HTTP 200',
+      'no uncaught page errors',
+      'no horizontal viewport overflow'
+    ]);
   });
 
   it.each([

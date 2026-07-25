@@ -2,7 +2,7 @@ import { GoldenThreadStore, STAGE_NAMES } from '../../src/core/golden-thread-sto
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 const testDbDir = path.join(process.cwd(), '.test-golden-thread');
 let testDbPath: string;

@@ -1,6 +1,6 @@
 {
   "name": "@provae2e/cli",
-  "version": "0.2.0",
+  "version": "0.3.1-beta.0",
   "description": "CLI-first browser, mobile, and API test automation powered by Playwright",
   "bin": {
     "qe-tool": "./dist/cli/run.js",
@@ -23,7 +23,7 @@
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --forceExit",
-    "test:smoke": "jest --testPathPattern=tests/smoke --forceExit",
+    "test:smoke": "jest --testPathPatterns=tests/smoke --forceExit",
     "test:phase2:e2e": "npm run build && node scripts/phase2-e2e.js",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
@@ -72,25 +72,36 @@
     "yaml": "^2.4.0"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.0",
+    "@swc/core": "^1.13.5",
+    "@swc/jest": "^0.2.39",
+    "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "@types/sql.js": "^1.4.11",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "eslint": "^8.57.0",
-    "jest": "^29.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "eslint": "^10.8.0",
+    "jest": "^30.4.2",
     "js-yaml": "^4.1.0",
-    "ts-jest": "^29.1.0",
     "typescript": "^5.4.0"
   },
+  "overrides": {
+    "glob": "13.0.6",
+    "test-exclude": "8.0.0"
+  },
   "jest": {
-    "preset": "ts-jest",
     "testEnvironment": "node",
+    "testTimeout": 60000,
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest"
+      ]
+    },
     "testMatch": [
       "**/*.test.ts"
     ],
     "coverageDirectory": "coverage",
+    "coverageProvider": "v8",
     "collectCoverageFrom": [
       "src/**/*.ts",
       "!src/**/*.d.ts"

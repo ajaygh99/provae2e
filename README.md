@@ -363,13 +363,74 @@ The template installs `@provae2e/cli`, runs `qe-tool run --type all --report` ag
 3. Enter the `url` input (the target to test) and run it.
 4. When it finishes, download the `prova-allure-report` artifact from the run summary and open `index.html`.
 
+## Troubleshooting
+
+### Install Playwright browsers
+
+If a browser or mobile run reports `browserType.launch: Executable doesn't exist`,
+install the Chromium binary used by PROVA:
+
+```bash
+npx playwright install chromium
+```
+
+On Linux CI hosts, install the required operating-system libraries at the same
+time:
+
+```bash
+npx playwright install --with-deps chromium
+```
+
+Windows and macOS normally only require `npx playwright install chromium`.
+WSL follows the Linux instructions.
+
+### Mobile device emulation
+
+Mobile tests use Playwright descriptors and do not require a physical device:
+
+```bash
+qe-tool run --type mobile --device "iPhone14,Pixel7" --url https://example.com
+```
+
+Run `qe-tool run --help` for the current alias list. Exact Playwright device
+names are also accepted.
+
+### API-only testing
+
+API runs do not launch a browser:
+
+```bash
+qe-tool run --type api --url https://api.example.com --expect-status 200
+```
+
+### Performance and parallelism
+
+Use `--workers` to bound concurrent browser, API, and mobile legs. More workers
+reduce wall-clock time but increase CPU and memory pressure:
+
+```bash
+qe-tool run --type all --workers 4 --url https://example.com
+```
+
+### Chrome Web Store limitations
+
+A Chrome Web Store URL verifies listing availability only. Store installation,
+permission approval, toolbar state, and extension service-worker execution
+require an unpacked extension build and a persistent Chrome test profile.
+
+### Getting help
+
+- Run `qe-tool --version` and include the result in bug reports.
+- Attach `allure-report/index.html` and the matching archived report.
+- Report issues at <https://github.com/ajaygh99/provae2e/issues>.
+
 Add your own `push`/`pull_request`/`schedule` triggers alongside `workflow_dispatch` in the copied file if you want it to run automatically instead of on demand.
 
 ## Autonomous Development
 
 This repository is managed by the PROVA Trinity system:
 - **Cowork** — Sprint planning, coordination, release announcements
-- **Claude Code** — Feature implementation, testing, npm publishing  
+- **Claude Code** — Feature implementation, testing, npm publishing
 - **GitHub** — Source of truth, CI/CD, event bus
 
 To request a feature: create a GitHub Issue and add label `agent-implement`.
@@ -386,5 +447,5 @@ MIT © PROVA
 
 ---
 
-� 2026 Ajay. All rights reserved. Licensed under MIT.
+© 2026 Ajay. All rights reserved. Licensed under MIT.
 

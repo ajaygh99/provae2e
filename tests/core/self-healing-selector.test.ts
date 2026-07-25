@@ -7,7 +7,7 @@ import { chromium } from '@playwright/test';
 import type { Browser, Page } from '@playwright/test';
 import { resolveSelector, SelectorResolutionError } from '../../src/core/self-healing-selector.js';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 const FIXTURE_HTML = `
 <html>

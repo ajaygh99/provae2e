@@ -131,8 +131,10 @@ describe('Dashboard CLI Command', () => {
     try {
       await GoldenThreadStore.open(emptyDb);
       await dashboardCommand({ database: emptyDb, output: outputPath });
-      // Should not throw, just log info
-      expect(true).toBe(true);
+      expect(existsSync(outputPath)).toBe(true);
+      const content = readFileSync(outputPath, 'utf-8');
+      expect(content).toContain('<!DOCTYPE html>');
+      expect(content).toContain('Golden Thread');
     } finally {
       if (existsSync(emptyDb)) rmSync(emptyDb, { force: true });
     }

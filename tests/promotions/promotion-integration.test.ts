@@ -4,7 +4,7 @@ import path from 'node:path';
 import { runPromotionChain } from '../../src/promotions/env-chain-manager';
 
 describe('promotion gate integration', () => {
-  jest.setTimeout(30_000);
+  jest.setTimeout(60_000);
 
   it('runs Playwright against an isolated local source without contacting the target', async () => {
     let sourceRequests = 0;

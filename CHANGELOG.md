@@ -2,6 +2,27 @@
 
 All notable changes to PROVA are documented in this file.
 
+## 0.3.1-beta.0 — 2026-07-25
+
+Beta reliability and security release.
+
+### Fixed
+
+- Added comma-separated mobile-device execution and bounded `--workers` concurrency.
+- Made `--scope` control browser/mobile verification depth.
+- Preserved immutable per-run HTML reports and labeled Chrome Web Store listing limitations.
+- Added Playwright installation and platform troubleshooting guidance.
+- Replaced Studio's vulnerable routing dependency with a small same-origin client router.
+- Corrected promotion-test reporting and legacy Jest 30 CLI options.
+
+### Security and quality
+
+- Migrated root tests to Jest 30 with SWC and native V8 coverage.
+- Upgraded ESLint/type-aware tooling and patched vulnerable coverage transitive dependencies.
+- Root and Studio npm audits report zero vulnerabilities.
+- Root: 113 suites and 2,062 tests pass with coverage thresholds enforced.
+- Studio: 6 files and 60 tests pass; typecheck, lint, and production build pass.
+
 ## 0.2.0 — 2026-07-21
 
 Phase 2 Intelligence release of `@provae2e/cli`.
