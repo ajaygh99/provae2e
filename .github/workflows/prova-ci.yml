@@ -99,7 +99,13 @@ jobs:
           git config user.email "prova-ship@provae2e.com"
           git config user.name "PROVA SHIP Agent"
           VERSION=$(node -p "require('./package.json').version")
-          npm publish
+          if [[ "${VERSION}" == *-* ]]; then
+            NPM_TAG="${VERSION#*-}"
+            NPM_TAG="${NPM_TAG%%.*}"
+          else
+            NPM_TAG="latest"
+          fi
+          npm publish --tag "${NPM_TAG}"
           git tag "v${VERSION}"
           git push origin "v${VERSION}"
           gh release create "v${VERSION}" --title "PROVA v${VERSION}" --notes-file "releases/v${VERSION}.md"
