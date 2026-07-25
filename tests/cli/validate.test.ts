@@ -101,6 +101,17 @@ describe('validateRunOptions — --device (mobile/all only)', () => {
     const result = validateRunOptions(baseInput({ type: 'mobile', device: 'iPhone 14 Pro' }));
     expect(result.valid).toBe(true);
   });
+
+  it('accepts a comma-separated list of supported devices', () => {
+    const result = validateRunOptions(baseInput({ type: 'all', device: 'iphone14,pixel7' }));
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects a list containing an unsupported device', () => {
+    const result = validateRunOptions(baseInput({ type: 'mobile', device: 'iphone14,FlipPhone2000' }));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((error) => error.includes('FlipPhone2000'))).toBe(true);
+  });
 });
 
 describe('validateRunOptions — --method and --expect-status (api/all only)', () => {

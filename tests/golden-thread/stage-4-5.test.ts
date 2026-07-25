@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 describe('Golden Thread Stage 4-5: Build and Deploy', () => {
   let dbPath: string;

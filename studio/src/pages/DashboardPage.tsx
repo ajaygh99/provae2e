@@ -1,3 +1,5 @@
+import { Link } from '../router';
+
 const metrics = [
   ['Tests', '24'],
   ['Passing', '96%'],
@@ -19,4 +21,3 @@ export function DashboardPage(): React.JSX.Element {
     </section>
   );
 }
-import { Link } from 'react-router-dom';

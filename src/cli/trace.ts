@@ -38,7 +38,7 @@ export async function traceCommand(opts: TraceOptions): Promise<void> {
     let store: GoldenThreadStore;
     try {
       store = await GoldenThreadStore.open(dbPath);
-    } catch (error) {
+    } catch {
       log.error(`Failed to open Golden Thread database: ${dbPath}`);
       process.exitCode = 1;
       return;

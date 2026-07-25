@@ -40,17 +40,35 @@ export function ElementSelectorTool({
       setActive(false);
       return undefined;
     }
+    const highlightStyle = documentToInspect.createElement('style');
+    highlightStyle.dataset.provaSelectorHighlight = 'true';
+    highlightStyle.textContent = `
+      .prova-selector-highlight {
+        outline: 3px solid #7c3aed !important;
+        outline-offset: 2px !important;
+        cursor: crosshair !important;
+      }
+    `;
+    documentToInspect.head?.append(highlightStyle);
+
+    const isInspectableElement = (value: EventTarget | null): value is HTMLElement => {
+      const ElementConstructor = documentToInspect.defaultView?.HTMLElement;
+      return ElementConstructor
+        ? value instanceof ElementConstructor
+        : value instanceof HTMLElement;
+    };
+
     let highlighted: HTMLElement | undefined;
     const highlight = (event: MouseEvent): void => {
       const element = event.target;
-      if (!(element instanceof HTMLElement) || element.closest('[data-selector-tool]')) return;
+      if (!isInspectableElement(element) || element.closest('[data-selector-tool]')) return;
       highlighted?.classList.remove('prova-selector-highlight');
       highlighted = element;
       highlighted.classList.add('prova-selector-highlight');
     };
     const select = (event: MouseEvent): void => {
       const element = event.target;
-      if (!(element instanceof Element) || element.closest('[data-selector-tool]')) return;
+      if (!isInspectableElement(element) || element.closest('[data-selector-tool]')) return;
       event.preventDefault();
       event.stopPropagation();
       const value = format === 'css' ? createCssSelector(element) : createXPath(element);
@@ -71,17 +89,40 @@ export function ElementSelectorTool({
       documentToInspect.removeEventListener('mouseover', highlight, true);
       documentToInspect.removeEventListener('click', select, true);
       highlighted?.classList.remove('prova-selector-highlight');
+      highlightStyle.remove();
     };
   }, [active, format, onCapture, targetDocument]);
+
+  const copyWithFallback = (value: string): boolean => {
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.append(textarea);
+    textarea.select();
+    const succeeded = document.execCommand?.('copy') ?? false;
+    textarea.remove();
+    return succeeded;
+  };
 
   const copy = async (): Promise<void> => {
     if (!captured) return;
     try {
-      await navigator.clipboard.writeText(captured.value);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(captured.value);
+      } else if (!copyWithFallback(captured.value)) {
+        throw new Error('Clipboard API is unavailable.');
+      }
       setCopied(true);
       setError('');
     } catch {
-      setError('Clipboard access was denied. Select and copy the value manually.');
+      if (copyWithFallback(captured.value)) {
+        setCopied(true);
+        setError('');
+      } else {
+        setError('Clipboard access was denied. Select and copy the value manually.');
+      }
     }
   };
 
@@ -136,7 +177,7 @@ export function ElementSelectorTool({
         <div className="selector-result">
           <div>
             <span className="eyebrow">{captured.format} · {captured.tagName}</span>
-            <code>{captured.value}</code>
+            <code tabIndex={0}>{captured.value}</code>
             {captured.text && <small>{captured.text}</small>}
           </div>
           <button className="ui-button ui-button--secondary" type="button" onClick={() => void copy()}>

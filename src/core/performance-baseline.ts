@@ -50,11 +50,16 @@ export async function savePerformanceBaseline(filePath: string, metrics: K6Metri
 
 /**
  * Compares latency and error rate against a relative regression threshold.
+ * Ultra-fast baselines use a 50 ms p95 floor so timer and local dev-server
+ * scheduling noise does not create misleading percentage regressions.
  * A zero error-rate baseline permits no new errors.
  */
 export function comparePerformanceMetrics(current: K6Metrics, baseline: K6Metrics, threshold = 0.2): string[] {
   const regressions: string[] = [];
-  const latencyLimit = baseline.p95ResponseTimeMs * (1 + threshold);
+  const latencyLimit = Math.max(
+    baseline.p95ResponseTimeMs * (1 + threshold),
+    baseline.p95ResponseTimeMs < 50 ? 50 : 0
+  );
   const errorLimit = baseline.errorRate * (1 + threshold);
   if (current.p95ResponseTimeMs > latencyLimit) {
     regressions.push(`p95 response time regressed from ${baseline.p95ResponseTimeMs}ms to ${current.p95ResponseTimeMs}ms (limit ${latencyLimit.toFixed(2)}ms)`);

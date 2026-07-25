@@ -72,7 +72,7 @@ export class GitHubApiClient {
         `/repos/${this.owner}/${this.repo}/deployments/${deployment_id}`
       );
       return response as GitHubDeployment;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -93,7 +93,7 @@ export class GitHubApiClient {
         author: (response as Record<string, unknown>).author,
         committer: (response as Record<string, unknown>).committer
       } as GitHubCommit;
-    } catch (error) {
+    } catch {
       return null;
     }
   }

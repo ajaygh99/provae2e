@@ -1,11 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
+import { RouterProvider } from './router';
 
 function renderRoute(route: string): void {
-  render(<MemoryRouter initialEntries={[route]}><App /></MemoryRouter>);
+  render(<RouterProvider initialPath={route}><App /></RouterProvider>);
 }
 
 describe('PROVA Studio application shell', () => {

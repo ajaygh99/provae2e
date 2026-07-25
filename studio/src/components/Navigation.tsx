@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink } from '../router';
 
 const navigation = [
   { to: '/dashboard', label: 'Dashboard', icon: 'D' },

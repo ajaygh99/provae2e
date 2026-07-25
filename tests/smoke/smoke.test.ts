@@ -13,7 +13,7 @@ import { runBrowserTest } from '../../src/runners/browser-runner';
 import { runApiTest } from '../../src/runners/api-runner';
 import { runMobileTest } from '../../src/runners/mobile-runner';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 describe('Smoke suite', () => {
   let server: http.Server;

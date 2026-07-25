@@ -52,6 +52,19 @@ describe('ElementSelectorTool', () => {
     external.remove();
   });
 
+  it('installs and removes visible highlight styles in the inspected document', () => {
+    const external = document.createElement('button');
+    document.body.append(external);
+    render(<ElementSelectorTool targetDocument={document} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pick element' }));
+    expect(document.head.querySelector('[data-prova-selector-highlight="true"]')).toBeInTheDocument();
+    fireEvent.mouseOver(external);
+    expect(external).toHaveClass('prova-selector-highlight');
+    fireEvent.click(external);
+    expect(document.head.querySelector('[data-prova-selector-highlight="true"]')).not.toBeInTheDocument();
+    external.remove();
+  });
+
   it('captures XPath and can cancel picking', async () => {
     const external = document.createElement('a');
     external.id = 'docs';
@@ -83,6 +96,22 @@ describe('ElementSelectorTool', () => {
     writeText.mockRejectedValueOnce(new Error('denied'));
     fireEvent.click(screen.getByRole('button', { name: 'Copied' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Clipboard access was denied');
+    external.remove();
+  });
+
+  it('falls back to the legacy copy command when clipboard access is unavailable', async () => {
+    const external = document.createElement('input');
+    external.name = 'email';
+    document.body.append(external);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
+    render(<ElementSelectorTool targetDocument={document} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pick element' }));
+    fireEvent.click(external);
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy' }));
+    await waitFor(() => expect(execCommand).toHaveBeenCalledWith('copy'));
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
     external.remove();
   });
 

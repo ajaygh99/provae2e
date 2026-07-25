@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { Navigation } from './Navigation';
 import { MobileMenu } from './layout';
 
 /** Provides the persistent navigation and content regions for Studio. */
-export function AppLayout(): React.JSX.Element {
+export function AppLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   const [, setMobileMenuOpen] = useState(false);
 
   return (
@@ -22,7 +21,7 @@ export function AppLayout(): React.JSX.Element {
       <div className="app-workspace">
         <Header />
         <main className="app-content" id="main-content">
-          <Outlet />
+          {children}
         </main>
       </div>
     </div>

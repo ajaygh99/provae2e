@@ -22,6 +22,8 @@ export interface BrowserRunnerOptions {
   retries?: number;
   /** Initial exponential-backoff delay. Defaults to 1000ms. */
   retryBaseDelayMs?: number;
+  /** Verification depth selected by the CLI. */
+  scope?: 'smoke' | 'cr' | 'component' | 'full';
 }
 
 /** Outcome of a single browser test run. */
@@ -40,6 +42,10 @@ export interface BrowserRunResult {
   selectorTier?: SelectorTier;
   /** Error message, populated only when status is FAIL. */
   error?: string;
+  /** Checks completed by the selected scope. */
+  checks?: string[];
+  /** Capability limitations that do not make the listing/page check fail. */
+  warnings?: string[];
 }
 
 /** Builds a filesystem-safe screenshot filename from a URL and timestamp. */
@@ -66,9 +72,60 @@ async function runBrowserTestOnce(options: BrowserRunnerOptions): Promise<Browse
     log.info('Launching headless browser', { url });
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on?.('pageerror', (error) => pageErrors.push(error.message));
 
-    await page.goto(url, { waitUntil: 'load' });
+    const response = await page.goto(url, { waitUntil: 'load' });
     const title = await page.title();
+    const scope = options.scope ?? 'smoke';
+    const checks = ['page loaded', 'non-empty title'];
+    const warnings: string[] = [];
+
+    if (scope === 'component' || scope === 'cr' || scope === 'full') {
+      const hasBody = await page.locator('body').count();
+      if (hasBody === 0) {
+        return {
+          status: 'FAIL',
+          url,
+          title,
+          durationMs: Date.now() - startedAt,
+          checks,
+          error: 'Page has no body element'
+        };
+      }
+      checks.push('body rendered');
+    }
+    if (scope === 'cr' || scope === 'full') {
+      const status = response?.status();
+      if (status === undefined || status >= 400) {
+        return {
+          status: 'FAIL',
+          url,
+          title,
+          durationMs: Date.now() - startedAt,
+          checks,
+          error: `Navigation returned HTTP ${status ?? 'unknown'}`
+        };
+      }
+      checks.push(`HTTP ${status}`);
+    }
+    if (scope === 'full') {
+      if (pageErrors.length > 0) {
+        return {
+          status: 'FAIL',
+          url,
+          title,
+          durationMs: Date.now() - startedAt,
+          checks,
+          error: `Uncaught page error: ${pageErrors[0]}`
+        };
+      }
+      checks.push('no uncaught page errors');
+    }
+    if (new URL(url).hostname === 'chromewebstore.google.com') {
+      warnings.push('Chrome Web Store listing only; headless testing does not install or execute the extension');
+      log.warn('Chrome Web Store capability limited to listing verification', { url });
+    }
 
     let selectorTier: SelectorTier | undefined;
     if (options.selector) {
@@ -91,11 +148,21 @@ async function runBrowserTestOnce(options: BrowserRunnerOptions): Promise<Browse
 
     if (!title) {
       log.error('Browser run failed: page has no title', undefined);
-      return { status: 'FAIL', url, title, durationMs, screenshotPath, selectorTier, error: 'Page title is empty' };
+      return {
+        status: 'FAIL',
+        url,
+        title,
+        durationMs,
+        screenshotPath,
+        selectorTier,
+        checks,
+        warnings,
+        error: 'Page title is empty'
+      };
     }
 
     log.success('Browser run passed', { url, title, durationMs, screenshotPath });
-    return { status: 'PASS', url, title, durationMs, screenshotPath, selectorTier };
+    return { status: 'PASS', url, title, durationMs, screenshotPath, selectorTier, checks, warnings };
   } catch (err) {
     const durationMs = Date.now() - startedAt;
     const message = err instanceof Error ? err.message : String(err);

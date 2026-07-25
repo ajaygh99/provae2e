@@ -34,8 +34,7 @@ export async function dashboardCommand(opts: DashboardOptions): Promise<void> {
     const chainIds = await store.listChains();
 
     if (chainIds.length === 0) {
-      log.info('No chains found in database. Dashboard would be empty.');
-      return;
+      log.info('No chains found in database. Generating an empty-state dashboard.');
     }
 
     const chains = await Promise.all(
@@ -48,7 +47,7 @@ export async function dashboardCommand(opts: DashboardOptions): Promise<void> {
     const filters = buildFilters(opts);
     const filteredChains = filterChains(chains, filters);
 
-    if (filteredChains.length === 0) {
+    if (filteredChains.length === 0 && filters) {
       log.info('No chains match the specified filters.');
       return;
     }

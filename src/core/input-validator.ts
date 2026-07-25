@@ -25,9 +25,18 @@ export function validateRunType(value: string): string | undefined {
     : `Invalid --type "${value}": must be one of ${RUN_TYPES.join(', ')}`;
 }
 
-/** Returns an error when a device is not known to Playwright. */
+/** Splits the CLI's comma-separated device option into individual names. */
+export function parseDevices(value: string): string[] {
+  return value.split(',').map((device) => device.trim());
+}
+
+/** Returns an error when any requested device is not known to Playwright. */
 export function validateDevice(value: string): string | undefined {
-  return resolveDeviceKey(value) ? undefined : `Invalid --device "${value}": must match a Playwright device name`;
+  const devices = parseDevices(value);
+  const invalidDevice = devices.find((device) => device.length === 0 || !resolveDeviceKey(device));
+  return invalidDevice === undefined
+    ? undefined
+    : `Invalid --device "${invalidDevice}": must match a Playwright device name`;
 }
 
 /** Returns an error unless workers is an integer from 1 through 16. */

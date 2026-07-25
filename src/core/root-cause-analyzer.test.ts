@@ -56,7 +56,7 @@ describe('RootCauseAnalyzer', () => {
     if (existsSync(testDbPath)) {
       try {
         unlinkSync(testDbPath);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -67,7 +67,7 @@ describe('RootCauseAnalyzer', () => {
     if (existsSync(testDbPath)) {
       try {
         unlinkSync(testDbPath);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }

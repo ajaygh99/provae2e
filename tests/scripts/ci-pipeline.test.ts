@@ -1,7 +1,7 @@
 /**
  * PROVA CI pipeline config — regression checks for two related defects:
  * (1) the test job used to filter to a hardcoded subset of test directories
- *     (browser/api/mobile) via --testPathPattern, silently skipping every
+ *     (browser/api/mobile) via --testPathPatterns, silently skipping every
  *     other tests/ subdirectory (core, reporters, cli, scripts, templates...);
  * (2) coverage was collected for display only - nothing enforced a real
  *     80% floor that fails the build when unmet.
@@ -31,7 +31,7 @@ describe('prova-ci.yml — full test-directory coverage', () => {
   const workflowPath = path.join(__dirname, '../../.github/workflows/prova-ci.yml');
   const doc = yaml.load(readFileSync(workflowPath, 'utf-8')) as Workflow;
 
-  it('has a test job that runs the full suite, not a --testPathPattern-filtered subset', () => {
+  it('has a test job that runs the full suite, not a --testPathPatterns-filtered subset', () => {
     const testJob = doc.jobs['test'];
     expect(testJob).toBeDefined();
 
@@ -39,9 +39,9 @@ describe('prova-ci.yml — full test-directory coverage', () => {
     const testRun = runSteps.find((run) => run.includes('test'));
 
     expect(testRun).toBeDefined();
-    // Any --testPathPattern filter here would silently exclude whichever tests/
+    // Any --testPathPatterns filter here would silently exclude whichever tests/
     // subdirectories aren't named - which is exactly the bug being fixed.
-    expect(testRun).not.toMatch(/--testPathPattern/);
+    expect(testRun).not.toMatch(/--testPathPatterns/);
   });
 
   it('runs a coverage-collecting script (test:ci) rather than a bare, unfiltered jest invocation', () => {

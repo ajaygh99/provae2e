@@ -45,4 +45,18 @@ describe('comparePerformanceMetrics', () => {
       { p95ResponseTimeMs: 100, errorRate: 0, requestsPerSecond: 50 }
     )).toHaveLength(1);
   });
+
+  it('uses a 50ms latency floor for ultra-fast local baselines', () => {
+    const localBaseline = { p95ResponseTimeMs: 1.5, errorRate: 0, requestsPerSecond: 700 };
+    expect(comparePerformanceMetrics(
+      { p95ResponseTimeMs: 47.3, errorRate: 0, requestsPerSecond: 50 },
+      localBaseline,
+      0.1
+    )).toEqual([]);
+    expect(comparePerformanceMetrics(
+      { p95ResponseTimeMs: 51, errorRate: 0, requestsPerSecond: 50 },
+      localBaseline,
+      0.1
+    )[0]).toContain('limit 50.00ms');
+  });
 });

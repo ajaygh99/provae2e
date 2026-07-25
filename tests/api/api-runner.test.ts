@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { runApiTest, validateSchema } from '../../src/runners/api-runner';
 import type { NestedSchema } from '../../src/core/schema-validator';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve) => {

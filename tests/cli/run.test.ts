@@ -73,6 +73,7 @@ describe('runCommand — --type all', () => {
     });
     mockGenerateAllureReport.mockResolvedValue({
       reportPath: '/tmp/report/index.html',
+      archivedReportPath: '/tmp/report/runs/run-id/index.html',
       historyPath: '/tmp/report/history.json',
       summary: { total: 3, passed: 3, failed: 0 }
     });
@@ -97,6 +98,21 @@ describe('runCommand — --type all', () => {
     expect(mockGenerateAllureReport).toHaveBeenCalledTimes(1);
     const runsArg = mockGenerateAllureReport.mock.calls[0][0].runs;
     expect(runsArg).toHaveLength(3);
+  });
+
+  it('runs each comma-separated mobile device and includes every result in the report', async () => {
+    await runCommand(baseOptions({ type: 'all', device: 'iphone14, pixel7', report: true }));
+
+    expect(mockRunMobileTest).toHaveBeenCalledTimes(2);
+    expect(mockRunMobileTest).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ device: 'iphone14' })
+    );
+    expect(mockRunMobileTest).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ device: 'pixel7' })
+    );
+    expect(mockGenerateAllureReport.mock.calls[0][0].runs).toHaveLength(4);
   });
 
   it('sets exit code 1 when any single leg of --type all fails', async () => {

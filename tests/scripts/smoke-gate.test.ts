@@ -1,6 +1,6 @@
 /**
  * Post-deploy smoke gate — regression checks for the bug where the CI
- * smoke job (`npm test -- --testPathPattern=smoke`) silently reported
+ * smoke job (`npm test -- --testPathPatterns=smoke`) silently reported
  * success even when zero smoke tests matched/ran, because the underlying
  * `test` script always passes --passWithNoTests.
  */
@@ -39,7 +39,7 @@ describe('prova-ci.yml — Post-deploy Smoke job', () => {
 
     const runSteps = smokeJob.steps.map((step) => step.run).filter((run): run is string => Boolean(run));
     expect(runSteps.some((run) => run.includes('test:smoke'))).toBe(true);
-    expect(runSteps.some((run) => /npm test -- --testPathPattern=smoke\b/.test(run))).toBe(false);
+    expect(runSteps.some((run) => /npm test -- --testPathPatterns=smoke\b/.test(run))).toBe(false);
   });
 });
 
@@ -56,7 +56,7 @@ describe('jest without --passWithNoTests (the mechanism test:smoke relies on)', 
     const jestBin = path.join(path.dirname(require.resolve('jest/package.json')), 'bin/jest.js');
     const result = spawnSync(
       process.execPath,
-      [jestBin, '--testPathPattern=this-pattern-matches-absolutely-nothing', '--forceExit'],
+      [jestBin, '--testPathPatterns=this-pattern-matches-absolutely-nothing', '--forceExit'],
       { cwd: path.join(__dirname, '../..'), encoding: 'utf-8' }
     );
 

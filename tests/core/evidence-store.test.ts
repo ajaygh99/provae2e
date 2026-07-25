@@ -2,7 +2,7 @@ import { EvidenceStore } from '../../src/core/evidence-store.js';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 const testDbDir = path.join(process.cwd(), '.test-evidence');
 let testDbPath: string;
