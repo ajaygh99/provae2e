@@ -2,6 +2,9 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import type { AnalyticsStore } from '../storage/analytics-store.js';
 
+/** Deferred until the v0.3.3.1 Phase 2 credentialed integration release. */
+export const POWERBI_ENABLED = false;
+
 export interface PowerBIConfig {
   workspaceId: string;
   datasetId: string;
@@ -21,6 +24,9 @@ export class PowerBIExporter {
     private readonly http: AxiosInstance = axios) {}
 
   async export(days = 90): Promise<PowerBIExportResult> {
+    if (!POWERBI_ENABLED) {
+      throw new Error('Power BI export is disabled until v0.3.3.1 Phase 2');
+    }
     if (!this.config.accessToken.trim()) throw new Error('Power BI access token is required');
     const trends = await this.store.getTrends(days);
     const rows = trends.map((trend) => ({

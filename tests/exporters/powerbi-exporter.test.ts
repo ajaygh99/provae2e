@@ -1,6 +1,14 @@
-import { PowerBIExporter } from '../../src/exporters/powerbi-exporter';
+import { POWERBI_ENABLED, PowerBIExporter } from '../../src/exporters/powerbi-exporter';
 import type { AnalyticsStore } from '../../src/storage/analytics-store';
 
+test('keeps Power BI disabled for the v0.3.3-beta.1 release', async () => {
+  expect(POWERBI_ENABLED).toBe(false);
+  const exporter = new PowerBIExporter({} as AnalyticsStore,
+    { workspaceId: 'workspace', datasetId: 'dataset', accessToken: 'token' });
+  await expect(exporter.export()).rejects.toThrow('disabled until v0.3.3.1');
+});
+
+describe.skip('Power BI export [v0.3.3.1 Phase 2]', () => {
 test('posts real trend rows to the Power BI push rows contract', async () => {
   const store = { getTrends: jest.fn().mockResolvedValue([
     { date: new Date('2026-01-01'), passCount: 9, failCount: 1, skipCount: 0, averageDuration: 42, flakeRate: 0 }
@@ -36,4 +44,5 @@ test('requires an access token', async () => {
   const exporter = new PowerBIExporter({} as AnalyticsStore,
     { workspaceId: 'workspace', datasetId: 'dataset', accessToken: ' ' });
   await expect(exporter.export()).rejects.toThrow('access token is required');
+});
 });

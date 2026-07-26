@@ -1,6 +1,6 @@
 # ARIA Phase 2 Plan — v0.3.3 Analytics
 
-Status: implementation and verification in progress
+Status: complete — approved for v0.3.3-beta.1
 Baseline: v0.3.2-beta.1, with 50/50 BrowserStack evidence complete
 
 ## Scope
@@ -21,7 +21,7 @@ Baseline: v0.3.2-beta.1, with 50/50 BrowserStack evidence complete
 - 10,000-row SQLite trend query completes in under 100ms in the CI test fixture.
 - Synthetic known-anomaly fixtures achieve at least 85% precision/recall.
 - PostgreSQL parameterization and schema are integration-tested; a live `DATABASE_URL` smoke is recorded when credentials exist.
-- Power BI payload contract is tested; a live workspace export is recorded when credentials exist.
+- Power BI is feature-flagged off by owner decision and deferred to v0.3.3.1.
 - Analytics remains off unless `--persist-analytics` is supplied.
 
 ## Evidence

@@ -31,21 +31,22 @@ prova report --analytics --days 90 --database .prova/analytics.db
 
 Reports include totals, pass rate, weighted average duration, daily trends, duration and failure-rate anomalies, and tests whose outcomes frequently alternate.
 
-## Power BI
+## Power BI — deferred to v0.3.3.1
 
-Create a streaming/push dataset with a table (default `TestTrends`) containing:
+Power BI export is feature-flagged off in v0.3.3-beta.1 and is not exposed by the CLI. SQLite, PostgreSQL, HTML, and JSON analytics are fully available. The exporter code remains isolated for the credentialed Phase 2 release.
+
+When v0.3.3.1 enables the integration, create a streaming/push dataset with a table (default `TestTrends`) containing:
 
 - `date` (DateTime)
 - `passCount`, `failCount`, `skipCount` (whole number)
 - `passRate`, `averageDuration`, `flakeRate` (decimal number)
 
-Then set secrets and export:
+The planned credential contract is:
 
 ```powershell
 $env:POWERBI_WORKSPACE_ID = "workspace-id"
 $env:POWERBI_DATASET_ID = "dataset-id"
 $env:POWERBI_ACCESS_TOKEN = "short-lived-oauth-token"
-prova export --analytics --format powerbi --days 90
 ```
 
 The access token is sent only in the Authorization header and is never included in reports or logs. Workspace, dataset, and table identifiers are validated before a request is made.

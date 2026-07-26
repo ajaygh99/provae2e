@@ -1,6 +1,6 @@
 {
   "name": "@provae2e/cli",
-  "version": "0.3.2-beta.1",
+  "version": "0.3.3-beta.1",
   "description": "CLI-first browser, mobile, and API test automation powered by Playwright",
   "bin": {
     "qe-tool": "./dist/cli/run.js",

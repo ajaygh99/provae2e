@@ -57,7 +57,7 @@ import { syncCommand } from './sync.js';
 import { dashboardCommand } from './dashboard.js';
 import { graphCommand } from './graph.js';
 import { randomUUID } from 'node:crypto';
-import { analyticsExportCommand, analyticsReportCommand, createAnalyticsStore } from './report.js';
+import { analyticsReportCommand, createAnalyticsStore } from './report.js';
 import type { TestRunRecord, TestRunType } from '../storage/analytics-store.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
@@ -972,7 +972,7 @@ export function buildProgram(): Command {
   program
     .name('qe-tool')
     .description('PROVA — AI-native QE automation platform | provae2e.com')
-    .version('0.3.2-beta.1');
+    .version('0.3.3-beta.1');
 
   program
     .command('run')
@@ -1012,17 +1012,6 @@ export function buildProgram(): Command {
     .option('--format <format>', 'html|json', 'html')
     .option('--output <file>', 'Report destination; stdout when omitted')
     .action(analyticsReportCommand);
-
-  program.command('export')
-    .description('Export persisted analytics to an external reporting platform')
-    .option('--analytics', 'Export analytics data', false)
-    .option('--format <format>', 'Export format', 'powerbi')
-    .option('--days <n>', 'Trend window in days', '90')
-    .option('--database <file>', 'SQLite analytics database', '.prova/analytics.db')
-    .option('--workspace-id <id>', 'Power BI workspace ID (or POWERBI_WORKSPACE_ID)')
-    .option('--dataset-id <id>', 'Power BI dataset ID (or POWERBI_DATASET_ID)')
-    .option('--table <name>', 'Power BI table name', 'TestTrends')
-    .action(analyticsExportCommand);
 
   program
     .command('init')
