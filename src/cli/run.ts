@@ -56,6 +56,9 @@ import { writePromotionReport } from '../promotions/promotion-reporter.js';
 import { syncCommand } from './sync.js';
 import { dashboardCommand } from './dashboard.js';
 import { graphCommand } from './graph.js';
+import { randomUUID } from 'node:crypto';
+import { analyticsReportCommand, createAnalyticsStore } from './report.js';
+import type { TestRunRecord, TestRunType } from '../storage/analytics-store.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -64,6 +67,8 @@ export interface RunActionOptions extends RunOptionsInput {
   ai: boolean;
   premium: boolean;
   evidence?: string;
+  persistAnalytics: boolean;
+  analyticsDatabase: string;
 }
 
 /** Raw CLI values accepted by the `generate` command. */
@@ -913,6 +918,27 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
   const cases = await mapWithConcurrency(tasks, executionWorkers, (task) => task());
   const anyFailed = cases.some((testCase) => testCase.status === 'FAIL');
 
+  if (opts.persistAnalytics) {
+    const store = createAnalyticsStore(opts.analyticsDatabase);
+    try {
+      await store.initialize();
+      const timestamp = new Date();
+      const records: TestRunRecord[] = cases.map((testCase) => {
+        const prefix = testCase.name.split(':', 1)[0]?.toLowerCase();
+        const testType: TestRunType = prefix === 'api' || prefix === 'mobile' ? prefix : 'browser';
+        return {
+          id: randomUUID(), timestamp, testName: testCase.name, testType, status: testCase.status,
+          durationMs: testCase.durationMs, tags: [scope, opts.env],
+          ...(testCase.error ? { errorMessage: testCase.error } : {}),
+          metadata: testCase.details ?? {}
+        };
+      });
+      await store.saveTestRuns(records);
+      await store.cleanup();
+      log.info('Analytics persisted', { runs: records.length, database: process.env['DATABASE_URL'] ? 'postgresql' : opts.analyticsDatabase });
+    } finally { await store.close(); }
+  }
+
   if (opts.report) {
     const { reportPath, archivedReportPath } = await generateAllureReport({ runs: cases });
     log.info('HTML report generated', { reportPath, archivedReportPath });
@@ -946,7 +972,7 @@ export function buildProgram(): Command {
   program
     .name('qe-tool')
     .description('PROVA — AI-native QE automation platform | provae2e.com')
-    .version('0.3.2-beta.1');
+    .version('0.3.3-beta.1');
 
   program
     .command('run')
@@ -964,6 +990,8 @@ export function buildProgram(): Command {
     .option('--scope <scope>', 'Verification depth: smoke|component|cr|full', 'full')
     .option('--report', 'Generate HTML report', false)
     .option('--evidence <file.json>', 'Write machine-readable mobile/device-cloud evidence')
+    .option('--persist-analytics', 'Persist test results for analytics', false)
+    .option('--analytics-database <file>', 'SQLite analytics database (DATABASE_URL selects PostgreSQL)', '.prova/analytics.db')
     .option('--ai', 'Enable Ollama AI summaries (requires local Ollama)', false)
     .option('--premium', 'Use cloud LLM instead of local Ollama', false)
     .option('--env <env>', 'Target environment: dev|qe|uat|staging|prod', 'qe')
@@ -975,6 +1003,15 @@ export function buildProgram(): Command {
     .option('--timeout <ms>', 'Positive request timeout in milliseconds')
     .option('--headers <json>', 'Custom API headers as a JSON object')
     .action(runCommand);
+
+  program.command('report')
+    .description('Generate reports from persisted test analytics')
+    .option('--analytics', 'Generate the analytics report', false)
+    .option('--days <n>', 'Trend window in days (for example 7, 30, or 90)', '7')
+    .option('--database <file>', 'SQLite analytics database', '.prova/analytics.db')
+    .option('--format <format>', 'html|json', 'html')
+    .option('--output <file>', 'Report destination; stdout when omitted')
+    .action(analyticsReportCommand);
 
   program
     .command('init')

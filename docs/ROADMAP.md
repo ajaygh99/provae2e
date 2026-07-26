@@ -1,6 +1,20 @@
 # PROVA Product Roadmap
 # Approved: June 2026
 
+## v0.3.3 BETA — Analytics Core
+
+- Complete: SQLite and PostgreSQL persistence
+- Complete: 90-day retention
+- Complete: 7/30/90-day trends, anomaly detection, and flaky-test analysis
+- Complete: HTML and JSON analytics reports
+- Deferred: Power BI export is feature-flagged off until the credentialed v0.3.3.1 Phase 2 release
+
+## v0.3.4 BETA — Plugin Ecosystem
+
+- In progress: plugin lifecycle, loader, and registry
+- Planned: built-in integrations, reporters, exporters, notifications, and custom plugins
+- Planned: plugin discovery and marketplace metadata
+
 ## Phase 1 — MVP (Weeks 1-10, $21.25/month)
 **Goal: First 3 paying customers**
 - Browser testing (Playwright headless Chromium/WebKit/Firefox)

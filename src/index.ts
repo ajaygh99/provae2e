@@ -75,6 +75,17 @@ export { detectRegressions, hasDegradingTrend, performanceRunsToCsv } from './pe
 export type { PerformanceRegression } from './perf/regression-detector.js';
 export { FigmaCredentialStore } from './storage/figma-credentials.js';
 export type { FigmaCredentials } from './storage/figma-credentials.js';
+export { AnalyticsStore } from './storage/analytics-store.js';
+export type {
+  Anomaly, FlakyTest, RunQuery, TestRunRecord, TestRunStatus, TestRunType, TrendData
+} from './storage/analytics-store.js';
+export { SQLiteAnalyticsStore } from './storage/sqlite-analytics-store.js';
+export { PostgresAnalyticsStore } from './storage/postgres-analytics-store.js';
+export type { PostgresClient } from './storage/postgres-analytics-store.js';
+export { AnalyticsReporter } from './reporters/analytics-reporter.js';
+export type { AnalyticsReport } from './reporters/analytics-reporter.js';
+export { PowerBIExporter } from './exporters/powerbi-exporter.js';
+export type { PowerBIConfig, PowerBIExportResult } from './exporters/powerbi-exporter.js';
 export { generateFigmaTests } from './generators/figma-test-generator.js';
 export { SpecLinkStore } from './core/spec-link-store.js';
 export type { Requirement, RequirementTest, RequirementCoverage } from './core/spec-link-store.js';
