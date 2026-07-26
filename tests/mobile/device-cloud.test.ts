@@ -9,7 +9,7 @@ import type {
   DeviceSessionArtifacts
 } from '../../src/core/device-cloud-provider';
 import { BrowserStackConnector } from '../../src/core/browserstack-connector';
-import type { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import { existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
@@ -120,6 +120,23 @@ describe('BrowserStackConnector', () => {
       accessKey: 'key',
       parallel: 26
     })).rejects.toThrow('integer between 1 and 25');
+  });
+
+  it('trims copied credential whitespace before creating authenticated clients', async () => {
+    const create = jest.spyOn(axios, 'create')
+      .mockReturnValueOnce(client({}))
+      .mockReturnValueOnce(client({}));
+    const connector = new BrowserStackConnector();
+
+    await connector.initialize({ username: ' user-name\r\n', accessKey: ' access-key\n' });
+
+    expect(create).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      auth: { username: 'user-name', password: 'access-key' }
+    }));
+    expect(create).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      auth: { username: 'user-name', password: 'access-key' }
+    }));
+    create.mockRestore();
   });
 
   it('normalizes and de-duplicates real mobile devices', async () => {

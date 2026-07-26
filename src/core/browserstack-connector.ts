@@ -63,13 +63,15 @@ export class BrowserStackConnector implements DeviceCloudProvider {
   }
 
   async initialize(config: DeviceCloudConfig): Promise<void> {
-    if (!config.username.trim() || !config.accessKey.trim()) {
+    const username = config.username.trim();
+    const accessKey = config.accessKey.trim();
+    if (!username || !accessKey) {
       throw new Error('BrowserStack username and access key are required');
     }
     normalizeCloudParallel(config.parallel);
-    this.config = { ...config };
+    this.config = { ...config, username, accessKey };
     const clientOptions = {
-      auth: { username: config.username, password: config.accessKey },
+      auth: { username, password: accessKey },
       timeout: config.timeoutMs ?? 30_000
     };
     this.api = this.injectedClients.api ?? axios.create({ baseURL: API_URL, ...clientOptions });
