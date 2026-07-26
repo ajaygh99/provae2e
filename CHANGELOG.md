@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — v0.3.3-beta.1
+
+### Added
+
+- Opt-in test-run analytics persistence with a 90-day default retention policy.
+- Persistent SQLite storage and a parameterized PostgreSQL adapter selected by `DATABASE_URL`.
+- 7/30/90-day trends, weighted duration metrics, failure/duration anomaly detection, and flaky-test ranking.
+- `prova report --analytics` HTML/JSON reports and Power BI push-dataset export.
+- Indexed 10,000-row trend queries, synthetic anomaly-accuracy fixtures, and analytics operator documentation.
+
+### Fixed
+
+- GitHub prereleases are now marked as prereleases when the package version contains a prerelease suffix.
+
 ## 0.3.2-beta.1 — 2026-07-26
 
 Real-device testing beta release.

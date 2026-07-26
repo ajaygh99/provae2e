@@ -108,7 +108,11 @@ jobs:
           npm publish --tag "${NPM_TAG}"
           git tag "v${VERSION}"
           git push origin "v${VERSION}"
-          gh release create "v${VERSION}" --title "PROVA v${VERSION}" --notes-file "releases/v${VERSION}.md"
+          RELEASE_FLAGS=()
+          if [[ "${VERSION}" == *-* ]]; then
+            RELEASE_FLAGS+=(--prerelease)
+          fi
+          gh release create "v${VERSION}" --title "PROVA v${VERSION}" --notes-file "releases/v${VERSION}.md" "${RELEASE_FLAGS[@]}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

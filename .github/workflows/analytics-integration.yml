@@ -1,0 +1,43 @@
+name: Analytics integration
+
+on:
+  pull_request:
+    paths:
+      - "src/storage/**"
+      - "src/reporters/analytics-reporter.ts"
+      - "src/exporters/powerbi-exporter.ts"
+      - "scripts/verify-postgres-analytics.js"
+      - ".github/workflows/analytics-integration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: prova
+          POSTGRES_PASSWORD: prova-ci
+          POSTGRES_DB: prova_analytics
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U prova -d prova_analytics"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://prova:prova-ci@127.0.0.1:5432/prova_analytics
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/verify-postgres-analytics.js
