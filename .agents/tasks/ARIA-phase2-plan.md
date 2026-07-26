@@ -1,6 +1,6 @@
 # ARIA Phase 2 Plan — v0.3.3 Analytics
 
-Status: implementation and verification in progress  
+Status: implementation and verification in progress
 Baseline: v0.3.2-beta.1, with 50/50 BrowserStack evidence complete
 
 ## Scope
