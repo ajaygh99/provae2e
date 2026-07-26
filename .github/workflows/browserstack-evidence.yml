@@ -1,0 +1,94 @@
+name: BrowserStack 50-Run Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Public URL to test
+        required: true
+        default: https://example.com
+      run_count:
+        description: Number of sequential sessions (release gate requires 50)
+        required: true
+        default: '50'
+      ios_device:
+        description: Exact BrowserStack iOS device name
+        required: true
+        default: iPhone 14
+      android_device:
+        description: Exact BrowserStack Android device name
+        required: true
+        default: Google Pixel 7
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Validate inputs and credentials
+        shell: bash
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          RUN_COUNT: ${{ inputs.run_count }}
+        run: |
+          if [[ -z "${BROWSERSTACK_USERNAME}" || -z "${BROWSERSTACK_ACCESS_KEY}" ]]; then
+            echo "::error::BrowserStack repository secrets are missing."
+            exit 1
+          fi
+          if ! [[ "${RUN_COUNT}" =~ ^[0-9]+$ ]] || (( RUN_COUNT < 1 || RUN_COUNT > 50 )); then
+            echo "::error::run_count must be an integer between 1 and 50."
+            exit 1
+          fi
+      - name: Execute sequential iOS and Android sessions
+        shell: bash
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          TARGET_URL: ${{ inputs.target_url }}
+          RUN_COUNT: ${{ inputs.run_count }}
+          IOS_DEVICE: ${{ inputs.ios_device }}
+          ANDROID_DEVICE: ${{ inputs.android_device }}
+        run: |
+          mkdir -p evidence
+          for ((i=1; i<=RUN_COUNT; i++)); do
+            if (( i % 2 == 1 )); then
+              DEVICE="${IOS_DEVICE}"
+            else
+              DEVICE="${ANDROID_DEVICE}"
+            fi
+            echo "::group::BrowserStack evidence run ${i}/${RUN_COUNT} (${DEVICE})"
+            node dist/cli/run.js run \
+              --type mobile \
+              --url "${TARGET_URL}" \
+              --device "${DEVICE}" \
+              --device-cloud browserstack \
+              --workers 1 \
+              --browserstack-parallel 1 \
+              --browserstack-video true \
+              --retries 0 \
+              --scope smoke \
+              --evidence "evidence/run-${i}.json" \
+              --report
+            echo "::endgroup::"
+          done
+      - name: Verify evidence manifest
+        run: node scripts/verify-browserstack-evidence.js evidence "${{ inputs.run_count }}"
+      - name: Upload 50-run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browserstack-50-run-evidence
+          path: |
+            evidence/
+            allure-report/
+            artifacts/browserstack/
+          if-no-files-found: error
+          retention-days: 30

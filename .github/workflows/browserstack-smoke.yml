@@ -44,6 +44,7 @@ jobs:
           --browserstack-parallel 1
           --browserstack-video true
           --scope smoke
+          --evidence evidence/browserstack-smoke.json
           --report
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
@@ -56,4 +57,5 @@ jobs:
           path: |
             allure-report/
             artifacts/browserstack/
+            evidence/
           if-no-files-found: warn

@@ -89,6 +89,14 @@ export interface MobileRunResult {
   error?: string;
   /** Checks completed by the selected scope. */
   checks?: string[];
+  /** Device-cloud provider name for real-device runs. */
+  provider?: string;
+  /** Provider session identifier used to audit real-device evidence. */
+  sessionId?: string;
+  /** Provider-hosted video URL, when available. */
+  videoUrl?: string;
+  /** Provider-hosted log URLs, when available. */
+  logUrls?: string[];
 }
 
 /** Builds a filesystem-safe screenshot filename from a device name, URL, and timestamp. */
@@ -320,6 +328,10 @@ async function runCloudMobileTestOnce(options: MobileRunnerOptions): Promise<Mob
       ...(result.artifacts?.screenshotPaths?.[0]
         ? { screenshotPath: result.artifacts.screenshotPaths[0] }
         : {}),
+      provider: provider.name,
+      sessionId: result.sessionId,
+      ...(result.artifacts?.videoUrl ? { videoUrl: result.artifacts.videoUrl } : {}),
+      ...(result.artifacts?.logs.length ? { logUrls: result.artifacts.logs } : {}),
       checks: [
         'real device session created',
         ...(result.title ? ['non-empty title'] : []),
