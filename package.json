@@ -62,6 +62,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
     "@faker-js/faker": "^9.9.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
     "@playwright/test": "^1.44.0",
     "allure-playwright": "^2.14.0",
     "axios": "^1.7.0",
@@ -88,6 +89,7 @@
     "typescript": "^5.4.0"
   },
   "overrides": {
+    "@hono/node-server": "2.0.10",
     "glob": "13.0.6",
     "test-exclude": "8.0.0"
   },
