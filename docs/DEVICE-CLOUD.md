@@ -55,6 +55,14 @@ qe-tool run `
 
 Screenshots are stored under `artifacts/browserstack` by default. BrowserStack video and console-log metadata are collected from the session API when available. Artifact availability can lag immediately after a session closes; the BrowserStack dashboard remains the authoritative source for finalized video.
 
+Use `--evidence <file.json>` to retain a machine-readable record containing the provider, BrowserStack session ID, result, screenshot path, video URL, and log URLs:
+
+```powershell
+qe-tool run --type mobile --url "https://example.com" `
+  --device "iPhone 14" --device-cloud browserstack `
+  --evidence "evidence/iphone-14.json" --report
+```
+
 ## CI
 
 Store `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` as masked CI secrets. A real-device smoke job should be credential-gated and must not silently substitute emulation when credentials are missing.

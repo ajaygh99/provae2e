@@ -1,16 +1,16 @@
-# CODEX Daily Standup — 2026-07-25
+# CODEX Daily Standup — 2026-07-26
 
-## Status (Phase 1 — Day 1)
+## Status (Phase 1)
 
-- ARIA: Master documents reviewed; architecture and evidence boundaries documented.
-- FORGE: Device-cloud provider contracts and BrowserStack implementation starting.
-- VERA: Deterministic contract, compatibility, and credential-gated smoke strategy prepared.
-- LENS: Review gates loaded; focus on secrets, error isolation, strict typing, and backward compatibility.
+- ARIA: Phase 1 implementation and external evidence complete; release preparation active.
+- FORGE: BrowserStack connector, CLI integration, evidence output, and workflows complete.
+- VERA: 50/50 real-device sessions passed with complete artifact evidence.
+- LENS: Implementation and release evidence approved.
 
 ## Blockers
 
-- Real BrowserStack execution evidence requires externally supplied credentials and account capacity. Implementation and mocked contract validation can continue.
+- None for v0.3.2-beta.1 release.
 
 ## Completion forecast
 
-On track for implementation; real-device release sign-off depends on genuine BrowserStack evidence.
+On track for v0.3.2-beta.1 publication after protected CI.

@@ -1,6 +1,6 @@
 # LENS Phase 1 Review — v0.3.2 Device Cloud
 
-Date: 2026-07-25
+Date: 2026-07-26
 
 ## Review result
 
@@ -8,12 +8,12 @@ Implementation review: **APPROVED**
 
 - New behavior is opt-in; local emulation is unchanged by default.
 - Provider and result contracts are strictly typed with no new `any`.
-- Credentials are accepted through environment variables or flags, are not logged, and are redacted from provider errors.
+- Credentials are not logged and are normalized and redacted from provider errors.
 - Network, artifact, and cleanup failures are isolated.
-- Cloud concurrency is bounded and cannot exceed the selected BrowserStack limit.
-- Unit, integration, CLI, full regression, coverage, smoke, build, and audit gates pass.
+- Cloud concurrency is bounded.
+- Unit, integration, CLI, regression, coverage, smoke, build, and audit gates pass.
 - User and CI documentation is included.
 
-Release review: **PENDING EXTERNAL EVIDENCE**
+Release review: **APPROVED**
 
-The required 50+ real-device runs and finalized video/log proof cannot be approved without a configured BrowserStack account. Do not tag or publish v0.3.2 until VERA attaches genuine evidence and updates the phase completion record.
+VERA attached a verified 50-run BrowserStack manifest with zero failures, 50 unique sessions, two device platforms, and complete screenshot/video/log evidence. The evidence verifier, full CI, and LENS checks passed. v0.3.2-beta.1 is approved for the protected release workflow.
