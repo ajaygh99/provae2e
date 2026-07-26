@@ -11,6 +11,12 @@ import type { Browser, BrowserContext } from '@playwright/test';
 import { log } from '../core/logger.js';
 import { resolveSelector, type SelectorDescriptor, type SelectorTier } from '../core/self-healing-selector.js';
 import { executeWithRetry } from '../core/retry-handler.js';
+import { BrowserStackConnector } from '../core/browserstack-connector.js';
+import type {
+  CloudDevice,
+  DeviceCloudConfig,
+  DeviceCloudProvider
+} from '../core/device-cloud-provider.js';
 
 /**
  * Maps compact CLI `--device` aliases to Playwright's official device
@@ -55,6 +61,12 @@ export interface MobileRunnerOptions {
   retryBaseDelayMs?: number;
   /** Verification depth selected by the CLI. */
   scope?: 'smoke' | 'cr' | 'component' | 'full';
+  /** Optional real-device provider. Local Playwright emulation remains the default. */
+  deviceCloud?: 'local' | 'browserstack';
+  /** BrowserStack credentials and execution settings, required for BrowserStack runs. */
+  browserstack?: DeviceCloudConfig;
+  /** Provider injection point for contract tests and custom orchestration. */
+  cloudProvider?: DeviceCloudProvider;
 }
 
 /** Outcome of a single mobile emulation test run. */
@@ -95,6 +107,9 @@ function screenshotFileName(device: string, url: string): string {
  * @returns The PASS/FAIL result with duration and screenshot path.
  */
 async function runMobileTestOnce(options: MobileRunnerOptions): Promise<MobileRunResult> {
+  if (options.deviceCloud === 'browserstack' || options.cloudProvider) {
+    return runCloudMobileTestOnce(options);
+  }
   const { url } = options;
   const screenshotDir = options.screenshotDir ?? './screenshots';
   const startedAt = Date.now();
@@ -237,6 +252,98 @@ async function runMobileTestOnce(options: MobileRunnerOptions): Promise<MobileRu
       } catch (err) {
         log.warn('Mobile run: failed to close browser cleanly', {
           error: err instanceof Error ? err.message : String(err)
+        });
+      }
+    }
+  }
+}
+
+function compactDeviceName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function selectCloudDevice(devicesAvailable: CloudDevice[], requested: string): CloudDevice | undefined {
+  const requestedKey = compactDeviceName(resolveDeviceKey(requested) ?? requested);
+  return devicesAvailable.find((device) => {
+    const nameKey = compactDeviceName(device.name);
+    const idKey = compactDeviceName(device.id);
+    return (
+      nameKey === requestedKey ||
+      nameKey.endsWith(requestedKey) ||
+      requestedKey.endsWith(nameKey) ||
+      idKey === requestedKey
+    );
+  });
+}
+
+/** Executes the same mobile navigation contract on an explicitly selected real-device provider. */
+async function runCloudMobileTestOnce(options: MobileRunnerOptions): Promise<MobileRunResult> {
+  const startedAt = Date.now();
+  const provider = options.cloudProvider ?? new BrowserStackConnector();
+  if (!options.browserstack) {
+    return {
+      status: 'FAIL',
+      url: options.url,
+      device: options.device,
+      durationMs: Date.now() - startedAt,
+      error: 'BrowserStack configuration is required for a device-cloud run'
+    };
+  }
+
+  let sessionId: string | undefined;
+  try {
+    await provider.initialize(options.browserstack);
+    const availableDevices = await provider.listDevices();
+    const device = selectCloudDevice(availableDevices, options.device);
+    if (!device) {
+      return {
+        status: 'FAIL',
+        url: options.url,
+        device: options.device,
+        durationMs: Date.now() - startedAt,
+        error: `Device "${options.device}" is not available from ${provider.name}`
+      };
+    }
+    const session = await provider.createSession(device);
+    sessionId = session.id;
+    const result = await provider.executeTest(session, {
+      url: options.url,
+      scope: options.scope ?? 'smoke'
+    });
+    return {
+      status: result.status,
+      url: result.url,
+      device: result.device,
+      durationMs: result.durationMs,
+      ...(result.title !== undefined ? { title: result.title } : {}),
+      ...(result.error ? { error: result.error } : {}),
+      ...(result.artifacts?.screenshotPaths?.[0]
+        ? { screenshotPath: result.artifacts.screenshotPaths[0] }
+        : {}),
+      checks: [
+        'real device session created',
+        ...(result.title ? ['non-empty title'] : []),
+        ...(result.artifacts?.videoUrl ? ['video captured'] : []),
+        ...(result.artifacts?.logs.length ? ['logs captured'] : [])
+      ]
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log.error('Device-cloud mobile run failed', error);
+    return {
+      status: 'FAIL',
+      url: options.url,
+      device: options.device,
+      durationMs: Date.now() - startedAt,
+      error: message
+    };
+  } finally {
+    if (sessionId) {
+      try {
+        await provider.closeSession(sessionId);
+      } catch (error) {
+        log.warn('Device-cloud run: failed to close session cleanly', {
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     }

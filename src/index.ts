@@ -21,6 +21,19 @@ export type { K6CommandExecutor, K6Metrics, K6RunOptions, K6RunResult } from './
 export { comparePerformanceMetrics, loadPerformanceBaseline, savePerformanceBaseline } from './core/performance-baseline.js';
 export { executeWithRetry } from './core/retry-handler.js';
 export type { RetryOptions } from './core/retry-handler.js';
+export { normalizeCloudParallel } from './core/device-cloud-provider.js';
+export { BrowserStackConnector } from './core/browserstack-connector.js';
+export type { BrowserStackConnectorClients } from './core/browserstack-connector.js';
+export type {
+  CloudDevice,
+  DeviceCloudConfig,
+  DeviceCloudProvider,
+  DeviceCloudTest,
+  DeviceCloudTestResult,
+  DeviceSession,
+  DeviceSessionArtifacts,
+  MobileOperatingSystem
+} from './core/device-cloud-provider.js';
 export {
   parseHeaders,
   validateApiPayload,

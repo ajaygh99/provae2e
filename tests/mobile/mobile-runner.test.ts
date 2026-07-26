@@ -6,6 +6,7 @@ import http from 'node:http';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { runMobileTest, SUPPORTED_DEVICES } from '../../src/runners/mobile-runner';
+import type { DeviceCloudProvider } from '../../src/core/device-cloud-provider';
 
 jest.setTimeout(60000);
 
@@ -155,5 +156,61 @@ describe('Mobile Runner', () => {
     expect(result.status).toBe('PASS');
     expect(result.screenshotPath).toContain('screenshots');
     expect(existsSync(defaultDir)).toBe(true);
+  });
+
+  it('uses an explicitly selected cloud provider and always closes its session', async () => {
+    const device = {
+      id: 'ios-17-iphone-14',
+      name: 'iPhone 14',
+      osName: 'ios' as const,
+      osVersion: '17',
+      deviceType: 'phone' as const,
+      realMobile: true
+    };
+    const closeSession = jest.fn().mockResolvedValue(undefined);
+    const provider: DeviceCloudProvider = {
+      name: 'browserstack',
+      type: 'cloud',
+      initialize: jest.fn().mockResolvedValue(undefined),
+      listDevices: jest.fn().mockResolvedValue([device]),
+      createSession: jest.fn().mockResolvedValue({
+        id: 'session-1',
+        device,
+        provider: 'browserstack',
+        startedAt: new Date(0).toISOString()
+      }),
+      executeTest: jest.fn().mockResolvedValue({
+        status: 'PASS',
+        url: baseUrl,
+        device: 'iPhone 14',
+        sessionId: 'session-1',
+        durationMs: 5,
+        title: 'Test Page Title',
+        artifacts: {
+          videoUrl: 'https://example.com/video.mp4',
+          screenshotUrls: [],
+          logs: ['console log']
+        }
+      }),
+      getSessionArtifacts: jest.fn().mockResolvedValue({ screenshotUrls: [], logs: [] }),
+      closeSession
+    };
+
+    const result = await runMobileTest({
+      url: baseUrl,
+      device: 'iphone14',
+      deviceCloud: 'browserstack',
+      browserstack: { username: 'user', accessKey: 'key' },
+      cloudProvider: provider
+    });
+
+    expect(result.status).toBe('PASS');
+    expect(result.checks).toEqual([
+      'real device session created',
+      'non-empty title',
+      'video captured',
+      'logs captured'
+    ]);
+    expect(closeSession).toHaveBeenCalledWith('session-1');
   });
 });

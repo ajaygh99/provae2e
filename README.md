@@ -295,6 +295,21 @@ qe-tool run --url https://yourapp.com --type mobile --device iPhone14 [options]
 
 Exact Playwright device keys (e.g. `"iPhone 14 Pro"`) are also accepted. More devices will follow in a later Issue.
 
+### BrowserStack real devices
+
+Real-device execution is opt-in and does not change the local-emulation default:
+
+```powershell
+$env:BROWSERSTACK_USERNAME = "your-user"
+$env:BROWSERSTACK_ACCESS_KEY = "your-access-key"
+
+qe-tool run --url https://yourapp.com --type mobile `
+  --device "iPhone 14" --device-cloud browserstack `
+  --browserstack-parallel 4 --browserstack-video true --report
+```
+
+See [Real Device Testing with BrowserStack](docs/DEVICE-CLOUD.md) for credential safety, multiple-device execution, CI setup, artifacts, costs, and troubleshooting.
+
 **Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
 
 ## API Testing (`--type api`)
@@ -448,4 +463,3 @@ MIT © PROVA
 ---
 
 © 2026 Ajay. All rights reserved. Licensed under MIT.
-

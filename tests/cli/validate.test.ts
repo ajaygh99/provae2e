@@ -179,3 +179,64 @@ describe('validateRunOptions — --body (api/all only)', () => {
     expect(stringResult.valid).toBe(false);
   });
 });
+
+describe('validateRunOptions - device cloud', () => {
+  const previousUsername = process.env['BROWSERSTACK_USERNAME'];
+  const previousKey = process.env['BROWSERSTACK_ACCESS_KEY'];
+
+  afterEach(() => {
+    if (previousUsername === undefined) delete process.env['BROWSERSTACK_USERNAME'];
+    else process.env['BROWSERSTACK_USERNAME'] = previousUsername;
+    if (previousKey === undefined) delete process.env['BROWSERSTACK_ACCESS_KEY'];
+    else process.env['BROWSERSTACK_ACCESS_KEY'] = previousKey;
+  });
+
+  it('accepts BrowserStack credentials from flags and cloud-native device names', () => {
+    const result = validateRunOptions(baseInput({
+      type: 'mobile',
+      device: 'Samsung Galaxy S24 Ultra',
+      deviceCloud: 'browserstack',
+      browserstackUsername: 'user',
+      browserstackKey: 'key',
+      browserstackParallel: '4',
+      browserstackVideo: 'true'
+    }));
+    expect(result.errors).toEqual([]);
+  });
+
+  it('accepts credentials from the standard environment variables', () => {
+    process.env['BROWSERSTACK_USERNAME'] = 'user';
+    process.env['BROWSERSTACK_ACCESS_KEY'] = 'key';
+    expect(validateRunOptions(baseInput({
+      type: 'mobile',
+      deviceCloud: 'browserstack'
+    })).valid).toBe(true);
+  });
+
+  it('rejects missing credentials and invalid cloud settings', () => {
+    delete process.env['BROWSERSTACK_USERNAME'];
+    delete process.env['BROWSERSTACK_ACCESS_KEY'];
+    const result = validateRunOptions(baseInput({
+      type: 'mobile',
+      deviceCloud: 'browserstack',
+      browserstackParallel: '30',
+      browserstackVideo: 'sometimes'
+    }));
+    expect(result.errors).toEqual(expect.arrayContaining([
+      expect.stringContaining('username is required'),
+      expect.stringContaining('access key is required'),
+      expect.stringContaining('--browserstack-parallel'),
+      expect.stringContaining('--browserstack-video')
+    ]));
+  });
+
+  it('rejects cloud flags for a non-mobile run', () => {
+    const result = validateRunOptions(baseInput({
+      type: 'browser',
+      deviceCloud: 'browserstack',
+      browserstackUsername: 'user',
+      browserstackKey: 'key'
+    }));
+    expect(result.errors).toContain('Device-cloud options require --type mobile or --type all');
+  });
+});

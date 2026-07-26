@@ -136,6 +136,28 @@ describe('runCommand — --type all', () => {
     expect(mockRunApiTest).not.toHaveBeenCalled();
     expect(mockRunMobileTest).not.toHaveBeenCalled();
   });
+
+  it('passes BrowserStack settings to each opt-in mobile run', async () => {
+    await runCommand(baseOptions({
+      type: 'mobile',
+      device: 'iPhone 14',
+      deviceCloud: 'browserstack',
+      browserstackUsername: 'browserstack-user',
+      browserstackKey: 'browserstack-key',
+      browserstackParallel: '4',
+      browserstackVideo: 'false'
+    }));
+
+    expect(mockRunMobileTest).toHaveBeenCalledWith(expect.objectContaining({
+      deviceCloud: 'browserstack',
+      browserstack: {
+        username: 'browserstack-user',
+        accessKey: 'browserstack-key',
+        parallel: 4,
+        video: false
+      }
+    }));
+  });
 });
 
 describe('runCommand — unknown --type', () => {
