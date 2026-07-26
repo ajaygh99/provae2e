@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.2-beta.1 — 2026-07-26
+
+Real-device testing beta release.
+
+### Added
+
+- Typed device-cloud provider abstraction with a BrowserStack W3C mobile-web connector.
+- Opt-in `--device-cloud browserstack` execution with bounded concurrency and video capture.
+- BrowserStack credential validation/redaction, device discovery, session cleanup, screenshots, video metadata, and log metadata.
+- Machine-readable evidence output and strict verification of unique cloud sessions and complete artifacts.
+- Credential-gated real-device smoke and 50-run iOS/Android evidence workflows.
+- BrowserStack setup, CI, cost, artifact, and troubleshooting documentation.
+
+### Quality and evidence
+
+- 50 of 50 sequential real-device sessions passed on iPhone 14 and Google Pixel 7.
+- Evidence contains 50 unique BrowserStack session IDs and 50 screenshots, video links, and log links.
+- Real-device evidence workflow completed in 19m15s with one concurrent session.
+- Local Playwright emulation remains the default and backward compatible.
+- Full TypeScript, lint, test, coverage, Studio, smoke, audit, build, and LENS gates are required again by the release workflow.
+
 All notable changes to PROVA are documented in this file.
 
 ## 0.3.1-beta.0 — 2026-07-25

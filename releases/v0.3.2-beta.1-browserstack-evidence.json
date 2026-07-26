@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-07-26T16:01:28.783Z",
+  "workflowRun": "https://github.com/ajaygh99/provae2e/actions/runs/30208768161",
+  "artifactId": 8634028293,
+  "artifactName": "browserstack-50-run-evidence",
+  "artifactDigest": "sha256:f61fc7c4804317bd834c9f88e6c4a21ffb66634a3d28ce4040ca629979bc5a04",
+  "artifactExpiresAt": "2026-08-25T16:01:29Z",
+  "expectedCount": 50,
+  "actualCount": 50,
+  "passed": 50,
+  "failed": 0,
+  "uniqueSessions": 50,
+  "devices": [
+    "iPhone 14",
+    "Google Pixel 7"
+  ],
+  "videoEvidenceCount": 50,
+  "logEvidenceCount": 50,
+  "screenshotEvidenceCount": 50,
+  "verified": true,
+  "failures": []
+}
