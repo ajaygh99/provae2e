@@ -1,0 +1,59 @@
+name: BrowserStack Real-Device Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Public URL to test
+        required: true
+        default: https://example.com
+      device:
+        description: Exact BrowserStack real-device name
+        required: true
+        default: iPhone 14
+
+jobs:
+  real-device:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Verify BrowserStack secrets
+        shell: bash
+        run: |
+          if [[ -z "${BROWSERSTACK_USERNAME}" || -z "${BROWSERSTACK_ACCESS_KEY}" ]]; then
+            echo "::error::Configure BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY repository secrets."
+            exit 1
+          fi
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+      - name: Run BrowserStack real-device smoke
+        run: >
+          node dist/cli/run.js run
+          --type mobile
+          --url "${{ inputs.target_url }}"
+          --device "${{ inputs.device }}"
+          --device-cloud browserstack
+          --browserstack-parallel 1
+          --browserstack-video true
+          --scope smoke
+          --report
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+      - name: Upload PROVA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browserstack-real-device-evidence
+          path: |
+            allure-report/
+            artifacts/browserstack/
+          if-no-files-found: warn

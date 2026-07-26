@@ -45,6 +45,11 @@ export interface RunOptionsInput {
   retries?: string;
   timeout?: string;
   headers?: string;
+  deviceCloud?: string;
+  browserstackUsername?: string;
+  browserstackKey?: string;
+  browserstackParallel?: string;
+  browserstackVideo?: string;
 }
 
 /** Result of validating a full set of `run` CLI options. */
@@ -103,8 +108,39 @@ export function validateRunOptions(input: RunOptionsInput): ValidationResult {
   }
 
   if (input.type === 'mobile' || input.type === 'all') {
-    const deviceError = validateDevice(input.device);
-    if (deviceError) errors.push(`${deviceError}. Common aliases: ${SUPPORTED_DEVICES.join(', ')}`);
+    if (input.deviceCloud && !['local', 'browserstack'].includes(input.deviceCloud)) {
+      errors.push(`Invalid --device-cloud "${input.deviceCloud}": must be one of local, browserstack`);
+    }
+    if (!input.deviceCloud || input.deviceCloud === 'local') {
+      const deviceError = validateDevice(input.device);
+      if (deviceError) errors.push(`${deviceError}. Common aliases: ${SUPPORTED_DEVICES.join(', ')}`);
+    }
+    if (input.deviceCloud === 'browserstack') {
+      const username = input.browserstackUsername ?? process.env['BROWSERSTACK_USERNAME'];
+      const key = input.browserstackKey ?? process.env['BROWSERSTACK_ACCESS_KEY'];
+      if (!username) errors.push('BrowserStack username is required via --browserstack-username or BROWSERSTACK_USERNAME');
+      if (!key) errors.push('BrowserStack access key is required via --browserstack-key or BROWSERSTACK_ACCESS_KEY');
+      if (input.browserstackParallel !== undefined) {
+        const parallel = Number(input.browserstackParallel);
+        if (!Number.isInteger(parallel) || parallel < 1 || parallel > 25) {
+          errors.push('Invalid --browserstack-parallel: must be an integer between 1 and 25');
+        }
+      }
+      if (
+        input.browserstackVideo !== undefined &&
+        !['true', 'false'].includes(input.browserstackVideo.toLowerCase())
+      ) {
+        errors.push('Invalid --browserstack-video: must be true or false');
+      }
+    }
+  } else if (
+    input.deviceCloud ||
+    input.browserstackUsername ||
+    input.browserstackKey ||
+    input.browserstackParallel ||
+    input.browserstackVideo
+  ) {
+    errors.push('Device-cloud options require --type mobile or --type all');
   }
 
   if (input.type === 'api' || input.type === 'all') {

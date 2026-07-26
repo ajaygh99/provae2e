@@ -872,7 +872,18 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
           url: opts.url,
           device,
           retries: Number(opts.retries ?? '3'),
-          scope
+          scope,
+          deviceCloud: opts.deviceCloud as 'local' | 'browserstack' | undefined,
+          ...(opts.deviceCloud === 'browserstack'
+            ? {
+                browserstack: {
+                  username: opts.browserstackUsername ?? process.env['BROWSERSTACK_USERNAME'] ?? '',
+                  accessKey: opts.browserstackKey ?? process.env['BROWSERSTACK_ACCESS_KEY'] ?? '',
+                  parallel: Number(opts.browserstackParallel ?? opts.workers),
+                  video: (opts.browserstackVideo ?? 'true').toLowerCase() === 'true'
+                }
+              }
+            : {})
         });
         log.info('Run result', {
           status: result.status,
@@ -886,7 +897,11 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
     }
   }
 
-  const cases = await mapWithConcurrency(tasks, Number(opts.workers), (task) => task());
+  const configuredWorkers = Number(opts.workers);
+  const executionWorkers = opts.deviceCloud === 'browserstack'
+    ? Math.min(configuredWorkers, Number(opts.browserstackParallel ?? configuredWorkers))
+    : configuredWorkers;
+  const cases = await mapWithConcurrency(tasks, executionWorkers, (task) => task());
   const anyFailed = cases.some((testCase) => testCase.status === 'FAIL');
 
   if (opts.report) {
@@ -919,6 +934,11 @@ export function buildProgram(): Command {
     .requiredOption('--url <url>', 'Target URL to test')
     .option('--type <type>', 'Test type: browser|api|mobile|all', 'browser')
     .option('--device <devices>', 'Mobile device(s), comma-separated: iPhone14,Pixel7,iPad', 'iPhone14')
+    .option('--device-cloud <provider>', 'Mobile provider: local|browserstack')
+    .option('--browserstack-username <user>', 'BrowserStack username (or BROWSERSTACK_USERNAME)')
+    .option('--browserstack-key <key>', 'BrowserStack access key (or BROWSERSTACK_ACCESS_KEY)')
+    .option('--browserstack-parallel <n>', 'BrowserStack concurrency (1-25)')
+    .option('--browserstack-video <bool>', 'Capture BrowserStack video: true|false')
     .option('--workers <n>', 'Maximum concurrent browser/API/mobile runs (1-16)', '3')
     .option('--suite <suite>', 'Test suite name to run')
     .option('--scope <scope>', 'Verification depth: smoke|component|cr|full', 'full')
