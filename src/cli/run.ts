@@ -9,6 +9,7 @@ import { runBrowserTest } from '../runners/browser-runner.js';
 import { runApiTest } from '../runners/api-runner.js';
 import type { HttpMethod } from '../runners/api-runner.js';
 import { runMobileTest } from '../runners/mobile-runner.js';
+import type { MobileRunResult } from '../runners/mobile-runner.js';
 import { parseDevices } from '../core/input-validator.js';
 import { mapWithConcurrency } from '../core/concurrency.js';
 import {
@@ -33,7 +34,8 @@ import {
   serializeTestData
 } from '../generators/test-data-factory.js';
 import type { DataFormat } from '../generators/test-data-factory.js';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { fetchFigmaElements } from '../core/figma-connector.js';
 import type { FigmaElement } from '../core/figma-connector.js';
 import { generateFigmaTests } from '../generators/figma-test-generator.js';
@@ -61,6 +63,7 @@ export interface RunActionOptions extends RunOptionsInput {
   report: boolean;
   ai: boolean;
   premium: boolean;
+  evidence?: string;
 }
 
 /** Raw CLI values accepted by the `generate` command. */
@@ -822,6 +825,7 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
   const type = opts.type;
   const scope = opts.scope as 'smoke' | 'cr' | 'component' | 'full';
   const tasks: Array<() => Promise<ReportTestCase>> = [];
+  const mobileEvidence: MobileRunResult[] = [];
 
   if (type === 'browser' || type === 'all') {
     tasks.push(async () => {
@@ -885,12 +889,17 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
               }
             : {})
         });
+        mobileEvidence.push(result);
         log.info('Run result', {
           status: result.status,
           device: result.device,
           durationMs: result.durationMs,
           screenshotPath: result.screenshotPath,
-          checks: result.checks
+          checks: result.checks,
+          provider: result.provider,
+          sessionId: result.sessionId,
+          videoUrl: result.videoUrl,
+          logUrls: result.logUrls
         });
         return mobileResultToCase(result);
       });
@@ -910,6 +919,17 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
   }
   if (opts.ai) {
     await printAiSummary({ runs: cases });
+  }
+  if (opts.evidence) {
+    await mkdir(path.dirname(opts.evidence), { recursive: true });
+    await writeFile(opts.evidence, JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      total: mobileEvidence.length,
+      passed: mobileEvidence.filter((result) => result.status === 'PASS').length,
+      failed: mobileEvidence.filter((result) => result.status === 'FAIL').length,
+      runs: mobileEvidence
+    }, null, 2), 'utf-8');
+    log.info('Machine-readable evidence written', { path: opts.evidence });
   }
 
   if (anyFailed) {
@@ -943,6 +963,7 @@ export function buildProgram(): Command {
     .option('--suite <suite>', 'Test suite name to run')
     .option('--scope <scope>', 'Verification depth: smoke|component|cr|full', 'full')
     .option('--report', 'Generate HTML report', false)
+    .option('--evidence <file.json>', 'Write machine-readable mobile/device-cloud evidence')
     .option('--ai', 'Enable Ollama AI summaries (requires local Ollama)', false)
     .option('--premium', 'Use cloud LLM instead of local Ollama', false)
     .option('--env <env>', 'Target environment: dev|qe|uat|staging|prod', 'qe')

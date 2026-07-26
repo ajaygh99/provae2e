@@ -283,6 +283,18 @@ export function mobileResultToCase(result: MobileRunResult): ReportTestCase {
   if (result.checks?.length) {
     details['checks'] = result.checks.join(', ');
   }
+  if (result.provider) {
+    details['provider'] = result.provider;
+  }
+  if (result.sessionId) {
+    details['sessionId'] = result.sessionId;
+  }
+  if (result.videoUrl) {
+    details['videoUrl'] = result.videoUrl;
+  }
+  if (result.logUrls?.length) {
+    details['logUrls'] = result.logUrls.join(', ');
+  }
   return {
     name: `mobile (${result.device}): ${result.url}`,
     status: result.status,
