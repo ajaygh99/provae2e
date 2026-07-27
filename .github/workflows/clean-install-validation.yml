@@ -1,0 +1,82 @@
+﻿name: Slice 1 - Clean Install Validation (Multi-OS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to test'
+        required: false
+        default: 'feature/v0.3.4-reliability'
+  push:
+    branches:
+      - feature/v0.3.4-reliability
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/clean-install-validation.yml'
+
+jobs:
+  clean-install-validation:
+    name: Clean Install - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Record Start Time
+        id: timing
+        run: echo "start_time=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+      - name: Clean Install (npm ci)
+        id: clean_install
+        run: npm ci
+
+      - name: TypeScript Check
+        id: typecheck
+        continue-on-error: true
+        run: npm run typecheck
+
+      - name: Lint Check
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Run Full Test Suite
+        id: test
+        continue-on-error: true
+        run: npm run test:ci -- --coverage
+
+      - name: Security Audit
+        id: audit
+        continue-on-error: true
+        run: npm audit --omit=dev
+
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage/
+          retention-days: 30
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "# Clean Install Validation - ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| npm ci | ${{ steps.clean_install.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| typecheck | ${{ steps.typecheck.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| lint | ${{ steps.lint.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| test suite | ${{ steps.test.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| audit | ${{ steps.audit.outcome }} |" >> $GITHUB_STEP_SUMMARY
