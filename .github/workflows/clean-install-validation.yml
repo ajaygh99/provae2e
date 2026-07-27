@@ -87,6 +87,8 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "consumer npm init failed" }
             npm install --ignore-scripts $package.FullName
             if ($LASTEXITCODE -ne 0) { throw "consumer package install failed" }
+            npx playwright install chromium
+            if ($LASTEXITCODE -ne 0) { throw "consumer Playwright browser install failed" }
             npx --no-install qe-tool --version
             if ($LASTEXITCODE -ne 0) { throw "installed CLI version check failed" }
             npx --no-install qe-tool run --url "https://example.com" --type browser --scope smoke --report
