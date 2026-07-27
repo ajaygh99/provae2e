@@ -16,14 +16,33 @@ export class SQLiteAnalyticsStore extends AnalyticsStore {
 
   async initialize(): Promise<void> {
     this.sql = await initSqlJs();
-    this.db = existsSync(this.dbPath) ? new this.sql.Database(await readFile(this.dbPath)) : new this.sql.Database();
+    try {
+      this.db = existsSync(this.dbPath) ? new this.sql.Database(await readFile(this.dbPath)) : new this.sql.Database();
+    } catch (error) {
+      throw new Error(`Analytics database is corrupt or unreadable: ${this.dbPath}`, { cause: error });
+    }
+    let integrityStatus: string;
+    try {
+      const integrity = this.db.exec('PRAGMA integrity_check');
+      integrityStatus = String(integrity[0]?.values[0]?.[0] ?? '');
+    } catch (error) {
+      this.db.close();
+      this.db = undefined;
+      throw new Error(`Analytics database is corrupt or unreadable: ${this.dbPath}`, { cause: error });
+    }
+    if (integrityStatus !== 'ok') {
+      this.db.close();
+      this.db = undefined;
+      throw new Error(`Analytics database integrity check failed: ${integrityStatus || 'unknown error'}`);
+    }
     this.db.run(`CREATE TABLE IF NOT EXISTS test_runs (
       id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, test_name TEXT NOT NULL, test_type TEXT NOT NULL,
       status TEXT NOT NULL, duration_ms INTEGER NOT NULL, device TEXT, browser TEXT, tags TEXT NOT NULL,
       error_message TEXT, metadata TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_analytics_timestamp ON test_runs(timestamp);
       CREATE INDEX IF NOT EXISTS idx_analytics_test_name ON test_runs(test_name);
-      CREATE INDEX IF NOT EXISTS idx_analytics_status ON test_runs(status);`);
+      CREATE INDEX IF NOT EXISTS idx_analytics_status ON test_runs(status);
+      PRAGMA user_version = 1;`);
     await this.persist();
   }
 
@@ -100,20 +119,19 @@ export class SQLiteAnalyticsStore extends AnalyticsStore {
     const cutoff = new Date(now.getTime() - days * 86_400_000).toISOString();
     const statement = this.database().prepare(`WITH per_test AS (
       SELECT substr(timestamp,1,10) AS day, test_name,
+        SUM(CASE WHEN status='PASS' THEN 1 ELSE 0 END) AS pass_count,
+        SUM(CASE WHEN status='FAIL' THEN 1 ELSE 0 END) AS fail_count,
+        SUM(CASE WHEN status='SKIP' THEN 1 ELSE 0 END) AS skip_count,
+        SUM(duration_ms) AS duration_sum, COUNT(*) AS run_count,
         MAX(CASE WHEN status='PASS' THEN 1 ELSE 0 END) AS has_pass,
         MAX(CASE WHEN status='FAIL' THEN 1 ELSE 0 END) AS has_fail
       FROM test_runs WHERE timestamp >= ? GROUP BY day,test_name
-    ), flakes AS (
-      SELECT day, AVG(CASE WHEN has_pass=1 AND has_fail=1 THEN 1.0 ELSE 0.0 END) AS flake_rate
-      FROM per_test GROUP BY day
     )
-    SELECT substr(r.timestamp,1,10) AS day,
-      SUM(CASE WHEN r.status='PASS' THEN 1 ELSE 0 END) AS pass_count,
-      SUM(CASE WHEN r.status='FAIL' THEN 1 ELSE 0 END) AS fail_count,
-      SUM(CASE WHEN r.status='SKIP' THEN 1 ELSE 0 END) AS skip_count,
-      AVG(r.duration_ms) AS average_duration, COALESCE(f.flake_rate,0) AS flake_rate
-    FROM test_runs r LEFT JOIN flakes f ON f.day=substr(r.timestamp,1,10)
-    WHERE r.timestamp >= ? GROUP BY substr(r.timestamp,1,10) ORDER BY day ASC`, [cutoff, cutoff]);
+    SELECT day, SUM(pass_count) AS pass_count, SUM(fail_count) AS fail_count,
+      SUM(skip_count) AS skip_count,
+      CAST(SUM(duration_sum) AS REAL) / SUM(run_count) AS average_duration,
+      AVG(CASE WHEN has_pass=1 AND has_fail=1 THEN 1.0 ELSE 0.0 END) AS flake_rate
+    FROM per_test GROUP BY day ORDER BY day ASC`, [cutoff]);
     const trends: TrendData[] = [];
     try {
       while (statement.step()) {

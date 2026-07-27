@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.4-beta.1 — 2026-07-27
+
+### Reliability and evidence
+
+- Verified clean package installation and packed-CLI execution on Windows, Ubuntu, and macOS.
+- Recorded 100 independent browser, API, and mobile-web smoke executions with a 0% observed failure rate.
+- Added structured failure packages containing screenshots, Playwright traces, logs, metadata, selectors, and Allure-compatible results.
+- Added trace-aware credential scanning and cleanup validation for intentional-failure artifacts.
+
+### Analytics safety
+
+- Added SQLite integrity validation and explicit analytics schema versioning.
+- Verified a v0.3.3-compatible 1,500-row analytics database upgrades with matching before/after hashes and zero data loss.
+- Verified 90-day retention, concurrent analytics reads, and sub-100ms trend queries.
+- Corrupt analytics databases now fail closed with an actionable error instead of being overwritten.
+
+### Known validation gap
+
+- The current release commit requires a credentialed BrowserStack regression run before claiming current-code real-device validation. Historical v0.3.2 evidence remains 50/50 passed.
+
 ## 0.3.3-beta.1 — 2026-07-26
 
 ### Added

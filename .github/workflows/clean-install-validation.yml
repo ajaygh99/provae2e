@@ -1,0 +1,141 @@
+﻿name: Slice 1 - Clean Install Validation (Multi-OS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to test'
+        required: false
+        default: 'feature/v0.3.4-reliability'
+  push:
+    branches:
+      - feature/v0.3.4-reliability
+
+jobs:
+  clean-install-validation:
+    name: Clean Install - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+      fail-fast: false
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Clean Install (npm ci)
+        id: clean_install
+        run: npm ci
+
+      - name: Install Playwright Chromium with Linux dependencies
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright Chromium
+        if: runner.os != 'Linux'
+        run: npx playwright install chromium
+
+      - name: TypeScript Check
+        id: typecheck
+        run: npm run typecheck
+
+      - name: Lint Check
+        id: lint
+        run: npm run lint
+
+      - name: Run Full Test Suite
+        id: test
+        run: npm run test:ci
+
+      - name: Build Package
+        id: build
+        run: npm run build
+
+      - name: Security Audit
+        id: audit
+        run: npm audit --omit=dev
+
+      - name: Pack CLI
+        id: pack
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package-artifacts | Out-Null
+          npm pack --pack-destination package-artifacts
+          if ($LASTEXITCODE -ne 0) { throw "npm pack failed" }
+
+      - name: Validate Installed CLI from Packed Package
+        id: consumer_smoke
+        shell: pwsh
+        run: |
+          $startedAt = Get-Date
+          $consumerDir = Join-Path $env:RUNNER_TEMP "prova-consumer-smoke"
+          New-Item -ItemType Directory -Force -Path $consumerDir | Out-Null
+          $package = Get-ChildItem -LiteralPath package-artifacts -Filter "*.tgz" |
+            Select-Object -First 1
+          if (-not $package) { throw "Packed CLI archive was not created" }
+
+          Push-Location $consumerDir
+          try {
+            npm init --yes
+            if ($LASTEXITCODE -ne 0) { throw "consumer npm init failed" }
+            npm install --ignore-scripts $package.FullName
+            if ($LASTEXITCODE -ne 0) { throw "consumer package install failed" }
+            npx playwright install chromium
+            if ($LASTEXITCODE -ne 0) { throw "consumer Playwright browser install failed" }
+            npx --no-install qe-tool --version
+            if ($LASTEXITCODE -ne 0) { throw "installed CLI version check failed" }
+            npx --no-install qe-tool run --url "https://example.com" --type browser --scope smoke --report
+            if ($LASTEXITCODE -ne 0) { throw "installed CLI smoke run failed" }
+          }
+          finally {
+            Pop-Location
+          }
+
+          $elapsed = (Get-Date) - $startedAt
+          "consumer_smoke_seconds=$([math]::Round($elapsed.TotalSeconds, 2))" >> $env:GITHUB_OUTPUT
+          if ($elapsed.TotalMinutes -gt 10) {
+            throw "Installed CLI first run exceeded 10 minutes"
+          }
+
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage/
+          retention-days: 30
+
+      - name: Upload Packed CLI
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packed-cli-${{ matrix.os }}
+          path: package-artifacts/*.tgz
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Job Summary
+        if: always()
+        shell: pwsh
+        run: |
+          @"
+          # Clean Install Validation - ${{ matrix.os }}
+          | Step | Result |
+          |------|--------|
+          | npm ci | ${{ steps.clean_install.outcome }} |
+          | typecheck | ${{ steps.typecheck.outcome }} |
+          | lint | ${{ steps.lint.outcome }} |
+          | full test suite | ${{ steps.test.outcome }} |
+          | build | ${{ steps.build.outcome }} |
+          | production audit | ${{ steps.audit.outcome }} |
+          | npm pack | ${{ steps.pack.outcome }} |
+          | installed CLI smoke | ${{ steps.consumer_smoke.outcome }} |
+          | installed CLI first run | ${{ steps.consumer_smoke.outputs.consumer_smoke_seconds }} seconds |
+          "@ >> $env:GITHUB_STEP_SUMMARY
