@@ -1,0 +1,26 @@
+=== Run 34 ===
+START: 2026-07-27T20:27:05.752Z
+DURATION: 15.775s
+EXIT CODE: 0
+
+=== STDOUT ===
+
+> @provae2e/cli@0.3.3-beta.1 test:smoke
+> jest --testPathPatterns=tests/smoke --forceExit
+
+ℹ Launching headless browser {"url":"http://127.0.0.1:52926"}
+✓ Browser run passed {"url":"http://127.0.0.1:52926","title":"PROVA Smoke Target","durationMs":5737,"screenshotPath":"C:\\Users\\ajjuk\\Documents\\Cowork\\Provae2e\\tests\\smoke\\.tmp-smoke-screenshots\\1785184035059-http-127-0-0-1-52926.png"}
+ℹ Sending API request {"url":"http://127.0.0.1:52926/api","method":"GET"}
+✓ API run passed {"url":"http://127.0.0.1:52926/api","method":"GET","statusCode":200,"durationMs":21}
+ℹ Launching headless browser with device emulation {"url":"http://127.0.0.1:52926","device":"iPhone 14"}
+✓ Mobile run passed {"url":"http://127.0.0.1:52926","device":"iPhone 14","title":"PROVA Smoke Target","durationMs":6011,"screenshotPath":"C:\\Users\\ajjuk\\Documents\\Cowork\\Provae2e\\tests\\smoke\\.tmp-smoke-screenshots\\1785184041197-iPhone-14-http-127-0-0-1-52926.png"}
+
+
+=== STDERR ===
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        12.579 s, estimated 54 s
+Ran all test suites matching tests/smoke.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
+

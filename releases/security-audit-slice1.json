@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "command": "npm audit --omit=dev --json",
+  "executedAt": "2026-07-27T20:50:00Z",
+  "commit": "129a26d25235ed94312fdfac1e2a3dd8f2dcd8b8",
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "dependencies": {
+    "prod": 96,
+    "dev": 426,
+    "optional": 43,
+    "peer": 0,
+    "peerOptional": 0,
+    "total": 523
+  },
+  "gate": {
+    "requireCritical": 0,
+    "requireHigh": 0,
+    "status": "PASS"
+  }
+}
