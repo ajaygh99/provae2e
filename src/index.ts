@@ -349,6 +349,22 @@ export type {
   TestHistory
 } from './core/knowledge-graph-integration.js';
 export { graphCommand } from './cli/graph.js';
+export { exampleFromSchema, runOpenApiContract } from './core/openapi-runner.js';
+export type { OpenApiOperationResult, OpenApiRunOptions } from './core/openapi-runner.js';
+export { HealingMemoryStore } from './core/healing-memory.js';
+export type { HealingRecommendation } from './core/healing-memory.js';
+export { resolveSelector, SelectorResolutionError } from './core/self-healing-selector.js';
+export type {
+  ResolvedSelector, SelectorDescriptor, SelectorLearningOptions, SelectorTier
+} from './core/self-healing-selector.js';
+export { AiBudgetGuard, DEFAULT_AI_BUDGET } from './core/ai-budget.js';
+export type { AiBudget, AiUsage } from './core/ai-budget.js';
+export { rankSelectorCandidates, tokenSimilarity } from './core/adaptive-selector.js';
+export type { RankedSelectorCandidate, SelectorCandidateSummary } from './core/adaptive-selector.js';
+export { resolveSelectorWithOllama } from './core/ollama-selector-resolver.js';
+export type { OllamaSelectorOptions } from './core/ollama-selector-resolver.js';
+export { createSelectorRepairProposal, writeSelectorRepairProposal } from './core/selector-repair-proposal.js';
+export type { SelectorRepairProposal } from './core/selector-repair-proposal.js';
 export type { GraphCommandOptions } from './cli/graph.js';
 export { buildZapCoverageDashboard, classifyZapFindings } from './core/zap-vulnerability-classifier.js';
 export type {

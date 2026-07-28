@@ -9,7 +9,9 @@ import path from 'node:path';
 const mockLaunch = jest.fn();
 
 jest.mock('@playwright/test', (): object => ({
-  chromium: { launch: (...args: unknown[]) => mockLaunch(...(args as [])) }
+  chromium: { launch: (...args: unknown[]) => mockLaunch(...(args as [])) },
+  firefox: { launch: (...args: unknown[]) => mockLaunch(...(args as [])) },
+  webkit: { launch: (...args: unknown[]) => mockLaunch(...(args as [])) }
 }));
 
 import { runBrowserTest } from '../../src/runners/browser-runner';

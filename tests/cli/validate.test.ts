@@ -121,9 +121,13 @@ describe('validateRunOptions — --method and --expect-status (api/all only)', (
   });
 
   it('rejects an unsupported HTTP method for --type api', () => {
-    const result = validateRunOptions(baseInput({ type: 'api', method: 'PATCH' }));
+    const result = validateRunOptions(baseInput({ type: 'api', method: 'CONNECT' }));
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes('--method'))).toBe(true);
+  });
+
+  it('accepts PATCH for --type api', () => {
+    expect(validateRunOptions(baseInput({ type: 'api', method: 'PATCH' })).valid).toBe(true);
   });
 
   it('rejects a non-numeric --expect-status for --type api', () => {

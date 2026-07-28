@@ -34,13 +34,13 @@ jobs:
         id: clean_install
         run: npm ci
 
-      - name: Install Playwright Chromium with Linux dependencies
+      - name: Install Playwright browsers with Linux dependencies
         if: runner.os == 'Linux'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright browsers
         if: runner.os != 'Linux'
-        run: npx playwright install chromium
+        run: npx playwright install chromium firefox webkit
 
       - name: TypeScript Check
         id: typecheck

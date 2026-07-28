@@ -13,6 +13,8 @@
  */
 import type { Locator, Page } from '@playwright/test';
 import { log } from './logger.js';
+import type { HealingMemoryStore } from './healing-memory.js';
+import { rankSelectorCandidates, type SelectorCandidateSummary } from './adaptive-selector.js';
 
 /** Identifies which tier a selector was ultimately resolved through. */
 export type SelectorTier =
@@ -63,6 +65,24 @@ export interface ResolvedSelector {
   locator: Locator;
   /** The tier that succeeded. */
   tier: SelectorTier;
+}
+
+export interface SelectorLearningOptions {
+  store: HealingMemoryStore;
+  pageKey: string;
+  intentKey: string;
+  minimumConfidence?: number;
+  /** Opt-in bounded local discovery after configured selectors fail. */
+  discovery?: {
+    enabled: boolean;
+    minimumConfidence?: number;
+    minimumScoreGap?: number;
+    maximumCandidates?: number;
+    resolveAmbiguity?: (
+      intentKey: string,
+      candidates: SelectorCandidateSummary[]
+    ) => Promise<number | undefined>;
+  };
 }
 
 /** Thrown by {@link resolveSelector} when no configured tier — or no tier at all — resolves to an element. */
@@ -172,10 +192,24 @@ function buildAttempts(page: Page, descriptor: SelectorDescriptor): TierAttempt[
  * @returns The resolved Locator and the tier that found it.
  * @throws {SelectorResolutionError} When every configured tier fails to resolve an element.
  */
-export async function resolveSelector(page: Page, descriptor: SelectorDescriptor): Promise<ResolvedSelector> {
-  const attempts = buildAttempts(page, descriptor);
+export async function resolveSelector(
+  page: Page,
+  descriptor: SelectorDescriptor,
+  learning?: SelectorLearningOptions
+): Promise<ResolvedSelector> {
+  const recommendation = learning?.store.recommend(
+    learning.pageKey,
+    learning.intentKey,
+    learning.minimumConfidence
+  );
+  const learnedAttempts = recommendation
+    ? buildAttempts(page, recommendation.descriptor).filter(attempt => attempt.tier === recommendation.tier)
+    : [];
+  const attempts = [...learnedAttempts, ...buildAttempts(page, descriptor)];
+  let learnedFailureRecorded = false;
 
-  for (const attempt of attempts) {
+  for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex++) {
+    const attempt = attempts[attemptIndex];
     try {
       const locator = await attempt.resolve();
       if (!locator) {
@@ -184,6 +218,15 @@ export async function resolveSelector(page: Page, descriptor: SelectorDescriptor
       const count = await locator.count();
       if (count === 1) {
         log.debug('Selector resolved', { tier: attempt.tier });
+        if (learning) {
+          const usedLearnedAttempt = Boolean(recommendation) && attemptIndex < learnedAttempts.length;
+          await learning.store.recordSuccess(
+            learning.pageKey,
+            learning.intentKey,
+            usedLearnedAttempt && recommendation ? recommendation.descriptor : descriptor,
+            attempt.tier
+          );
+        }
         return { locator, tier: attempt.tier };
       }
       if (count > 1) {
@@ -191,6 +234,44 @@ export async function resolveSelector(page: Page, descriptor: SelectorDescriptor
       }
     } catch (err) {
       log.debug('Selector tier threw, falling through', { tier: attempt.tier, error: err instanceof Error ? err.message : String(err) });
+    }
+    if (recommendation && learning && attemptIndex < learnedAttempts.length && !learnedFailureRecorded) {
+      await learning.store.recordFailure(recommendation.id);
+      learnedFailureRecorded = true;
+    }
+  }
+
+  if (learning?.discovery?.enabled) {
+    const ranked = await rankSelectorCandidates(
+      page,
+      descriptor,
+      learning.intentKey,
+      learning.discovery.maximumCandidates
+    );
+    const best = ranked[0];
+    const runnerUp = ranked[1];
+    const threshold = learning.discovery.minimumConfidence ?? 0.9;
+    const gap = learning.discovery.minimumScoreGap ?? 0.08;
+    let selected = best && best.summary.score >= threshold
+      && (!runnerUp || best.summary.score - runnerUp.summary.score >= gap)
+      ? best
+      : undefined;
+    if (!selected && ranked.length && learning.discovery.resolveAmbiguity) {
+      const chosenIndex = await learning.discovery.resolveAmbiguity(
+        learning.intentKey,
+        ranked.slice(0, 5).map(candidate => candidate.summary)
+      );
+      selected = ranked.find(candidate => candidate.summary.index === chosenIndex);
+    }
+    if (selected) {
+      await learning.store.recordSuccess(
+        learning.pageKey,
+        learning.intentKey,
+        selected.descriptor,
+        selected.tier
+      );
+      log.debug('Selector discovered adaptively', { tier: selected.tier, score: selected.summary.score });
+      return { locator: selected.locator, tier: selected.tier };
     }
   }
 

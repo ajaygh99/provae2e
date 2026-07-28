@@ -246,8 +246,11 @@ export function browserResultToCase(result: BrowserRunResult): ReportTestCase {
   if (result.warnings?.length) {
     details['limitations'] = result.warnings.join('; ');
   }
+  if (result.browser) {
+    details['browser'] = result.browser;
+  }
   return {
-    name: `browser: ${result.url}`,
+    name: `browser${result.browser && result.browser !== 'chromium' ? `:${result.browser}` : ''}: ${result.url}`,
     status: result.status,
     durationMs: result.durationMs,
     error: result.error,

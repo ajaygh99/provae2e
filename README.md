@@ -257,7 +257,7 @@ OAuth tokens are AES-256-GCM encrypted inside SQLite. The encryption key remains
 Launches headless Playwright to test web applications.
 
 **Features:**
-- Headless Chromium
+- Headless Chromium, Firefox, and WebKit
 - Automatic page load assertion
 - Screenshot capture (default: `./screenshots/`)
 - Structured result output: `{ status, title, durationMs, screenshotPath, error }`
@@ -265,7 +265,11 @@ Launches headless Playwright to test web applications.
 **Usage:**
 ```bash
 qe-tool run --url https://yourapp.com --type browser [options]
+qe-tool run --url https://yourapp.com --type browser --browser all
 ```
+
+Chromium remains the default. Use `--browser firefox`, `--browser webkit`, or
+`--browser all` for explicit cross-browser execution.
 
 **Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
 
@@ -317,7 +321,7 @@ See [Real Device Testing with BrowserStack](docs/DEVICE-CLOUD.md) for credential
 Sends REST or GraphQL requests via Playwright's `APIRequestContext` — no separate HTTP client.
 
 **Features:**
-- REST: GET, POST, PUT, DELETE
+- REST: GET, POST, PUT, PATCH, DELETE
 - GraphQL: query/mutation via `--graphql`
 - Assertions: status code, response time, optional response schema
 - Structured result output: `{ status, statusCode, durationMs, responseSummary, error }`
@@ -338,7 +342,7 @@ qe-tool run --url https://api.yourapp.com/graphql --type api \
 **Options:**
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--method <method>` | REST method: GET\|POST\|PUT\|DELETE | `GET` |
+| `--method <method>` | REST method: GET\|POST\|PUT\|PATCH\|DELETE | `GET` |
 | `--body <json>` | JSON request body (REST) or GraphQL variables | — |
 | `--graphql <query>` | GraphQL query/mutation document — switches the request to GraphQL | — |
 | `--expect-status <code>` | Expected HTTP status code | `200` |
@@ -349,6 +353,30 @@ All run inputs are validated before a browser or request starts. `--workers` acc
 and invalid URLs, devices, timeouts, payloads, or headers return a clear error with exit code 1.
 
 **Exit code:** `0` on PASS, `1` on FAIL (useful for CI/CD detection)
+
+### OpenAPI contract execution
+
+PROVA can deterministically execute OpenAPI 3.x JSON/YAML contracts. It runs
+read operations by default and skips write operations unless explicitly
+approved:
+
+```bash
+qe-tool openapi --spec ./openapi.yaml --base-url https://api.example.com
+qe-tool openapi --spec ./openapi.yaml --base-url https://api.example.com --allow-write
+```
+
+Operations with unresolved path parameters are safely skipped.
+
+### Adaptive self-healing
+
+Programmatic browser runs can opt into local selector learning. PROVA first
+reuses proven SQLite history, then ranks a bounded set of sanitized interactive
+elements without an LLM. Ambiguous candidates may optionally be sent to local
+Ollama. Permanent source changes are never automatic; PROVA writes a
+`PENDING_HUMAN_APPROVAL` repair proposal instead.
+
+The learning store contains selector descriptors, confidence counters, and
+timestamps. It does not store complete DOM content.
 
 ## HTML Report (`--report`)
 
@@ -383,20 +411,20 @@ The template installs `@provae2e/cli`, runs `qe-tool run --type all --report` ag
 ### Install Playwright browsers
 
 If a browser or mobile run reports `browserType.launch: Executable doesn't exist`,
-install the Chromium binary used by PROVA:
+install the browser binaries used by PROVA:
 
 ```bash
-npx playwright install chromium
+npx playwright install chromium firefox webkit
 ```
 
 On Linux CI hosts, install the required operating-system libraries at the same
 time:
 
 ```bash
-npx playwright install --with-deps chromium
+npx playwright install --with-deps chromium firefox webkit
 ```
 
-Windows and macOS normally only require `npx playwright install chromium`.
+Windows and macOS normally only require `npx playwright install chromium firefox webkit`.
 WSL follows the Linux instructions.
 
 ### Mobile device emulation

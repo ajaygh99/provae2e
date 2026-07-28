@@ -6,6 +6,7 @@
 import { Command } from 'commander';
 import { log } from '../core/logger.js';
 import { runBrowserTest } from '../runners/browser-runner.js';
+import type { BrowserName } from '../runners/browser-runner.js';
 import { runApiTest } from '../runners/api-runner.js';
 import type { HttpMethod } from '../runners/api-runner.js';
 import { runMobileTest } from '../runners/mobile-runner.js';
@@ -59,6 +60,8 @@ import { graphCommand } from './graph.js';
 import { randomUUID } from 'node:crypto';
 import { analyticsReportCommand, createAnalyticsStore } from './report.js';
 import type { TestRunRecord, TestRunType } from '../storage/analytics-store.js';
+import { runOpenApiContract } from '../core/openapi-runner.js';
+import { parseHeaders } from '../core/input-validator.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -69,6 +72,7 @@ export interface RunActionOptions extends RunOptionsInput {
   evidence?: string;
   persistAnalytics: boolean;
   analyticsDatabase: string;
+  browser?: string;
 }
 
 /** Raw CLI values accepted by the `generate` command. */
@@ -94,6 +98,42 @@ export interface AiGenActionOptions {
   url: string;
   lang: string;
   browsers: string;
+}
+
+export interface OpenApiActionOptions {
+  spec: string;
+  baseUrl: string;
+  allowWrite: boolean;
+  headers?: string;
+}
+
+/** Runs a safe OpenAPI contract suite and sets a failing exit code on contract violations. */
+export async function openApiCommand(opts: OpenApiActionOptions): Promise<void> {
+  const parsedHeaders = opts.headers === undefined ? { errors: [] as string[] } : parseHeaders(opts.headers);
+  if (parsedHeaders.errors.length) {
+    parsedHeaders.errors.forEach(error => log.error(error));
+    process.exitCode = 1;
+    return;
+  }
+  try {
+    const results = await runOpenApiContract({
+      specPath: opts.spec,
+      baseUrl: opts.baseUrl,
+      allowWrite: opts.allowWrite,
+      headers: parsedHeaders.headers
+    });
+    const failed = results.filter(result => result.status === 'FAIL');
+    log.info('OpenAPI run complete', {
+      total: results.length,
+      passed: results.filter(result => result.status === 'PASS').length,
+      failed: failed.length,
+      skipped: results.filter(result => result.status === 'SKIP').length
+    });
+    if (failed.length) process.exitCode = 1;
+  } catch (error) {
+    log.error('OpenAPI run failed', error);
+    process.exitCode = 1;
+  }
 }
 
 /** Values accepted by Figma credential and sync workflows. */
@@ -833,20 +873,27 @@ export async function runCommand(opts: RunActionOptions): Promise<void> {
   const mobileEvidence: MobileRunResult[] = [];
 
   if (type === 'browser' || type === 'all') {
-    tasks.push(async () => {
-      const result = await runBrowserTest({
-        url: opts.url,
-        retries: Number(opts.retries ?? '3'),
-        scope
+    const browsers: BrowserName[] = opts.browser === 'all'
+      ? ['chromium', 'firefox', 'webkit']
+      : [(opts.browser ?? 'chromium') as BrowserName];
+    for (const browser of browsers) {
+      tasks.push(async () => {
+        const result = await runBrowserTest({
+          url: opts.url,
+          retries: Number(opts.retries ?? '3'),
+          scope,
+          browser
+        });
+        log.info('Run result', {
+          status: result.status,
+          browser,
+          durationMs: result.durationMs,
+          screenshotPath: result.screenshotPath,
+          checks: result.checks
+        });
+        return browserResultToCase(result);
       });
-      log.info('Run result', {
-        status: result.status,
-        durationMs: result.durationMs,
-        screenshotPath: result.screenshotPath,
-        checks: result.checks
-      });
-      return browserResultToCase(result);
-    });
+    }
   }
 
   if (type === 'api' || type === 'all') {
@@ -979,6 +1026,7 @@ export function buildProgram(): Command {
     .description('Run tests against a URL')
     .requiredOption('--url <url>', 'Target URL to test')
     .option('--type <type>', 'Test type: browser|api|mobile|all', 'browser')
+    .option('--browser <engine>', 'Browser engine: chromium|firefox|webkit|all', 'chromium')
     .option('--device <devices>', 'Mobile device(s), comma-separated: iPhone14,Pixel7,iPad', 'iPhone14')
     .option('--device-cloud <provider>', 'Mobile provider: local|browserstack')
     .option('--browserstack-username <user>', 'BrowserStack username (or BROWSERSTACK_USERNAME)')
@@ -995,7 +1043,7 @@ export function buildProgram(): Command {
     .option('--ai', 'Enable Ollama AI summaries (requires local Ollama)', false)
     .option('--premium', 'Use cloud LLM instead of local Ollama', false)
     .option('--env <env>', 'Target environment: dev|qe|uat|staging|prod', 'qe')
-    .option('--method <method>', 'API method (--type api): GET|POST|PUT|DELETE', 'GET')
+    .option('--method <method>', 'API method (--type api): GET|POST|PUT|PATCH|DELETE', 'GET')
     .option('--body <json>', 'API request body as JSON (--type api): REST body or GraphQL variables')
     .option('--graphql <query>', 'GraphQL query/mutation document (--type api). Switches the request to GraphQL')
     .option('--expect-status <code>', 'Expected HTTP status code (--type api)', '200')
@@ -1012,6 +1060,14 @@ export function buildProgram(): Command {
     .option('--format <format>', 'html|json', 'html')
     .option('--output <file>', 'Report destination; stdout when omitted')
     .action(analyticsReportCommand);
+
+  program.command('openapi')
+    .description('Run safe deterministic API contract checks from an OpenAPI 3.x JSON/YAML file')
+    .requiredOption('--spec <file>', 'OpenAPI JSON or YAML file')
+    .requiredOption('--base-url <url>', 'API base URL')
+    .option('--allow-write', 'Allow POST, PUT, PATCH, and DELETE operations', false)
+    .option('--headers <json>', 'Request headers as a JSON object; keep secrets in environment expansion')
+    .action(openApiCommand);
 
   program
     .command('init')
