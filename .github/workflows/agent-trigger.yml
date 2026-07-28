@@ -27,6 +27,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test -- --runInBand
