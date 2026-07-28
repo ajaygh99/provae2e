@@ -13,6 +13,7 @@
  */
 import type { Locator, Page } from '@playwright/test';
 import { log } from './logger.js';
+import type { HealingMemoryStore } from './healing-memory.js';
 
 /** Identifies which tier a selector was ultimately resolved through. */
 export type SelectorTier =
@@ -63,6 +64,13 @@ export interface ResolvedSelector {
   locator: Locator;
   /** The tier that succeeded. */
   tier: SelectorTier;
+}
+
+export interface SelectorLearningOptions {
+  store: HealingMemoryStore;
+  pageKey: string;
+  intentKey: string;
+  minimumConfidence?: number;
 }
 
 /** Thrown by {@link resolveSelector} when no configured tier — or no tier at all — resolves to an element. */
@@ -172,8 +180,21 @@ function buildAttempts(page: Page, descriptor: SelectorDescriptor): TierAttempt[
  * @returns The resolved Locator and the tier that found it.
  * @throws {SelectorResolutionError} When every configured tier fails to resolve an element.
  */
-export async function resolveSelector(page: Page, descriptor: SelectorDescriptor): Promise<ResolvedSelector> {
-  const attempts = buildAttempts(page, descriptor);
+export async function resolveSelector(
+  page: Page,
+  descriptor: SelectorDescriptor,
+  learning?: SelectorLearningOptions
+): Promise<ResolvedSelector> {
+  const recommendation = learning?.store.recommend(
+    learning.pageKey,
+    learning.intentKey,
+    learning.minimumConfidence
+  );
+  const learnedAttempts = recommendation
+    ? buildAttempts(page, recommendation.descriptor).filter(attempt => attempt.tier === recommendation.tier)
+    : [];
+  const attempts = [...learnedAttempts, ...buildAttempts(page, descriptor)
+    .filter(attempt => !recommendation || attempt.tier !== recommendation.tier)];
 
   for (const attempt of attempts) {
     try {
@@ -184,6 +205,14 @@ export async function resolveSelector(page: Page, descriptor: SelectorDescriptor
       const count = await locator.count();
       if (count === 1) {
         log.debug('Selector resolved', { tier: attempt.tier });
+        if (learning) {
+          await learning.store.recordSuccess(
+            learning.pageKey,
+            learning.intentKey,
+            recommendation?.tier === attempt.tier ? recommendation.descriptor : descriptor,
+            attempt.tier
+          );
+        }
         return { locator, tier: attempt.tier };
       }
       if (count > 1) {
@@ -193,6 +222,8 @@ export async function resolveSelector(page: Page, descriptor: SelectorDescriptor
       log.debug('Selector tier threw, falling through', { tier: attempt.tier, error: err instanceof Error ? err.message : String(err) });
     }
   }
+
+  if (recommendation && learning) await learning.store.recordFailure(recommendation.id);
 
   throw new SelectorResolutionError(descriptor);
 }

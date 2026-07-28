@@ -22,7 +22,8 @@ export const VALID_RUN_TYPES = RUN_TYPES;
 export type RunType = (typeof VALID_RUN_TYPES)[number];
 
 /** Supported `--method` values. */
-export const VALID_HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE'] as const;
+export const VALID_HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
+export const VALID_BROWSERS = ['chromium', 'firefox', 'webkit', 'all'] as const;
 
 /** Supported `--env` values. */
 export const VALID_ENVIRONMENTS = ['dev', 'qe', 'uat', 'staging', 'prod'] as const;
@@ -50,6 +51,7 @@ export interface RunOptionsInput {
   browserstackKey?: string;
   browserstackParallel?: string;
   browserstackVideo?: string;
+  browser?: string;
 }
 
 /** Result of validating a full set of `run` CLI options. */
@@ -94,6 +96,9 @@ export function validateRunOptions(input: RunOptionsInput): ValidationResult {
 
   const workersError = validateWorkers(input.workers);
   if (workersError) errors.push(workersError);
+  if (input.browser !== undefined && !(VALID_BROWSERS as readonly string[]).includes(input.browser)) {
+    errors.push(`Invalid --browser "${input.browser}": must be one of ${VALID_BROWSERS.join(', ')}`);
+  }
 
   if (input.retries !== undefined) {
     const retries = Number(input.retries);

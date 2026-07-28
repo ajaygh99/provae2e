@@ -8,14 +8,33 @@
 # (cheap, good enough for a checklist-style review).
 name: PROVA LENS Review
 
+concurrency:
+  group: lens-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     types: [opened, synchronize]
 
 jobs:
+  deterministic-gate:
+    name: Deterministic gate before paid review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test -- --runInBand
+
   lens-review:
     name: LENS Code Review
     runs-on: ubuntu-latest
+    needs: deterministic-gate
     if: github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: read

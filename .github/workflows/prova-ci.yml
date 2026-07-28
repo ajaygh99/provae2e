@@ -47,7 +47,7 @@ jobs:
       - name: Install PROVA Studio dependencies
         run: npm ci --prefix studio
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox webkit
       - name: Run full test suite with coverage gate
         run: npm run test:ci
       - name: Test and build PROVA Studio

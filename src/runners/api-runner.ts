@@ -9,7 +9,7 @@ import { executeWithRetry } from '../core/retry-handler.js';
 import { validateNestedSchema, type NestedSchema } from '../core/schema-validator.js';
 
 /** HTTP methods supported for REST requests. */
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 /** JSON value types recognised by {@link validateSchema}. */
 export type SchemaFieldType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null';
@@ -67,6 +67,8 @@ export interface ApiRunResult {
   durationMs: number;
   /** A truncated preview of the response body. */
   responseSummary?: string;
+  /** Parsed JSON response used by contract validation, when available. */
+  responseBody?: unknown;
   /** Error message, populated only when status is FAIL. */
   error?: string;
 }
@@ -135,6 +137,8 @@ async function sendRequest(context: APIRequestContext, options: ApiRunnerOptions
       return context.post(url, { headers, data: options.body });
     case 'PUT':
       return context.put(url, { headers, data: options.body });
+    case 'PATCH':
+      return context.patch(url, { headers, data: options.body });
     case 'DELETE':
       return context.delete(url, { headers, data: options.body });
     case 'GET':
@@ -172,13 +176,13 @@ async function runApiTestOnce(options: ApiRunnerOptions): Promise<ApiRunResult> 
     if (statusCode !== expectedStatus) {
       const error = `Expected status ${expectedStatus} but got ${statusCode}`;
       log.error('API run failed', undefined);
-      return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
+      return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, responseBody: parsedJson(bodyText), error };
     }
 
     if (durationMs > maxResponseTimeMs) {
       const error = `Response time ${durationMs}ms exceeded threshold of ${maxResponseTimeMs}ms`;
       log.error('API run failed', undefined);
-      return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
+      return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, responseBody: parsedJson(bodyText), error };
     }
 
     let parsedBody: unknown;
@@ -193,7 +197,7 @@ async function runApiTestOnce(options: ApiRunnerOptions): Promise<ApiRunResult> 
       if (Array.isArray(gqlErrors) && gqlErrors.length > 0) {
         const error = `GraphQL response contained errors: ${JSON.stringify(gqlErrors)}`;
         log.error('API run failed', undefined);
-        return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
+        return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, responseBody: parsedBody, error };
       }
     }
 
@@ -205,7 +209,7 @@ async function runApiTestOnce(options: ApiRunnerOptions): Promise<ApiRunResult> 
       if (schemaErrors.length > 0) {
         const error = `Schema validation failed: ${schemaErrors.join('; ')}`;
         log.error('API run failed', undefined);
-        return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
+        return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, responseBody: parsedBody, error };
       }
     }
 
@@ -217,12 +221,12 @@ async function runApiTestOnce(options: ApiRunnerOptions): Promise<ApiRunResult> 
       if (nestedErrors.length > 0) {
         const error = `Nested schema validation failed: ${nestedErrors.join('; ')}`;
         log.error('API run failed', undefined);
-        return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, error };
+        return { status: 'FAIL', url, method, statusCode, durationMs, responseSummary, responseBody: parsedBody, error };
       }
     }
 
     log.success('API run passed', { url, method, statusCode, durationMs });
-    return { status: 'PASS', url, method, statusCode, durationMs, responseSummary };
+    return { status: 'PASS', url, method, statusCode, durationMs, responseSummary, responseBody: parsedBody };
   } catch (err) {
     const durationMs = Date.now() - startedAt;
     const message = err instanceof Error ? err.message : String(err);
@@ -239,6 +243,10 @@ async function runApiTestOnce(options: ApiRunnerOptions): Promise<ApiRunResult> 
       }
     }
   }
+}
+
+function parsedJson(bodyText: string): unknown {
+  try { return bodyText ? JSON.parse(bodyText) : undefined; } catch { return undefined; }
 }
 
 /** Runs an API test and retries failed results using exponential backoff. */

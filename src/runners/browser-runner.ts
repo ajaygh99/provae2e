@@ -4,10 +4,11 @@
  */
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { chromium } from '@playwright/test';
-import type { Browser } from '@playwright/test';
+import { chromium, firefox, webkit } from '@playwright/test';
+import type { Browser, BrowserType } from '@playwright/test';
 import { log } from '../core/logger.js';
 import { resolveSelector, type SelectorDescriptor, type SelectorTier } from '../core/self-healing-selector.js';
+import type { SelectorLearningOptions } from '../core/self-healing-selector.js';
 import { executeWithRetry } from '../core/retry-handler.js';
 
 /** Options accepted by {@link runBrowserTest}. */
@@ -24,7 +25,14 @@ export interface BrowserRunnerOptions {
   retryBaseDelayMs?: number;
   /** Verification depth selected by the CLI. */
   scope?: 'smoke' | 'cr' | 'component' | 'full';
+  /** Browser engine to launch. Defaults to Chromium for backward compatibility. */
+  browser?: BrowserName;
+  /** Optional local learning context for adaptive selector ordering and confidence. */
+  learning?: SelectorLearningOptions;
 }
+
+/** Browser engines supported by Playwright and PROVA. */
+export type BrowserName = 'chromium' | 'firefox' | 'webkit';
 
 /** Outcome of a single browser test run. */
 export interface BrowserRunResult {
@@ -46,12 +54,17 @@ export interface BrowserRunResult {
   checks?: string[];
   /** Capability limitations that do not make the listing/page check fail. */
   warnings?: string[];
+  /** Browser engine used for this run. */
+  browser?: BrowserName;
 }
 
+const BROWSER_TYPES: Record<BrowserName, BrowserType> = { chromium, firefox, webkit };
+
 /** Builds a filesystem-safe screenshot filename from a URL and timestamp. */
-function screenshotFileName(url: string): string {
+function screenshotFileName(url: string, browser: BrowserName): string {
   const safeUrl = url.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `${Date.now()}-${safeUrl}.png`;
+  const engine = browser === 'chromium' ? '' : `${browser}-`;
+  return `${Date.now()}-${engine}${safeUrl}.png`;
 }
 
 /**
@@ -64,13 +77,14 @@ function screenshotFileName(url: string): string {
  */
 async function runBrowserTestOnce(options: BrowserRunnerOptions): Promise<BrowserRunResult> {
   const { url } = options;
+  const browserName = options.browser ?? 'chromium';
   const screenshotDir = options.screenshotDir ?? './screenshots';
   const startedAt = Date.now();
 
   let browser: Browser | undefined;
   try {
     log.info('Launching headless browser', { url });
-    browser = await chromium.launch({ headless: true });
+    browser = await BROWSER_TYPES[browserName].launch({ headless: true });
     const page = await browser.newPage();
     const pageErrors: string[] = [];
     page.on?.('pageerror', (error) => pageErrors.push(error.message));
@@ -90,6 +104,7 @@ async function runBrowserTestOnce(options: BrowserRunnerOptions): Promise<Browse
           title,
           durationMs: Date.now() - startedAt,
           checks,
+          browser: browserName,
           error: 'Page has no body element'
         };
       }
@@ -104,6 +119,7 @@ async function runBrowserTestOnce(options: BrowserRunnerOptions): Promise<Browse
           title,
           durationMs: Date.now() - startedAt,
           checks,
+          browser: browserName,
           error: `Navigation returned HTTP ${status ?? 'unknown'}`
         };
       }
@@ -117,6 +133,7 @@ async function runBrowserTestOnce(options: BrowserRunnerOptions): Promise<Browse
           title,
           durationMs: Date.now() - startedAt,
           checks,
+          browser: browserName,
           error: `Uncaught page error: ${pageErrors[0]}`
         };
       }
@@ -130,18 +147,18 @@ async function runBrowserTestOnce(options: BrowserRunnerOptions): Promise<Browse
     let selectorTier: SelectorTier | undefined;
     if (options.selector) {
       try {
-        const resolved = await resolveSelector(page, options.selector);
+        const resolved = await resolveSelector(page, options.selector, options.learning);
         selectorTier = resolved.tier;
       } catch (err) {
         const durationMs = Date.now() - startedAt;
         const message = err instanceof Error ? err.message : String(err);
         log.error('Browser run failed: selector could not be resolved', err);
-        return { status: 'FAIL', url, title, durationMs, error: message };
+        return { status: 'FAIL', url, title, durationMs, browser: browserName, error: message };
       }
     }
 
     await mkdir(screenshotDir, { recursive: true });
-    const screenshotPath = path.join(screenshotDir, screenshotFileName(url));
+    const screenshotPath = path.join(screenshotDir, screenshotFileName(url, browserName));
     await page.screenshot({ path: screenshotPath });
 
     const durationMs = Date.now() - startedAt;
@@ -157,17 +174,18 @@ async function runBrowserTestOnce(options: BrowserRunnerOptions): Promise<Browse
         selectorTier,
         checks,
         warnings,
+        browser: browserName,
         error: 'Page title is empty'
       };
     }
 
     log.success('Browser run passed', { url, title, durationMs, screenshotPath });
-    return { status: 'PASS', url, title, durationMs, screenshotPath, selectorTier, checks, warnings };
+    return { status: 'PASS', url, title, durationMs, screenshotPath, selectorTier, checks, warnings, browser: browserName };
   } catch (err) {
     const durationMs = Date.now() - startedAt;
     const message = err instanceof Error ? err.message : String(err);
     log.error('Browser run failed', err);
-    return { status: 'FAIL', url, durationMs, error: message };
+    return { status: 'FAIL', url, durationMs, browser: browserName, error: message };
   } finally {
     if (browser) {
       try {
