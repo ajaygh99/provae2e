@@ -9,6 +9,13 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # ── TypeScript + Lint check ─────────────────────────────────────
   typecheck:
@@ -114,6 +121,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -155,7 +163,7 @@ jobs:
           if npm view "@provae2e/cli@${VERSION}" version >/dev/null 2>&1; then
             echo "@provae2e/cli@${VERSION} is already published; skipping npm publish."
           else
-            npm publish --tag "${NPM_TAG}"
+            npm publish --tag "${NPM_TAG}" --provenance
           fi
           if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
             echo "Tag v${VERSION} already exists; skipping tag creation."

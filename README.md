@@ -1,6 +1,9 @@
 # PROVA — AI QE Automation Platform
 > **Website:** provae2e.com
 
+> **Public beta:** `v0.3.5-beta.1` is intended for controlled testing in
+> non-production environments. Read the [security policy](SECURITY.md) and
+> [beta launch security guidance](docs/BETA-LAUNCH-SECURITY.md) before use.
 
 > What you design is exactly what gets built, exactly what gets tested, and exactly what ships.
 
