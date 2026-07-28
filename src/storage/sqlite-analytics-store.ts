@@ -16,14 +16,33 @@ export class SQLiteAnalyticsStore extends AnalyticsStore {
 
   async initialize(): Promise<void> {
     this.sql = await initSqlJs();
-    this.db = existsSync(this.dbPath) ? new this.sql.Database(await readFile(this.dbPath)) : new this.sql.Database();
+    try {
+      this.db = existsSync(this.dbPath) ? new this.sql.Database(await readFile(this.dbPath)) : new this.sql.Database();
+    } catch (error) {
+      throw new Error(`Analytics database is corrupt or unreadable: ${this.dbPath}`, { cause: error });
+    }
+    let integrityStatus: string;
+    try {
+      const integrity = this.db.exec('PRAGMA integrity_check');
+      integrityStatus = String(integrity[0]?.values[0]?.[0] ?? '');
+    } catch (error) {
+      this.db.close();
+      this.db = undefined;
+      throw new Error(`Analytics database is corrupt or unreadable: ${this.dbPath}`, { cause: error });
+    }
+    if (integrityStatus !== 'ok') {
+      this.db.close();
+      this.db = undefined;
+      throw new Error(`Analytics database integrity check failed: ${integrityStatus || 'unknown error'}`);
+    }
     this.db.run(`CREATE TABLE IF NOT EXISTS test_runs (
       id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, test_name TEXT NOT NULL, test_type TEXT NOT NULL,
       status TEXT NOT NULL, duration_ms INTEGER NOT NULL, device TEXT, browser TEXT, tags TEXT NOT NULL,
       error_message TEXT, metadata TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS idx_analytics_timestamp ON test_runs(timestamp);
       CREATE INDEX IF NOT EXISTS idx_analytics_test_name ON test_runs(test_name);
-      CREATE INDEX IF NOT EXISTS idx_analytics_status ON test_runs(status);`);
+      CREATE INDEX IF NOT EXISTS idx_analytics_status ON test_runs(status);
+      PRAGMA user_version = 1;`);
     await this.persist();
   }
 
