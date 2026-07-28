@@ -38,10 +38,19 @@ function scanText(content) {
 }
 
 function scanZip(filePath) {
-  const listing = spawnSync('tar', ['-tf', filePath], { encoding: 'utf8' });
+  const unzipListing = spawnSync('unzip', ['-Z1', filePath], { encoding: 'utf8' });
+  const useUnzip = unzipListing.status === 0;
+  const listing = useUnzip
+    ? unzipListing
+    : spawnSync('tar', ['-tf', filePath], { encoding: 'utf8' });
   if (listing.status !== 0) return [{ pattern: 'unreadable trace archive', match: '' }];
   return listing.stdout.split(/\r?\n/).filter(Boolean).flatMap((entry) => {
-    const extracted = spawnSync('tar', ['-xOf', filePath, entry], {
+    const extracted = useUnzip
+      ? spawnSync('unzip', ['-p', filePath, entry], {
+          encoding: 'utf8',
+          maxBuffer: 20 * 1024 * 1024
+        })
+      : spawnSync('tar', ['-xOf', filePath, entry], {
       encoding: 'utf8',
       maxBuffer: 20 * 1024 * 1024
     });
