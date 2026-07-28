@@ -972,7 +972,7 @@ export function buildProgram(): Command {
   program
     .name('qe-tool')
     .description('PROVA — AI-native QE automation platform | provae2e.com')
-    .version('0.3.3-beta.1');
+    .version('0.3.4-beta.1');
 
   program
     .command('run')

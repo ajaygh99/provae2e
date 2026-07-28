@@ -15,6 +15,7 @@ prova-reports/
 allure-results/
 allure-report/
 reports/
+artifacts/
 tests/**/.tmp-*/
 
 # Local operational preflight reports (machine/date-specific)

@@ -1,6 +1,6 @@
 {
   "name": "@provae2e/cli",
-  "version": "0.3.3-beta.1",
+  "version": "0.3.4-beta.1",
   "description": "CLI-first browser, mobile, and API test automation powered by Playwright",
   "bin": {
     "qe-tool": "./dist/cli/run.js",
@@ -24,6 +24,8 @@
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --forceExit",
     "test:smoke": "jest --testPathPatterns=tests/smoke --forceExit",
+    "test:slice2": "npm run build && node scripts/slice2-failure-runner.js artifacts/slice2 && node scripts/slice2-validate-evidence.js artifacts/slice2",
+    "test:slice3": "npm run build && node scripts/slice3-analytics-runner.js artifacts/slice3",
     "test:phase2:e2e": "npm run build && node scripts/phase2-e2e.js",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
