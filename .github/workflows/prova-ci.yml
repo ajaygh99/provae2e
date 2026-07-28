@@ -138,8 +138,8 @@ jobs:
       - name: Check for release approval
         run: node scripts/check-release-approval.js
 
-      - name: Install Playwright browser for prepublish checks
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers for prepublish checks
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Publish approved package version
         run: |
