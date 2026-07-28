@@ -367,6 +367,17 @@ qe-tool openapi --spec ./openapi.yaml --base-url https://api.example.com --allow
 
 Operations with unresolved path parameters are safely skipped.
 
+### Adaptive self-healing
+
+Programmatic browser runs can opt into local selector learning. PROVA first
+reuses proven SQLite history, then ranks a bounded set of sanitized interactive
+elements without an LLM. Ambiguous candidates may optionally be sent to local
+Ollama. Permanent source changes are never automatic; PROVA writes a
+`PENDING_HUMAN_APPROVAL` repair proposal instead.
+
+The learning store contains selector descriptors, confidence counters, and
+timestamps. It does not store complete DOM content.
+
 ## HTML Report (`--report`)
 
 Add `--report` to any run (`--type browser|api|mobile|all`) to generate an Allure-style static HTML report — no server required, opens straight from disk.

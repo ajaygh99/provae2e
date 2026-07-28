@@ -6,6 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { chromium } from '@playwright/test';
 import type { Browser, Page } from '@playwright/test';
 import { resolveSelector, SelectorResolutionError } from '../../src/core/self-healing-selector.js';
+import type { HealingMemoryStore } from '../../src/core/healing-memory.js';
 
 jest.setTimeout(60000);
 
@@ -201,5 +202,26 @@ describe('resolveSelector', () => {
     await expect(resolveSelector(page, {
       position: { scope: '.same-box', x: 10, y: 10, width: 20, height: 20 }
     })).rejects.toThrow(SelectorResolutionError);
+  });
+
+  it('discovers a unique high-confidence replacement without paid AI', async () => {
+    const store = {
+      recommend: jest.fn().mockReturnValue(undefined),
+      recordSuccess: jest.fn().mockResolvedValue(undefined),
+      recordFailure: jest.fn().mockResolvedValue(undefined)
+    } as unknown as HealingMemoryStore;
+    const result = await resolveSelector(page, { testId: 'removed-submit-form' }, {
+      store,
+      pageKey: '/fixture',
+      intentKey: 'Submit Form',
+      discovery: { enabled: true, minimumConfidence: 0.5 }
+    });
+    expect(await result.locator.textContent()).toBe('Submit');
+    expect(store.recordSuccess).toHaveBeenCalledWith(
+      '/fixture',
+      'Submit Form',
+      { text: 'Submit' },
+      'text-content'
+    );
   });
 });
