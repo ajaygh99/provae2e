@@ -60,8 +60,14 @@ import { graphCommand } from './graph.js';
 import { randomUUID } from 'node:crypto';
 import { analyticsReportCommand, createAnalyticsStore } from './report.js';
 import type { TestRunRecord, TestRunType } from '../storage/analytics-store.js';
-import { runOpenApiContract } from '../core/openapi-runner.js';
+import { generateOpenApiTests, runOpenApiContract } from '../core/openapi-runner.js';
 import { parseHeaders } from '../core/input-validator.js';
+import {
+  clearSelectorRepairProposals,
+  listSelectorRepairProposals,
+  reviewSelectorRepairProposal
+} from '../core/selector-repair-proposal.js';
+import { HealingMemoryStore } from '../core/healing-memory.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -105,22 +111,104 @@ export interface OpenApiActionOptions {
   baseUrl: string;
   allowWrite: boolean;
   headers?: string;
+  pathParams?: string;
+  generateTests?: string;
+}
+
+export interface LearnReviewActionOptions {
+  action: string;
+  id?: string;
+  directory: string;
+  database: string;
+  reviewer?: string;
+  yes: boolean;
+}
+
+/** Reviews, rolls back, or clears local selector-learning artifacts. */
+export async function learnReviewCommand(opts: LearnReviewActionOptions): Promise<void> {
+  const actions = ['list', 'approve', 'reject', 'rollback', 'clear'];
+  if (!actions.includes(opts.action)) {
+    log.error(`--action must be one of ${actions.join(', ')}`);
+    process.exitCode = 1;
+    return;
+  }
+  try {
+    if (opts.action === 'list') {
+      const proposals = await listSelectorRepairProposals(opts.directory);
+      log.info('Selector repair proposals', {
+        total: proposals.length,
+        proposals: proposals.map(({ id, proposal }) => ({
+          id, status: proposal.status, intent: proposal.intentKey, confidence: proposal.confidence
+        }))
+      });
+      return;
+    }
+    if (opts.action === 'clear') {
+      if (!opts.yes) throw new Error('Clearing learned selectors requires --yes');
+      const proposalCount = await clearSelectorRepairProposals(opts.directory);
+      const store = new HealingMemoryStore(opts.database);
+      await store.initialize();
+      let learnedCount = 0;
+      try {
+        learnedCount = await store.clear();
+      } finally {
+        store.close();
+      }
+      log.success('Selector learning data cleared', { proposals: proposalCount, learnedSelectors: learnedCount });
+      return;
+    }
+    if (!opts.id) throw new Error(`--id is required for ${opts.action}`);
+    if (!opts.reviewer) throw new Error(`--reviewer is required for ${opts.action}`);
+    const proposal = await reviewSelectorRepairProposal(
+      opts.directory,
+      opts.id,
+      opts.action as 'approve' | 'reject' | 'rollback',
+      opts.reviewer
+    );
+    if (opts.action === 'rollback') {
+      const store = new HealingMemoryStore(opts.database);
+      await store.initialize();
+      try {
+        await store.remove(proposal.pageKey, proposal.intentKey, proposal.proposed, proposal.tier);
+      } finally {
+        store.close();
+      }
+    }
+    log.success('Selector repair review recorded', { id: opts.id, status: proposal.status });
+  } catch (error) {
+    log.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
 }
 
 /** Runs a safe OpenAPI contract suite and sets a failing exit code on contract violations. */
 export async function openApiCommand(opts: OpenApiActionOptions): Promise<void> {
   const parsedHeaders = opts.headers === undefined ? { errors: [] as string[] } : parseHeaders(opts.headers);
-  if (parsedHeaders.errors.length) {
-    parsedHeaders.errors.forEach(error => log.error(error));
+  const parsedParams = opts.pathParams === undefined ? { errors: [] as string[] } : parseHeaders(opts.pathParams);
+  const inputErrors = [...parsedHeaders.errors, ...parsedParams.errors];
+  if (inputErrors.length) {
+    inputErrors.forEach(error => log.error(error));
     process.exitCode = 1;
     return;
   }
   try {
+    if (opts.generateTests) {
+      const files = await generateOpenApiTests({
+        specPath: opts.spec,
+        baseUrl: opts.baseUrl,
+        outputDir: opts.generateTests,
+        allowWrite: opts.allowWrite,
+        pathParams: parsedParams.headers
+      });
+      log.success('OpenAPI Playwright tests generated', { files });
+      return;
+    }
     const results = await runOpenApiContract({
       specPath: opts.spec,
       baseUrl: opts.baseUrl,
       allowWrite: opts.allowWrite,
-      headers: parsedHeaders.headers
+      headers: parsedHeaders.headers,
+      pathParams: parsedParams.headers
     });
     const failed = results.filter(result => result.status === 'FAIL');
     log.info('OpenAPI run complete', {
@@ -1019,7 +1107,7 @@ export function buildProgram(): Command {
   program
     .name('qe-tool')
     .description('PROVA — AI-native QE automation platform | provae2e.com')
-    .version('0.3.4-beta.1');
+    .version('0.3.5-beta.1');
 
   program
     .command('run')
@@ -1067,7 +1155,19 @@ export function buildProgram(): Command {
     .requiredOption('--base-url <url>', 'API base URL')
     .option('--allow-write', 'Allow POST, PUT, PATCH, and DELETE operations', false)
     .option('--headers <json>', 'Request headers as a JSON object; keep secrets in environment expansion')
+    .option('--path-params <json>', 'Path parameter values as JSON, for example {\"userId\":\"123\"}')
+    .option('--generate-tests <directory>', 'Generate readable Playwright API tests without executing requests')
     .action(openApiCommand);
+
+  program.command('learn-review')
+    .description('Review, reject, roll back, or clear local selector-learning proposals')
+    .requiredOption('--action <action>', 'Action: list|approve|reject|rollback|clear')
+    .option('--id <proposal-id>', 'Proposal id for approve, reject, or rollback')
+    .option('--reviewer <name>', 'Human reviewer identity recorded in audit evidence')
+    .option('--directory <path>', 'Repair proposal directory', '.prova/repairs')
+    .option('--database <file>', 'Selector learning SQLite database', '.prova/healing.db')
+    .option('--yes', 'Confirm destructive clear operation', false)
+    .action(learnReviewCommand);
 
   program
     .command('init')

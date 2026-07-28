@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.5-beta.1 — 2026-07-28
+
+### Phase 4 foundation readiness
+
+- Added multi-OS Chromium, Firefox, and WebKit execution.
+- Added safe OpenAPI path parameters, request validation, and readable Playwright test generation.
+- Added 95%-confidence selector reuse with credential and PII rejection.
+- Added human approval, rejection, rollback, listing, and clear workflows for selector repairs.
+- Preserved Chromium defaults, deterministic fallback, and human control over permanent changes.
+
+### Quality
+
+- Added representative five-endpoint OpenAPI and selector-learning security evidence.
+- Verified failure-evidence safety, analytics integrity, packaging, and production dependency security.
+
 ## 0.3.4-beta.1 — 2026-07-27
 
 ### Reliability and evidence
