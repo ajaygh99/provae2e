@@ -31,6 +31,26 @@ validated. Required gates are:
 Marketplace breadth, white-label delivery, and ERP/mainframe integrations remain
 post-readiness initiatives and require customer evidence before prioritization.
 
+## Quality principles for every future release
+
+Every release must assess and improve these areas wherever they apply:
+
+1. Compatibility with widely used industry applications and platforms.
+2. Maintainability across many projects and long-term upgrades.
+3. Adaptability through secure connectors for systems such as Jira, ALM,
+   GitHub, cloud platforms, Slack, and Teams.
+4. Security against misuse, dependency attacks, data leakage, and unauthorized
+   modification. Open-source code cannot be made impossible to copy.
+5. User experience that novice professionals can understand and operate without
+   specialist assistance.
+6. Performance measured against an established baseline.
+7. Scalable workload distribution, including queueing, worker balancing,
+   autoscaling, and recovery where the release scope requires them.
+
+Release plans and evidence must state which principles are applicable, what was
+improved, what was tested, and what remains deferred. These principles guide
+every release but do not justify shallow integrations or unsupported claims.
+
 ## Success metrics
 
 - Reliability, evidence completeness, diagnostic time, and CI cost.

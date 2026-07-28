@@ -588,6 +588,10 @@ Claude Code must produce or update:
 - Compatibility results.
 - Security and dependency results.
 - Performance measurements relevant to the changed code.
+- A seven-principle assessment covering compatibility, maintainability,
+  adaptability/integrations, security, novice-professional usability,
+  performance, and scalable workload balancing. Mark each principle as
+  improved, verified unchanged, not applicable, or explicitly deferred.
 - Known limitations.
 - Upgrade and rollback instructions.
 - Release approval record.
