@@ -250,7 +250,7 @@ export async function resolveSelector(
     );
     const best = ranked[0];
     const runnerUp = ranked[1];
-    const threshold = learning.discovery.minimumConfidence ?? 0.9;
+    const threshold = learning.discovery.minimumConfidence ?? 0.95;
     const gap = learning.discovery.minimumScoreGap ?? 0.08;
     let selected = best && best.summary.score >= threshold
       && (!runnerUp || best.summary.score - runnerUp.summary.score >= gap)

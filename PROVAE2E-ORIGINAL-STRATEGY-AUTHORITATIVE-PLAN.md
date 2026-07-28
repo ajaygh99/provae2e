@@ -108,16 +108,13 @@ Phase 4 enterprise roadmap.
 
 ### Planned releases after v0.3.4-beta.1
 
-1. `v0.3.5-beta.1`: Chromium, Firefox, and WebKit execution; Chromium remains
-   the backward-compatible default.
-2. `v0.3.6-beta.1`: safe OpenAPI 3.x ingestion, deterministic request
-   generation, and contract validation.
-3. `v0.3.7-beta.1`: local adaptive selector memory, confidence controls,
-   audit evidence, and human-approved source repair.
-4. `v0.3.8-beta.1`: changed-test selection, risk ordering, and CI cost
+1. `v0.3.5-beta.1`: Phase 4 readiness release combining multi-browser
+   execution, safe OpenAPI generation/execution, and local adaptive selector
+   memory with human review controls.
+2. `v0.3.6-beta.1`: changed-test selection, risk ordering, and CI cost
    reduction.
-5. `v0.4.0-beta.1`: integration and reliability validation for the closed
-   self-learning loop.
+3. `v0.4.0-beta.1`: first Phase 4 enterprise release after the published
+   foundation gate is independently validated.
 
 Capabilities start opt-in, retain existing CLI defaults, and require
 representative end-to-end evidence before being called complete.
@@ -545,9 +542,8 @@ Exit gate:
 
 ### Release strategy for foundation hardening
 
-- Implement as feature-flagged pull requests to `main` during v0.3.5-beta.1 or
-  v0.4.0-beta.1.
-- Use separate, reviewable PRs for each Priority (multi-browser, OpenAPI, learning).
+- Ship the three priorities together in `v0.3.5-beta.1` only after their
+  individual tests and evidence are independently identifiable.
 - Do not advertise a capability as complete until its CI and end-to-end evidence
   pass the release quality gates.
 - Do not merge into a release branch until Ajay and an independent Codex review

@@ -1,6 +1,6 @@
 import { runApiTest } from '../../src/runners/api-runner';
-import { exampleFromSchema, runOpenApiContract } from '../../src/core/openapi-runner';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { exampleFromSchema, generateOpenApiTests, runOpenApiContract } from '../../src/core/openapi-runner';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -79,5 +79,46 @@ paths:
         enabled: { type: 'boolean' }, ignored: { type: 'string' }
       }
     })).toEqual({ enabled: true });
+  });
+
+  it('resolves explicit path parameters safely', async () => {
+    await writeFile(specPath, `openapi: 3.0.3
+info: { title: Paths, version: 1.0.0 }
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses: { "200": { description: ok } }
+`);
+    const results = await runOpenApiContract({
+      specPath, baseUrl: 'https://api.example', pathParams: { userId: 'user 42' }
+    });
+    expect(results[0]?.status).toBe('PASS');
+    expect(mockedRun).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://api.example/users/user%2042'
+    }));
+  });
+
+  it('generates readable Playwright suites for a representative five-endpoint contract', async () => {
+    await writeFile(specPath, `openapi: 3.0.3
+info: { title: Readiness, version: 1.0.0 }
+paths:
+  /health: { get: { operationId: health, responses: { "200": { description: ok } } } }
+  /users: { get: { operationId: listUsers, responses: { "200": { description: ok } } } }
+  /users/{userId}: { get: { operationId: getUser, responses: { "200": { description: ok } } } }
+  /orders: { post: { operationId: createOrder, responses: { "201": { description: created } } } }
+  /orders/{orderId}: { delete: { operationId: deleteOrder, responses: { "204": { description: deleted } } } }
+`);
+    const output = path.join(directory, 'generated');
+    const files = await generateOpenApiTests({
+      specPath, baseUrl: 'https://api.example', outputDir: output,
+      pathParams: { userId: '42', orderId: '99' }
+    });
+    expect(files).toHaveLength(5);
+    expect(await readFile(files[0]!, 'utf-8')).toContain("from '@playwright/test'");
+    expect(await readFile(files[3]!, 'utf-8')).toContain('test.skip');
+    await expect(generateOpenApiTests({
+      specPath, baseUrl: 'https://api.example', outputDir: output
+    })).rejects.toThrow('Refusing to overwrite');
   });
 });

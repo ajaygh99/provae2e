@@ -363,9 +363,15 @@ approved:
 ```bash
 qe-tool openapi --spec ./openapi.yaml --base-url https://api.example.com
 qe-tool openapi --spec ./openapi.yaml --base-url https://api.example.com --allow-write
+qe-tool openapi --spec ./openapi.yaml --base-url https://api.example.com \
+  --path-params '{"userId":"42"}'
+qe-tool openapi --spec ./openapi.yaml --base-url https://api.example.com \
+  --generate-tests ./generated-openapi-tests
 ```
 
 Operations with unresolved path parameters are safely skipped.
+Generated suites refuse to overwrite existing files. POST, PUT, PATCH, and
+DELETE tests are generated as skipped unless `--allow-write` is explicitly set.
 
 ### Adaptive self-healing
 
@@ -377,6 +383,20 @@ Ollama. Permanent source changes are never automatic; PROVA writes a
 
 The learning store contains selector descriptors, confidence counters, and
 timestamps. It does not store complete DOM content.
+
+Learned selectors require at least 95% confidence by default. Review artifacts
+remain data-only and never rewrite tests automatically:
+
+```bash
+prova learn-review --action list
+prova learn-review --action approve --id checkout-submit --reviewer Ajay
+prova learn-review --action reject --id checkout-submit --reviewer Ajay
+prova learn-review --action rollback --id checkout-submit --reviewer Ajay
+prova learn-review --action clear --yes
+```
+
+Credentials, real email addresses, SSNs, and payment-card patterns are rejected
+before selector-learning persistence and redacted before local model inference.
 
 ## HTML Report (`--report`)
 
