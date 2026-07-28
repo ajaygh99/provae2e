@@ -60,7 +60,7 @@ jobs:
       - name: Test and build PROVA Studio
         run: npm test --prefix studio && npm run build --prefix studio && npm run build-storybook --prefix studio
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage
@@ -85,7 +85,7 @@ jobs:
           SLICE2_SYNTHETIC_SECRET: ghp_CIOnlySyntheticCredential123456789
           SLICE2_SYNTHETIC_TOKEN: sk-CIOnlySyntheticToken123456789
       - name: Upload Slice 2 diagnostic evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: slice2-failure-evidence
@@ -106,7 +106,7 @@ jobs:
       - name: Validate analytics migration, retention, scale, and corruption handling
         run: npm run test:slice3
       - name: Upload Slice 3 evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: slice3-analytics-evidence
