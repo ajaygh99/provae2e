@@ -20,6 +20,9 @@ on:
         required: true
         default: Google Pixel 7
 
+permissions:
+  contents: read
+
 jobs:
   evidence:
     runs-on: ubuntu-latest

@@ -1,0 +1,56 @@
+name: Beta bug report
+description: Report a reproducible PROVA beta defect using synthetic data.
+title: "[Bug]: "
+labels: [bug, beta]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, customer URLs, personal information, or production artifacts.
+        Report security vulnerabilities through the private advisory link instead.
+  - type: input
+    id: version
+    attributes:
+      label: PROVA version
+      placeholder: 0.3.5-beta.1
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Ubuntu/Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Synthetic reproduction
+      description: Provide the smallest safe reproduction with all sensitive values replaced.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed credentials, tokens, customer URLs, and personal information.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

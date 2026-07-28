@@ -6,10 +6,13 @@ on:
       branch:
         description: 'Branch to test'
         required: false
-        default: 'feature/v0.3.4-reliability'
+        default: 'main'
   push:
     branches:
-      - feature/v0.3.4-reliability
+      - main
+
+permissions:
+  contents: read
 
 jobs:
   clean-install-validation:
