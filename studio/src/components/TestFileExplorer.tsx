@@ -28,12 +28,12 @@ export function TestFileExplorer(): React.JSX.Element {
           <span className="eyebrow">{workspace.name}</span>
           <h2 id="file-explorer-title">Test files</h2>
         </div>
-        <button className="ui-button ui-button--secondary" type="button" onClick={() => void refreshFiles()}>
-          Refresh
+        <button className="ui-button ui-button--secondary" type="button" disabled={filesLoading} onClick={() => void refreshFiles()}>
+          {filesError ? 'Retry discovery' : 'Refresh'}
         </button>
       </div>
       {filesLoading && <p role="status">Discovering test files…</p>}
-      {filesError && <p className="ui-field__error" role="alert">{filesError}</p>}
+      {filesError && <p className="ui-field__error" role="alert">{filesError} Use “Retry discovery” to try again.</p>}
       {!filesLoading && !filesError && files.length === 0 && (
         <p>No `.prova`, `.provae2e`, `.test`, or `.spec` YAML/JSON files were found.</p>
       )}

@@ -20,6 +20,7 @@ export function StudioRunConsole({ api }: { api?: StudioRunApi }): React.JSX.Ele
       setRunId(summary.id);
       setStatus(summary.status);
       resolvedApi.streamEvents(summary.id, event => {
+        setError('');
         if (event.type === 'stdout' || event.type === 'stderr') {
           setLines(current => [...current, { type: event.type, text: event.text }]);
         } else if (event.type === 'status') {
@@ -27,7 +28,7 @@ export function StudioRunConsole({ api }: { api?: StudioRunApi }): React.JSX.Ele
         } else if (event.type === 'complete') {
           setStatus(event.summary.status);
         }
-      }, () => setError('Live output connection was interrupted.'));
+      }, () => setError('Live output connection was interrupted. Reconnecting automatically…'));
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : 'Run could not start.');
     }

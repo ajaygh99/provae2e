@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AppLayout } from './components/AppLayout';
+import { ConnectivityBanner } from './components/ConnectivityBanner';
 import { BuilderPage } from './pages/BuilderPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ExecutionPage } from './pages/ExecutionPage';
@@ -22,5 +23,5 @@ export function App(): React.JSX.Element {
     if (!pages[pathname]) navigate('/dashboard', true);
   }, [navigate, pathname]);
 
-  return <AppLayout>{page}</AppLayout>;
+  return <AppLayout><ConnectivityBanner />{page}</AppLayout>;
 }
