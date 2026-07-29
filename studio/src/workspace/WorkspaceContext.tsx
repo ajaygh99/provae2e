@@ -16,12 +16,14 @@ interface WorkspaceValue {
   filesError: string;
   selectedFile?: StudioTestFile;
   document?: StudioTestDocument;
+  draftContent: string;
   documentLoading: boolean;
   documentSaving: boolean;
   documentError: string;
   selectWorkspace: (path: string) => Promise<void>;
   selectFile: (fileId: string) => Promise<void>;
   saveDocument: (content: string) => Promise<boolean>;
+  updateDraft: (content: string) => void;
   refreshFiles: () => Promise<void>;
 }
 
@@ -43,6 +45,7 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
   const [filesError, setFilesError] = useState('');
   const [selectedFile, setSelectedFile] = useState<StudioTestFile>();
   const [document, setDocument] = useState<StudioTestDocument>();
+  const [draftContent, setDraftContent] = useState('');
   const [documentLoading, setDocumentLoading] = useState(false);
   const [documentSaving, setDocumentSaving] = useState(false);
   const [documentError, setDocumentError] = useState('');
@@ -74,6 +77,7 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
     filesError,
     selectedFile,
     document,
+    draftContent,
     documentLoading,
     documentSaving,
     documentError,
@@ -105,7 +109,9 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
       if (!file) return;
       setDocumentLoading(true);
       try {
-        setDocument(await resolvedApi.readDocument(file.workspaceId, file.id));
+        const loaded = await resolvedApi.readDocument(file.workspaceId, file.id);
+        setDocument(loaded);
+        setDraftContent(loaded.content);
       } catch (readError) {
         setDocumentError(readError instanceof Error ? readError.message : 'Test document could not be loaded.');
       } finally {
@@ -117,12 +123,14 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
       setDocumentSaving(true);
       setDocumentError('');
       try {
-        setDocument(await resolvedApi.saveDocument(
+        const saved = await resolvedApi.saveDocument(
           document.workspaceId,
           document.id,
           content,
           document.revision
-        ));
+        );
+        setDocument(saved);
+        setDraftContent(saved.content);
         return true;
       } catch (saveError) {
         setDocumentError(saveError instanceof Error ? saveError.message : 'Test document could not be saved.');
@@ -131,11 +139,13 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
         setDocumentSaving(false);
       }
     },
+    updateDraft: setDraftContent,
     refreshFiles: async () => {
       if (workspace) await loadFiles(workspace);
     }
   }), [
     document,
+    draftContent,
     documentError,
     documentLoading,
     documentSaving,

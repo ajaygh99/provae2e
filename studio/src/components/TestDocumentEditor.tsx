@@ -8,10 +8,12 @@ export function TestDocumentEditor(): React.JSX.Element {
   const {
     selectedFile,
     document,
+    draftContent,
     documentLoading,
     documentSaving,
     documentError,
-    saveDocument
+    saveDocument,
+    updateDraft
   } = useWorkspace();
   if (!selectedFile) {
     return <section className="panel test-editor"><h2>Editor</h2><p>Select a test file to edit it.</p></section>;
@@ -32,9 +34,11 @@ export function TestDocumentEditor(): React.JSX.Element {
         <LoadedDocumentEditor
           key={document.id}
           document={document}
+          content={draftContent}
           documentLoading={documentLoading}
           documentSaving={documentSaving}
           saveDocument={saveDocument}
+          updateDraft={updateDraft}
         />
       )}
     </section>
@@ -43,18 +47,21 @@ export function TestDocumentEditor(): React.JSX.Element {
 
 interface LoadedDocumentEditorProps {
   document: StudioTestDocument;
+  content: string;
   documentLoading: boolean;
   documentSaving: boolean;
   saveDocument: (content: string) => Promise<boolean>;
+  updateDraft: (content: string) => void;
 }
 
 function LoadedDocumentEditor({
   document,
+  content,
   documentLoading,
   documentSaving,
-  saveDocument
+  saveDocument,
+  updateDraft
 }: LoadedDocumentEditorProps): React.JSX.Element {
-  const [content, setContent] = useState(document.content);
   const [saved, setSaved] = useState(false);
   const diagnostics = useMemo(
     () => validateTestDocument(content, document.format),
@@ -72,7 +79,7 @@ function LoadedDocumentEditor({
         aria-invalid={diagnostics.length > 0}
         aria-describedby={diagnostics.length > 0 ? 'studio-test-diagnostics' : undefined}
         onChange={event => {
-          setContent(event.target.value);
+          updateDraft(event.target.value);
           setSaved(false);
         }}
       />

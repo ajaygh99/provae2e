@@ -2,6 +2,7 @@ import { KnowledgeGraphPanel } from '../components/KnowledgeGraphPanel';
 import { ElementSelectorTool } from '../components/ElementSelectorTool';
 import { TestFileExplorer } from '../components/TestFileExplorer';
 import { TestDocumentEditor } from '../components/TestDocumentEditor';
+import { VisualStepBuilder } from '../components/VisualStepBuilder';
 
 /** Displays graph-informed coverage and interactive selector tools while building a test. */
 export function BuilderPage(): React.JSX.Element {
@@ -13,6 +14,7 @@ export function BuilderPage(): React.JSX.Element {
         <TestFileExplorer />
         <TestDocumentEditor />
       </div>
+      <VisualStepBuilder />
       <KnowledgeGraphPanel
         title="Coverage gaps"
         rootId=""
