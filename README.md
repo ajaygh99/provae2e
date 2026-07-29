@@ -253,6 +253,12 @@ qe-tool figma --auth --database ./prova-credentials.sqlite
 qe-tool figma --sync AbCdEf123 --node 12:34 --output ./generated-tests/figma
 ```
 
+Phase 4.2 adds named encrypted profiles, expiry checks, copied Figma URL
+normalization, bounded retries, semantic Playwright locators, and idempotent
+regeneration. See
+[`docs/phase4/FIGMA-HARDENING-GUIDE.md`](docs/phase4/FIGMA-HARDENING-GUIDE.md)
+for the secure PowerShell workflow and validation command.
+
 OAuth tokens are AES-256-GCM encrypted inside SQLite. The encryption key remains in `PROVA_CREDENTIAL_KEY` and is never stored with the database.
 
 ## Browser Testing (`--type browser`)
