@@ -5,17 +5,52 @@ on:
     paths:
       - "src/storage/**"
       - "src/reporters/analytics-reporter.ts"
+      - "src/cli/report.ts"
       - "src/exporters/powerbi-exporter.ts"
+      - "tests/**/*analytics*"
       - "scripts/verify-postgres-analytics.js"
+      - "scripts/verify-analytics-dashboard.js"
       - ".github/workflows/analytics-integration.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: analytics-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  postgres:
+  dashboard:
+    name: Analytics dashboard
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --runInBand --testPathPatterns=analytics
+      - name: Verify built dashboard workflow
+        run: node scripts/verify-analytics-dashboard.js artifacts/analytics-dashboard
+      - name: Upload dashboard artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analytics-dashboard-${{ github.run_id }}
+          path: |
+            artifacts/analytics-dashboard/analytics.json
+            artifacts/analytics-dashboard/analytics.html
+          if-no-files-found: error
+          retention-days: 14
+
+  postgres:
+    name: PostgreSQL analytics
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16-alpine
