@@ -61,6 +61,15 @@ export type {
   SauceRegion
 } from './core/native-device-farm.js';
 export {
+  changeNativePermissions,
+  nativeConsentCapabilities,
+  validateNativePermissionRequest
+} from './core/native-appium-permissions.js';
+export type {
+  NativePermissionRequest,
+  PermissionAction
+} from './core/native-appium-permissions.js';
+export {
   parseHeaders,
   validateApiPayload,
   validateDevice,
