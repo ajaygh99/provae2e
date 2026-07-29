@@ -389,6 +389,12 @@ export type { GraphCommandOptions } from './cli/graph.js';
 export { buildZapCoverageDashboard, classifyZapFindings } from './core/zap-vulnerability-classifier.js';
 export { parseZapJsonReport } from './core/zap-report-parser.js';
 export type { ZapReportParseResult } from './core/zap-report-parser.js';
+export { evaluateZapScanPolicy } from './core/zap-scan-policy.js';
+export type {
+  ZapPolicyEvaluation,
+  ZapPolicyViolation,
+  ZapScanPolicy
+} from './core/zap-scan-policy.js';
 export type {
   OwaspCategory,
   OwaspCategoryCoverage,
