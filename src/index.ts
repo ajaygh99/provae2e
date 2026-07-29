@@ -406,6 +406,8 @@ export type {
   ZapSecurityReport,
   ZapSecurityReportFinding
 } from './reporters/zap-security-reporter.js';
+export { securityCommand } from './cli/security.js';
+export type { SecurityActionOptions } from './cli/security.js';
 export type {
   OwaspCategory,
   OwaspCategoryCoverage,
