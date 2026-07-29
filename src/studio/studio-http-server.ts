@@ -102,6 +102,34 @@ async function route(
     }
     return;
   }
+  const evidenceListMatch = new RegExp(`^${STUDIO_API_PREFIX}/runs/(run_[A-Za-z0-9_-]{16,128})/evidence$`).exec(url.pathname);
+  if (request.method === 'GET' && evidenceListMatch) {
+    try {
+      sendJson(response, 200, runs.listEvidence(evidenceListMatch[1]!));
+    } catch (error) {
+      sendJson(response, 404, { error: { code: 'NOT_FOUND', message: safeMessage(error) } });
+    }
+    return;
+  }
+  const evidenceMatch = new RegExp(
+    `^${STUDIO_API_PREFIX}/runs/(run_[A-Za-z0-9_-]{16,128})/evidence/(evidence_[A-Za-z0-9_-]{16,128})$`
+  ).exec(url.pathname);
+  if (request.method === 'GET' && evidenceMatch) {
+    try {
+      const record = runs.getEvidence(evidenceMatch[1]!, evidenceMatch[2]!);
+      response.writeHead(200, {
+        'content-type': record.metadata.mediaType,
+        'content-length': record.content.byteLength,
+        'content-disposition': `inline; filename="${safeFileName(record.metadata.name)}"`,
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff'
+      });
+      response.end(record.content);
+    } catch (error) {
+      sendJson(response, 404, { error: { code: 'NOT_FOUND', message: safeMessage(error) } });
+    }
+    return;
+  }
   sendJson(response, 404, { error: { code: 'NOT_FOUND', message: 'Studio route was not found.' } });
 }
 
@@ -145,4 +173,8 @@ function sendJson(response: ServerResponse, status: number, value: unknown): voi
 
 function safeMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Studio request failed.';
+}
+
+function safeFileName(value: string): string {
+  return value.replaceAll(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || 'evidence';
 }

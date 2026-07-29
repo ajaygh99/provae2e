@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
-import type { StudioRunEvent, StudioRunRequest, StudioRunSummary } from './studio-api-contract.js';
+import type { StudioEvidence, StudioEvidenceKind, StudioRunEvent, StudioRunRequest, StudioRunSummary } from './studio-api-contract.js';
 import { isStudioRunRequest } from './studio-api-contract.js';
 import { validateStudioDocument } from './studio-document-validator.js';
 import type { StudioWorkspaceManager } from './workspace-manager.js';
@@ -31,6 +32,11 @@ interface QueuedRun {
   url: string;
 }
 
+export interface StudioEvidenceRecord {
+  metadata: StudioEvidence;
+  content: Buffer;
+}
+
 /** Runs only the fixed PROVA `run` command assembled from validated Studio values. */
 export class StudioRunService {
   private readonly runs = new Map<string, StudioRunSummary>();
@@ -38,6 +44,7 @@ export class StudioRunService {
   private readonly subscribers = new Map<string, Set<(event: StudioRunEvent) => void>>();
   private readonly queue: QueuedRun[] = [];
   private readonly controllers = new Map<string, AbortController>();
+  private readonly evidence = new Map<string, StudioEvidenceRecord[]>();
   private activeCount = 0;
 
   constructor(
@@ -69,6 +76,7 @@ export class StudioRunService {
     };
     this.runs.set(id, queued);
     this.events.set(id, []);
+    this.evidence.set(id, []);
     this.emit(id, { type: 'status', sequence: 0, timestamp: new Date().toISOString(), status: 'queued' });
     this.queue.push({ id, request, cwd: target.rootPath, url: validated.definition.url });
     this.pump();
@@ -84,6 +92,18 @@ export class StudioRunService {
   listRuns(limit = 50): readonly StudioRunSummary[] {
     const bounded = Math.max(1, Math.min(100, Math.trunc(limit)));
     return [...this.runs.values()].reverse().slice(0, bounded);
+  }
+
+  listEvidence(runId: string): readonly StudioEvidence[] {
+    this.getRun(runId);
+    return (this.evidence.get(runId) ?? []).map(record => record.metadata);
+  }
+
+  getEvidence(runId: string, evidenceId: string): StudioEvidenceRecord {
+    this.getRun(runId);
+    const record = (this.evidence.get(runId) ?? []).find(item => item.metadata.id === evidenceId);
+    if (!record) throw new Error('Studio evidence was not found.');
+    return record;
   }
 
   getEvents(id: string, afterSequence = -1): readonly StudioRunEvent[] {
@@ -163,6 +183,7 @@ export class StudioRunService {
       });
       const result = await Promise.race([execution, timeout]);
       if (isTerminal(this.getRun(id).status)) return;
+      await this.captureEvidence(id, cwd, result);
       this.complete(id, result.exitCode === 0 ? 'passed' : 'failed', result.exitCode,
         result.exitCode === 0 ? undefined : safeFailure(result.stderr));
     } catch (error) {
@@ -207,6 +228,48 @@ export class StudioRunService {
   private emitOutput(id: string, type: 'stdout' | 'stderr', text: string): void {
     if (!text) return;
     this.emit(id, { type, sequence: 0, timestamp: new Date().toISOString(), text });
+  }
+
+  private async captureEvidence(id: string, cwd: string, result: StudioSpawnResult): Promise<void> {
+    const log = Buffer.from(`${result.stdout}${result.stderr ? `\n[stderr]\n${result.stderr}` : ''}`, 'utf8');
+    this.addEvidence(id, 'log', 'command-output.log', 'text/plain; charset=utf-8', log);
+    const fields: { key: string; kind: StudioEvidenceKind; mediaType: string }[] = [
+      { key: 'screenshotPath', kind: 'screenshot', mediaType: 'image/png' },
+      { key: 'tracePath', kind: 'trace', mediaType: 'application/zip' },
+      { key: 'reportPath', kind: 'report', mediaType: 'text/html; charset=utf-8' }
+    ];
+    for (const line of result.stdout.split(/\r?\n/)) {
+      let value: unknown;
+      try { value = JSON.parse(line); } catch { continue; }
+      if (!isRecord(value)) continue;
+      for (const field of fields) {
+        const candidate = value[field.key];
+        if (typeof candidate !== 'string') continue;
+        const content = await readContainedEvidence(cwd, candidate).catch(() => undefined);
+        if (content) this.addEvidence(id, field.kind, path.basename(candidate), field.mediaType, content);
+      }
+    }
+  }
+
+  private addEvidence(
+    runId: string,
+    kind: StudioEvidenceKind,
+    name: string,
+    mediaType: string,
+    content: Buffer
+  ): void {
+    const metadata: StudioEvidence = {
+      id: `evidence_${randomUUID().replaceAll('-', '')}`,
+      runId,
+      kind,
+      name,
+      mediaType,
+      size: content.byteLength
+    };
+    const records = this.evidence.get(runId) ?? [];
+    records.push({ metadata, content });
+    this.evidence.set(runId, records);
+    this.emit(runId, { type: 'evidence', sequence: 0, timestamp: new Date().toISOString(), evidence: metadata });
   }
 
   private emit(id: string, event: StudioRunEvent): void {
@@ -265,4 +328,22 @@ function isTerminal(status: StudioRunSummary['status']): boolean {
 
 function safeFailure(value: string): string {
   return value.replaceAll(/\x1B\[[0-?]*[ -/]*[@-~]/g, '').trim().slice(0, 2_000) || 'CLI run failed.';
+}
+
+async function readContainedEvidence(cwd: string, candidate: string): Promise<Buffer> {
+  const root = await realpath(cwd);
+  const absolute = await realpath(path.resolve(root, candidate));
+  const relative = path.relative(root, absolute);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('Evidence path escaped the workspace.');
+  }
+  const metadata = await stat(absolute);
+  if (!metadata.isFile() || metadata.size > 25 * 1024 * 1024) {
+    throw new Error('Evidence file is invalid or too large.');
+  }
+  return readFile(absolute);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -101,4 +101,23 @@ describe('Studio loopback HTTP API', () => {
     expect(await response.json()).toEqual(summaries);
     expect(runs.listRuns).toHaveBeenCalledWith(25);
   });
+
+  it('lists and serves run evidence with safe response headers', async () => {
+    const metadata = {
+      id: 'evidence_1234567890abcdef', runId: 'run_1234567890abcdef',
+      kind: 'log' as const, name: 'command-output.log', mediaType: 'text/plain; charset=utf-8', size: 5
+    };
+    const runs = {
+      listEvidence: jest.fn().mockReturnValue([metadata]),
+      getEvidence: jest.fn().mockReturnValue({ metadata, content: Buffer.from('hello') })
+    } as unknown as StudioRunService;
+    server = createStudioHttpServer(runs);
+    const address = await listenStudioLoopback(server);
+    const base = `http://${address.host}:${address.port}/api/studio/v1/runs/${metadata.runId}/evidence`;
+    expect(await (await fetch(base)).json()).toEqual([metadata]);
+    const response = await fetch(`${base}/${metadata.id}`);
+    expect(await response.text()).toBe('hello');
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('content-disposition')).toContain('command-output.log');
+  });
 });

@@ -15,6 +15,7 @@ describe('StudioRunService', () => {
     root = await mkdtemp(path.join(os.tmpdir(), 'studio-run-'));
     await writeFile(path.join(root, 'safe.prova.yaml'),
       'name: safe\nurl: https://example.com\nsteps:\n  - action: navigate\n');
+    await writeFile(path.join(root, 'failure.png'), Buffer.from([137, 80, 78, 71]));
     const manager = new StudioWorkspaceManager();
     const workspace = await manager.selectWorkspace(root);
     const [file] = await manager.listTestFiles(workspace.id);
@@ -23,7 +24,7 @@ describe('StudioRunService', () => {
       calls.push(request);
       request.onStdout?.('starting\n');
       request.onStderr?.('warning\n');
-      return { exitCode: 0, stdout: 'ok', stderr: '' };
+      return { exitCode: 0, stdout: '{"screenshotPath":"failure.png"}\n', stderr: '' };
     });
 
     const started = await service.startRun({
@@ -32,13 +33,17 @@ describe('StudioRunService', () => {
       browser: 'chromium',
       timeoutMs: 5_000
     });
-    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     expect(started.status).toBe('running');
     expect(service.getRun(started.id).status).toBe('passed');
     expect(service.getEvents(started.id).map(event => event.type)).toEqual([
-      'status', 'status', 'stdout', 'stderr', 'complete'
+      'status', 'status', 'stdout', 'stderr', 'evidence', 'evidence', 'complete'
     ]);
+    expect(service.listEvidence(started.id)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'log', name: 'command-output.log' }),
+      expect.objectContaining({ kind: 'screenshot', name: 'failure.png', size: 4 })
+    ]));
     expect(calls[0]).toMatchObject({
       executable: process.execPath,
       cwd: root,
