@@ -244,6 +244,30 @@ qe-tool perf --action check --url https://api.example.com --threshold 10 --vus 1
 qe-tool perf --action report --days 7 --output ./performance-history.csv
 ```
 
+## OWASP ZAP Security Policy
+
+Process an OWASP ZAP traditional JSON report through persistent baselines,
+false-positive filtering, risk policy, and share-safe reporting:
+
+```bash
+qe-tool security --report ./private-artifacts/zap.json \
+  --target staging-checkout \
+  --database ./.prova/security/zap.sqlite \
+  --minimum-risk HIGH --maximum-findings 0 --all-findings \
+  --format markdown --output ./artifacts/security/zap-report.md
+```
+
+The command exits `1` for invalid input, processing failures, or policy
+violations. Raw ZAP reports can contain sensitive request evidence and should
+not be committed. Generated PROVA reports omit evidence, strip URL credentials
+and fragments, and redact query values.
+
+See
+[`docs/phase4/SECURITY-HARDENING-GUIDE.md`](docs/phase4/SECURITY-HARDENING-GUIDE.md)
+for YAML rule examples, baseline behavior, per-risk budgets, the guarded
+GitHub Actions workflow, target-authorization requirements, and
+`npm run validate:security`.
+
 ## Figma OAuth and Component Stubs
 
 Copy `templates/figma.env.example` into your secret manager or local environment, then:
