@@ -42,6 +42,12 @@ export type {
   NativeAppiumOptions,
   NativeAppiumResult
 } from './core/native-appium-runner.js';
+export { findNativeElement, validateNativeSelectors } from './core/native-appium-selector.js';
+export type {
+  NativeElementMatch,
+  NativeSelectorCandidate,
+  NativeSelectorStrategy
+} from './core/native-appium-selector.js';
 export {
   parseHeaders,
   validateApiPayload,
