@@ -63,4 +63,42 @@ describe('StudioWorkspaceManager', () => {
     expect(files.every(file => !JSON.stringify(file).includes(root))).toBe(true);
     expect(manager.getWorkspace(workspace.id).testFileCount).toBe(2);
   });
+
+  it('reads and atomically saves a discovered document using its revision', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'prova-studio-workspace-'));
+    const definition = path.join(root, 'checkout.prova.yaml');
+    await writeFile(definition, 'name: checkout\n');
+    const manager = new StudioWorkspaceManager();
+    const workspace = await manager.selectWorkspace(root);
+    const [file] = await manager.listTestFiles(workspace.id);
+
+    const original = await manager.readTestDocument(workspace.id, file!.id);
+    expect(original.content).toBe('name: checkout\n');
+    expect(original.revision).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+    const saved = await manager.saveTestDocument(
+      workspace.id,
+      file!.id,
+      'name: checkout-updated\n',
+      original.revision
+    );
+    expect(saved.content).toBe('name: checkout-updated\n');
+    expect(saved.revision).not.toBe(original.revision);
+  });
+
+  it('rejects stale revisions and undiscovered file ids', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'prova-studio-workspace-'));
+    await writeFile(path.join(root, 'checkout.prova.json'), '{"name":"checkout"}\n');
+    const manager = new StudioWorkspaceManager();
+    const workspace = await manager.selectWorkspace(root);
+    const [file] = await manager.listTestFiles(workspace.id);
+
+    await expect(manager.saveTestDocument(
+      workspace.id,
+      file!.id,
+      '{}',
+      'stale-revision'
+    )).rejects.toThrow('changed on disk');
+    await expect(manager.readTestDocument(workspace.id, 'file_unknown')).rejects.toThrow('not found');
+  });
 });

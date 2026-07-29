@@ -404,6 +404,44 @@
   @apply row-start-1 col-start-2 text-xs font-bold text-prova-text-muted;
 }
 
+.builder-workspace {
+  @apply grid gap-4;
+  grid-template-columns: minmax(240px, 0.36fr) minmax(0, 1fr);
+}
+
+.builder-workspace .file-explorer {
+  @apply my-0;
+}
+
+.test-editor {
+  @apply grid gap-3;
+}
+
+.test-editor__heading {
+  @apply flex items-start justify-between gap-3;
+}
+
+.test-editor__heading p {
+  @apply m-0 text-sm text-prova-text-muted;
+}
+
+.test-editor__input {
+  @apply min-h-96 w-full resize-y rounded-xl border border-prova-border-lighter bg-prova-sidebar p-4 font-mono text-sm text-prova-sidebar-text outline-none;
+  tab-size: 2;
+}
+
+.test-editor__input:focus {
+  @apply border-prova-primary ring-3 ring-prova-primary-disabled;
+}
+
+.test-editor__status {
+  @apply flex items-center justify-between text-sm text-prova-text-muted;
+}
+
+.test-editor__status strong {
+  @apply text-prova-success;
+}
+
 @media (max-width: 767px) {
   .app-shell {
     @apply grid-cols-app-mobile;
@@ -448,5 +486,9 @@
 
   .workspace-selector form {
     @apply grid-cols-1 items-stretch;
+  }
+
+  .builder-workspace {
+    @apply grid-cols-1;
   }
 }

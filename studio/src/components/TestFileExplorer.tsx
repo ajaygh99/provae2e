@@ -45,7 +45,7 @@ export function TestFileExplorer(): React.JSX.Element {
                 type="button"
                 className={selectedFile?.id === file.id ? 'file-item file-item--selected' : 'file-item'}
                 aria-pressed={selectedFile?.id === file.id}
-                onClick={() => selectFile(file.id)}
+                onClick={() => void selectFile(file.id)}
               >
                 <strong>{file.name}</strong>
                 <span>{file.relativePath}</span>

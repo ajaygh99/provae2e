@@ -1,8 +1,9 @@
-import { createHash } from 'node:crypto';
-import { readdir, realpath, stat } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { lstat, readFile, readdir, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type {
   StudioTestFile,
+  StudioTestDocument,
   StudioTestFormat,
   StudioWorkspace
 } from './studio-api-contract.js';
@@ -17,6 +18,7 @@ const IGNORED_DIRECTORIES = new Set([
   '.git', '.hg', '.svn', 'node_modules', 'dist', 'build', 'coverage', 'artifacts'
 ]);
 const MAX_DISCOVERED_FILES = 500;
+const MAX_TEST_FILE_BYTES = 1024 * 1024;
 
 /** Owns the server-side mapping between opaque workspace ids and real paths. */
 export class StudioWorkspaceManager {
@@ -107,10 +109,90 @@ export class StudioWorkspaceManager {
     return discovered;
   }
 
+  /** Reads a previously discovered test definition after rechecking containment. */
+  async readTestDocument(workspaceId: string, fileId: string): Promise<StudioTestDocument> {
+    const record = this.requireRecord(workspaceId);
+    const filePath = await this.requireSafeFile(record, fileId);
+    const metadata = await stat(filePath);
+    if (metadata.size > MAX_TEST_FILE_BYTES) {
+      throw new Error('Studio test files cannot exceed 1 MB.');
+    }
+    const content = await readFile(filePath, 'utf8');
+    const file = this.toTestFile(record, workspaceId, fileId, filePath, metadata.mtime);
+    return {
+      ...file,
+      content,
+      revision: revisionFor(content),
+      diagnostics: []
+    };
+  }
+
+  /** Saves through an atomic same-directory rename with optimistic revision control. */
+  async saveTestDocument(
+    workspaceId: string,
+    fileId: string,
+    content: string,
+    expectedRevision: string
+  ): Promise<StudioTestDocument> {
+    if (Buffer.byteLength(content, 'utf8') > MAX_TEST_FILE_BYTES) {
+      throw new Error('Studio test files cannot exceed 1 MB.');
+    }
+    const current = await this.readTestDocument(workspaceId, fileId);
+    if (current.revision !== expectedRevision) {
+      throw new Error('The test file changed on disk. Reload it before saving.');
+    }
+
+    const record = this.requireRecord(workspaceId);
+    const filePath = await this.requireSafeFile(record, fileId);
+    const temporaryPath = `${filePath}.${randomUUID()}.studio-tmp`;
+    try {
+      await writeFile(temporaryPath, content, { encoding: 'utf8', flag: 'wx' });
+      await rename(temporaryPath, filePath);
+    } catch (error) {
+      await unlink(temporaryPath).catch(() => undefined);
+      throw error;
+    }
+    return this.readTestDocument(workspaceId, fileId);
+  }
+
   private requireRecord(id: string): WorkspaceRecord {
     const record = this.records.get(id);
     if (!record) throw new Error('Studio workspace was not found.');
     return record;
+  }
+
+  private async requireSafeFile(record: WorkspaceRecord, fileId: string): Promise<string> {
+    const registeredPath = record.files.get(fileId);
+    if (!registeredPath) throw new Error('Studio test file was not found.');
+    const metadata = await lstat(registeredPath);
+    if (metadata.isSymbolicLink() || !metadata.isFile()) {
+      throw new Error('Studio test file is not a regular file.');
+    }
+    const canonicalPath = await realpath(registeredPath);
+    const relative = path.relative(record.rootPath, canonicalPath);
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error('Studio test file escaped the selected workspace.');
+    }
+    return canonicalPath;
+  }
+
+  private toTestFile(
+    record: WorkspaceRecord,
+    workspaceId: string,
+    fileId: string,
+    filePath: string,
+    modifiedAt: Date
+  ): StudioTestFile {
+    const format = supportedTestFormat(path.basename(filePath));
+    if (!format) throw new Error('Studio test file format is not supported.');
+    return {
+      id: fileId,
+      workspaceId,
+      name: path.basename(filePath),
+      relativePath: path.relative(record.rootPath, filePath).split(path.sep).join('/'),
+      format,
+      updatedAt: modifiedAt.toISOString()
+    };
   }
 
   private createWorkspaceId(canonicalPath: string): string {
@@ -131,4 +213,8 @@ function supportedTestFormat(fileName: string): StudioTestFormat | undefined {
   const supported = /\.(?:prova|provae2e|test|spec)\.(ya?ml|json)$/.exec(normalized);
   if (!supported) return undefined;
   return supported[1] === 'json' ? 'json' : 'yaml';
+}
+
+function revisionFor(content: string): string {
+  return createHash('sha256').update(content).digest('base64url');
 }
