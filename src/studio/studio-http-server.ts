@@ -2,13 +2,17 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { STUDIO_API_PREFIX } from './studio-api-contract.js';
 import type { StudioRunService } from './studio-run-service.js';
+import { StudioDocumentValidationError, type StudioWorkspaceManager } from './workspace-manager.js';
 
 const MAX_REQUEST_BYTES = 32 * 1024;
 
 /** Creates the Studio API server. Call `listenStudioLoopback` to ensure local-only binding. */
-export function createStudioHttpServer(runs: StudioRunService): Server {
+export function createStudioHttpServer(
+  runs: StudioRunService,
+  workspaces?: StudioWorkspaceManager
+): Server {
   return createServer((request, response) => {
-    void route(request, response, runs).catch(error => {
+    void route(request, response, runs, workspaces).catch(error => {
       sendJson(response, 500, { error: { code: 'INTERNAL_ERROR', message: safeMessage(error) } });
     });
   });
@@ -30,13 +34,70 @@ export async function listenStudioLoopback(
 async function route(
   request: IncomingMessage,
   response: ServerResponse,
-  runs: StudioRunService
+  runs: StudioRunService,
+  workspaces?: StudioWorkspaceManager
 ): Promise<void> {
   if (!isLocalRequest(request)) {
     sendJson(response, 403, { error: { code: 'FORBIDDEN', message: 'Studio API is loopback-only.' } });
     return;
   }
   const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+  if (request.method === 'POST' && url.pathname === `${STUDIO_API_PREFIX}/workspaces/select`) {
+    if (!workspaces) return sendUnavailable(response);
+    try {
+      const body = await requireJson(request);
+      if (!isRecord(body) || typeof body['path'] !== 'string') throw new Error('Workspace path is required.');
+      sendJson(response, 200, await workspaces.selectWorkspace(body['path']));
+    } catch (error) {
+      sendJson(response, 400, { error: { code: 'BAD_REQUEST', message: safeMessage(error) } });
+    }
+    return;
+  }
+  const filesMatch = new RegExp(`^${STUDIO_API_PREFIX}/workspaces/([A-Za-z0-9_-]{8,128})/files$`).exec(url.pathname);
+  if (request.method === 'GET' && filesMatch) {
+    if (!workspaces) return sendUnavailable(response);
+    try {
+      sendJson(response, 200, await workspaces.listTestFiles(filesMatch[1]!));
+    } catch (error) {
+      sendJson(response, 404, { error: { code: 'NOT_FOUND', message: safeMessage(error) } });
+    }
+    return;
+  }
+  const documentMatch = new RegExp(
+    `^${STUDIO_API_PREFIX}/workspaces/([A-Za-z0-9_-]{8,128})/files/([A-Za-z0-9_-]{8,128})$`
+  ).exec(url.pathname);
+  if (request.method === 'GET' && documentMatch) {
+    if (!workspaces) return sendUnavailable(response);
+    try {
+      sendJson(response, 200, await workspaces.readTestDocument(documentMatch[1]!, documentMatch[2]!));
+    } catch (error) {
+      sendJson(response, 404, { error: { code: 'NOT_FOUND', message: safeMessage(error) } });
+    }
+    return;
+  }
+  if (request.method === 'PUT' && documentMatch) {
+    if (!workspaces) return sendUnavailable(response);
+    try {
+      const body = await requireJson(request);
+      if (!isRecord(body) || typeof body['content'] !== 'string' || typeof body['expectedRevision'] !== 'string') {
+        throw new Error('content and expectedRevision are required.');
+      }
+      sendJson(response, 200, await workspaces.saveTestDocument(
+        documentMatch[1]!, documentMatch[2]!, body['content'], body['expectedRevision']
+      ));
+    } catch (error) {
+      if (error instanceof StudioDocumentValidationError) {
+        sendJson(response, 422, {
+          error: { code: 'VALIDATION_FAILED', message: error.message, details: error.diagnostics }
+        });
+      } else {
+        sendJson(response, safeMessage(error).includes('changed on disk') ? 409 : 400, {
+          error: { code: 'BAD_REQUEST', message: safeMessage(error) }
+        });
+      }
+    }
+    return;
+  }
   if (request.method === 'GET' && url.pathname === `${STUDIO_API_PREFIX}/runs`) {
     const requestedLimit = Number(url.searchParams.get('limit') ?? 50);
     sendJson(response, 200, runs.listRuns(Number.isFinite(requestedLimit) ? requestedLimit : 50));
@@ -162,6 +223,13 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   }
 }
 
+async function requireJson(request: IncomingMessage): Promise<unknown> {
+  if (!request.headers['content-type']?.toLowerCase().startsWith('application/json')) {
+    throw new Error('application/json is required.');
+  }
+  return readJson(request);
+}
+
 function sendJson(response: ServerResponse, status: number, value: unknown): void {
   response.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
@@ -177,4 +245,12 @@ function safeMessage(error: unknown): string {
 
 function safeFileName(value: string): string {
   return value.replaceAll(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || 'evidence';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function sendUnavailable(response: ServerResponse): void {
+  sendJson(response, 503, { error: { code: 'INTERNAL_ERROR', message: 'Workspace service is unavailable.' } });
 }

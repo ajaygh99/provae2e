@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import type { StudioApi } from '../api/studio-api';
 import { WorkspaceProvider } from '../workspace/WorkspaceContext';
 import { TestFileExplorer } from './TestFileExplorer';
@@ -24,7 +24,13 @@ it('adds, changes, reorders, and removes steps in the shared draft', async () =>
   expect(screen.getAllByLabelText(/Action/)).toHaveLength(2);
   await user.selectOptions(screen.getByLabelText('Action 2'), 'click');
   expect(screen.getByLabelText('Selector')).toBeInTheDocument();
-  await user.click(screen.getAllByRole('button', { name: 'Move up' })[1]!);
-  await user.click(screen.getAllByRole('button', { name: 'Remove' })[0]!);
+  const moveButtons = screen.getAllByRole('button', { name: 'Move up' });
+  const removeButtons = screen.getAllByRole('button', { name: 'Remove' });
+  expect(moveButtons[1]).toBeDefined();
+  expect(removeButtons[0]).toBeDefined();
+  if (moveButtons[1] && removeButtons[0]) {
+    await user.click(moveButtons[1]);
+    await user.click(removeButtons[0]);
+  }
   expect(screen.getAllByLabelText(/Action/)).toHaveLength(1);
 });

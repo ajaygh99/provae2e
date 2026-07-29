@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import type { StudioApi } from '../api/studio-api';
-import type { StudioRunApi } from '../api/studio-run-api';
+import type { StudioRunApi, StudioRunEvent } from '../api/studio-run-api';
 import { WorkspaceProvider } from '../workspace/WorkspaceContext';
 import { StudioRunConsole } from './StudioRunConsole';
 import { TestFileExplorer } from './TestFileExplorer';
@@ -19,14 +19,14 @@ it('renders ordered stdout and stderr events until completion', async () => {
   };
   const runApi: StudioRunApi = {
     startRun: vi.fn().mockResolvedValue({ id: 'run_1234567890abcdef', workspaceId: file.workspaceId, fileId: file.id, status: 'running' }),
-    streamEvents: vi.fn((_id, onEvent) => {
+    streamEvents: vi.fn((_id: string, onEvent: (event: StudioRunEvent) => void) => {
       onEvent({ type: 'stdout', sequence: 1, text: 'starting\n' });
       onEvent({ type: 'stderr', sequence: 2, text: 'warning\n' });
       onEvent({ type: 'complete', sequence: 3, summary: { id: 'run_1234567890abcdef', workspaceId: file.workspaceId, fileId: file.id, status: 'passed' } });
       return vi.fn();
     }),
-    cancelRun: vi.fn()
-    ,listRuns: vi.fn().mockResolvedValue([]),
+    cancelRun: vi.fn(),
+    listRuns: vi.fn().mockResolvedValue([]),
     listEvidence: vi.fn().mockResolvedValue([]),
     evidenceUrl: vi.fn()
   };

@@ -4,8 +4,12 @@ import { ConnectivityBanner } from './ConnectivityBanner';
 
 it('announces offline mode and clears after reconnection', () => {
   render(<ConnectivityBanner />);
-  act(() => window.dispatchEvent(new Event('offline')));
+  void act(() => {
+    window.dispatchEvent(new Event('offline'));
+  });
   expect(screen.getByRole('status')).toHaveTextContent('Offline');
-  act(() => window.dispatchEvent(new Event('online')));
+  void act(() => {
+    window.dispatchEvent(new Event('online'));
+  });
   expect(screen.queryByText(/Offline/)).not.toBeInTheDocument();
 });

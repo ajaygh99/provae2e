@@ -84,8 +84,10 @@ export function VisualStepBuilder(): React.JSX.Element {
 
 function readDefinition(content: string, format: 'yaml' | 'json'): Definition | undefined {
   try {
-    const value = format === 'json' ? JSON.parse(content) : parse(content);
-    return typeof value === 'object' && value !== null ? value as Definition : undefined;
+    const value: unknown = format === 'json'
+      ? JSON.parse(content) as unknown
+      : parse(content) as unknown;
+    return typeof value === 'object' && value !== null ? value : undefined;
   } catch {
     return undefined;
   }

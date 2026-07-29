@@ -163,6 +163,8 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 
+// The provider and its companion hook intentionally share this state module.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWorkspace(): WorkspaceValue {
   const value = useContext(WorkspaceContext);
   if (!value) throw new Error('WorkspaceProvider is required.');
