@@ -16,6 +16,8 @@ export { generateTestData, generateTestDataFromFile } from './core/test-data-fac
 export type { TestDataFactoryOptions, TestDataFactoryResult } from './core/test-data-factory.js';
 export { extractFigmaElements, fetchFigmaElements } from './core/figma-connector.js';
 export type { FigmaConnectorOptions, FigmaElement, FigmaElementsResult } from './core/figma-connector.js';
+export { normalizeFigmaNodeId, parseFigmaReference } from './core/figma-reference.js';
+export type { FigmaReference, FigmaReferenceResult } from './core/figma-reference.js';
 export { createK6Script, parseK6Summary, runK6 } from './core/k6-runner.js';
 export type { K6CommandExecutor, K6Metrics, K6RunOptions, K6RunResult } from './core/k6-runner.js';
 export { comparePerformanceMetrics, loadPerformanceBaseline, savePerformanceBaseline } from './core/performance-baseline.js';
@@ -87,6 +89,7 @@ export type { AnalyticsReport } from './reporters/analytics-reporter.js';
 export { PowerBIExporter } from './exporters/powerbi-exporter.js';
 export type { PowerBIConfig, PowerBIExportResult } from './exporters/powerbi-exporter.js';
 export { generateFigmaTests } from './generators/figma-test-generator.js';
+export type { FigmaTestGenerationOptions } from './generators/figma-test-generator.js';
 export { SpecLinkStore } from './core/spec-link-store.js';
 export type { Requirement, RequirementTest, RequirementCoverage } from './core/spec-link-store.js';
 export {

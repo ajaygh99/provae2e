@@ -5,6 +5,13 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export interface FigmaCredentials { accessToken: string; refreshToken?: string; expiresAt?: string; }
+const PROFILE_NAME = /^[A-Za-z0-9_-]{1,64}$/;
+
+function validateProfile(profile: string): void {
+  if (!PROFILE_NAME.test(profile)) {
+    throw new Error('Figma credential profile must contain 1-64 letters, numbers, underscores, or hyphens');
+  }
+}
 
 function keyFromSecret(secret: string): Buffer {
   if (secret.length < 16) throw new Error('PROVA_CREDENTIAL_KEY must contain at least 16 characters');
@@ -51,7 +58,11 @@ export class FigmaCredentialStore {
 
   /** Encrypts and stores credentials, replacing the existing profile. */
   async save(credentials: FigmaCredentials, profile = 'default'): Promise<void> {
+    validateProfile(profile);
     if (!credentials.accessToken.trim()) throw new Error('Figma access token is required');
+    if (credentials.expiresAt && Number.isNaN(Date.parse(credentials.expiresAt))) {
+      throw new Error('Figma credential expiresAt must be an ISO-8601 date');
+    }
     this.database.run('INSERT OR REPLACE INTO figma_credentials (profile, encrypted) VALUES (?, ?)', [
       profile, encrypt(JSON.stringify(credentials), this.secret)
     ]);
@@ -60,6 +71,7 @@ export class FigmaCredentialStore {
 
   /** Loads and decrypts credentials for one profile. */
   load(profile = 'default'): FigmaCredentials | undefined {
+    validateProfile(profile);
     const statement = this.database.prepare('SELECT encrypted FROM figma_credentials WHERE profile=?');
     statement.bind([profile]);
     const row = statement.step() ? statement.getAsObject() : undefined;
@@ -68,6 +80,41 @@ export class FigmaCredentialStore {
     const parsed = JSON.parse(decrypt(String(row['encrypted']), this.secret)) as FigmaCredentials;
     if (!parsed.accessToken) throw new Error('Stored Figma credentials do not contain an access token');
     return parsed;
+  }
+
+  /** Loads a non-expired credential, failing closed before a network request. */
+  loadValid(profile = 'default', now = Date.now(), expirySkewMs = 60_000): FigmaCredentials | undefined {
+    if (!Number.isFinite(now) || !Number.isFinite(expirySkewMs) || expirySkewMs < 0) {
+      throw new Error('Figma credential expiry inputs are invalid');
+    }
+    const credentials = this.load(profile);
+    if (!credentials?.expiresAt) return credentials;
+    if (Date.parse(credentials.expiresAt) <= now + expirySkewMs) {
+      throw new Error(`Figma credential profile "${profile}" is expired or near expiry; authenticate again`);
+    }
+    return credentials;
+  }
+
+  /** Lists profile names only; encrypted token material is never returned. */
+  listProfiles(): string[] {
+    const statement = this.database.prepare('SELECT profile FROM figma_credentials ORDER BY profile');
+    const profiles: string[] = [];
+    while (statement.step()) {
+      const row = statement.getAsObject();
+      if (typeof row['profile'] === 'string') profiles.push(row['profile']);
+    }
+    statement.free();
+    return profiles;
+  }
+
+  /** Removes one encrypted profile and persists the change. */
+  async delete(profile = 'default'): Promise<boolean> {
+    validateProfile(profile);
+    const existed = this.load(profile) !== undefined;
+    if (!existed) return false;
+    this.database.run('DELETE FROM figma_credentials WHERE profile=?', [profile]);
+    await this.persist();
+    return true;
   }
 
   /** Releases the SQLite database. */

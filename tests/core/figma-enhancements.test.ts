@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { FigmaCredentialStore } from '../../src/storage/figma-credentials';
@@ -32,6 +32,27 @@ describe('FigmaCredentialStore', () => {
     expect(() => wrong.load()).toThrow();
     wrong.close();
   });
+
+  it('validates expiry, lists profiles without secrets, and deletes profiles', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'prova-figma-store-'));
+    const file = path.join(directory, 'credentials.sqlite');
+    const store = await FigmaCredentialStore.open(file, 'correct-secret-key-value');
+    await store.save({ accessToken: 'alpha-secret', expiresAt: '2030-01-01T00:00:00.000Z' }, 'alpha');
+    await store.save({ accessToken: 'expired-secret', expiresAt: '2020-01-01T00:00:00.000Z' }, 'expired');
+    expect(store.listProfiles()).toEqual(['alpha', 'expired']);
+    expect(store.loadValid('alpha', Date.parse('2029-01-01T00:00:00.000Z'))?.accessToken).toBe('alpha-secret');
+    expect(() => store.loadValid('expired', Date.parse('2029-01-01T00:00:00.000Z')))
+      .toThrow('expired or near expiry');
+    await expect(store.save({ accessToken: 'x', expiresAt: 'not-a-date' }, 'bad')).rejects.toThrow('ISO-8601');
+    await expect(store.save({ accessToken: 'x' }, '../bad')).rejects.toThrow('profile');
+    await expect(store.delete('missing')).resolves.toBe(false);
+    await expect(store.delete('expired')).resolves.toBe(true);
+    expect(store.listProfiles()).toEqual(['alpha']);
+    store.close();
+    const bytes = await readFile(file);
+    expect(bytes.includes(Buffer.from('alpha-secret'))).toBe(false);
+    expect(bytes.includes(Buffer.from('expired-secret'))).toBe(false);
+  });
 });
 
 describe('generateFigmaTests', () => {
@@ -43,15 +64,44 @@ describe('generateFigmaTests', () => {
       { name: 'Welcome Text', type: 'TEXT', text: 'Welcome' }
     ], directory);
     expect(files).toHaveLength(3);
-    expect(await readFile(files[0], 'utf-8')).toContain('component.click()');
-    expect(await readFile(files[1], 'utf-8')).toContain('component.fill(');
-    expect(await readFile(files[2], 'utf-8')).toContain('toBeVisible()');
+    const button = await readFile(files[0], 'utf-8');
+    const field = await readFile(files[1], 'utf-8');
+    const text = await readFile(files[2], 'utf-8');
+    expect(button).toContain("getByRole('button'");
+    expect(button).toContain('component.click()');
+    expect(button).toContain("process.env['PROVA_BASE_URL']");
+    expect(button).toContain('page.goto(targetUrl)');
+    expect(field).toContain('getByLabel');
+    expect(field).toContain('component.fill(');
+    expect(text).toContain('getByText("Welcome"');
+    expect(text).toContain('toBeVisible()');
   });
 
-  it('rejects empty input and refuses overwrites', async () => {
+  it('is idempotent, refuses changed files, and supports explicit overwrite', async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'prova-figma-tests-'));
     await expect(generateFigmaTests([], directory)).rejects.toThrow('At least one');
-    await generateFigmaTests([{ name: 'Button', type: 'INSTANCE' }], directory);
-    await expect(generateFigmaTests([{ name: 'Button', type: 'INSTANCE' }], directory)).rejects.toThrow();
+    const elements = [{ name: 'Button', type: 'INSTANCE' }];
+    const [file] = await generateFigmaTests(elements, directory, { baseUrl: 'https://example.com' });
+    await expect(generateFigmaTests(elements, directory, { baseUrl: 'https://example.com' })).resolves.toEqual([file]);
+    await writeFile(file!, '// user changed this file\n');
+    await expect(generateFigmaTests(elements, directory, { baseUrl: 'https://example.com' }))
+      .rejects.toThrow('Refusing to overwrite');
+    await expect(generateFigmaTests(elements, directory, {
+      baseUrl: 'https://example.com', overwrite: true
+    })).resolves.toEqual([file]);
+    expect(await readFile(file!, 'utf8')).toContain('https://example.com');
+  });
+
+  it('bounds generated output and rejects unsafe base URLs', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'prova-figma-tests-'));
+    await expect(generateFigmaTests(
+      Array.from({ length: 501 }, (_, index) => ({ name: `Button ${index}`, type: 'INSTANCE' })),
+      directory
+    )).rejects.toThrow('at most 500');
+    await expect(generateFigmaTests(
+      [{ name: 'Button', type: 'INSTANCE' }],
+      directory,
+      { baseUrl: 'file:///etc/passwd' }
+    )).rejects.toThrow('http:// or https://');
   });
 });
