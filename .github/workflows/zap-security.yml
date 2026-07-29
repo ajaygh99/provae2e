@@ -1,0 +1,164 @@
+name: ZAP security policy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: Approved absolute HTTP(S) target URL
+        required: true
+        type: string
+      target_id:
+        description: Stable application/environment baseline identifier
+        required: true
+        type: string
+      scan_mode:
+        description: ZAP scan depth
+        required: true
+        default: baseline
+        type: choice
+        options:
+          - baseline
+          - full
+      maximum_findings:
+        description: Allowed combined HIGH/CRITICAL findings
+        required: true
+        default: '0'
+        type: string
+      maximum_high:
+        description: Allowed HIGH findings
+        required: true
+        default: '0'
+        type: string
+      maximum_critical:
+        description: Allowed CRITICAL findings
+        required: true
+        default: '0'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zap-security-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  security-scan:
+    name: Guarded ZAP scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: security-scanning
+    steps:
+      - name: Check out requested revision
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install and build PROVA
+        run: |
+          npm ci
+          npm run build
+
+      - name: Validate dispatch inputs
+        env:
+          TARGET_URL: ${{ inputs.target_url }}
+          TARGET_ID: ${{ inputs.target_id }}
+          MAXIMUM_FINDINGS: ${{ inputs.maximum_findings }}
+          MAXIMUM_HIGH: ${{ inputs.maximum_high }}
+          MAXIMUM_CRITICAL: ${{ inputs.maximum_critical }}
+        run: |
+          node -e "const u=new URL(process.env.TARGET_URL);if(!['http:','https:'].includes(u.protocol))throw new Error('target_url must use HTTP(S)');if(u.username||u.password||u.hash)throw new Error('target_url must not contain credentials or fragments')"
+          node -e "if(!process.env.TARGET_ID.trim())throw new Error('target_id is required')"
+          node -e "for(const n of ['MAXIMUM_FINDINGS','MAXIMUM_HIGH','MAXIMUM_CRITICAL']){const v=Number(process.env[n]);if(!Number.isInteger(v)||v<0)throw new Error(n+' must be a non-negative integer')}"
+
+      - name: Run bounded ZAP container
+        id: zap
+        env:
+          TARGET_URL: ${{ inputs.target_url }}
+          SCAN_MODE: ${{ inputs.scan_mode }}
+        run: |
+          mkdir -p artifacts/security
+          if [ "$SCAN_MODE" = "full" ]; then scan_script="zap-full-scan.py"; else scan_script="zap-baseline.py"; fi
+          set +e
+          timeout --signal=TERM 20m docker run --rm \
+            --volume "$PWD/artifacts/security:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            "$scan_script" -t "$TARGET_URL" -J zap.json -I
+          scan_exit=$?
+          set -e
+          echo "exit_code=$scan_exit" >> "$GITHUB_OUTPUT"
+          test -s artifacts/security/zap.json
+
+      - name: Enforce policy and write JSON report
+        id: policy_json
+        continue-on-error: true
+        env:
+          TARGET_ID: ${{ inputs.target_id }}
+          MAXIMUM_FINDINGS: ${{ inputs.maximum_findings }}
+          MAXIMUM_HIGH: ${{ inputs.maximum_high }}
+          MAXIMUM_CRITICAL: ${{ inputs.maximum_critical }}
+        run: |
+          node dist/cli/run.js security \
+            --report artifacts/security/zap.json \
+            --target "$TARGET_ID" \
+            --database artifacts/security/zap.sqlite \
+            --format json \
+            --output artifacts/security/prova-zap-report.json \
+            --minimum-risk HIGH \
+            --maximum-findings "$MAXIMUM_FINDINGS" \
+            --maximum-high "$MAXIMUM_HIGH" \
+            --maximum-critical "$MAXIMUM_CRITICAL" \
+            --all-findings
+
+      - name: Write Markdown summary
+        id: policy_markdown
+        if: always() && hashFiles('artifacts/security/zap.json') != ''
+        continue-on-error: true
+        env:
+          TARGET_ID: ${{ inputs.target_id }}
+          MAXIMUM_FINDINGS: ${{ inputs.maximum_findings }}
+          MAXIMUM_HIGH: ${{ inputs.maximum_high }}
+          MAXIMUM_CRITICAL: ${{ inputs.maximum_critical }}
+        run: |
+          node dist/cli/run.js security \
+            --report artifacts/security/zap.json \
+            --target "$TARGET_ID" \
+            --database artifacts/security/zap.sqlite \
+            --format markdown \
+            --output artifacts/security/prova-zap-report.md \
+            --minimum-risk HIGH \
+            --maximum-findings "$MAXIMUM_FINDINGS" \
+            --maximum-high "$MAXIMUM_HIGH" \
+            --maximum-critical "$MAXIMUM_CRITICAL" \
+            --all-findings
+
+      - name: Upload sanitized security artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-security-${{ github.run_id }}
+          path: |
+            artifacts/security/prova-zap-report.json
+            artifacts/security/prova-zap-report.md
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Finalize security gate
+        if: always()
+        env:
+          ZAP_EXIT: ${{ steps.zap.outputs.exit_code }}
+          JSON_OUTCOME: ${{ steps.policy_json.outcome }}
+          MARKDOWN_OUTCOME: ${{ steps.policy_markdown.outcome }}
+        run: |
+          if [ -z "$ZAP_EXIT" ] || [ "$ZAP_EXIT" -gt 2 ]; then
+            echo "ZAP execution failed with exit code ${ZAP_EXIT:-missing}" >&2
+            exit 1
+          fi
+          if [ "$JSON_OUTCOME" != "success" ] || [ "$MARKDOWN_OUTCOME" != "success" ]; then
+            echo "PROVA security policy failed" >&2
+            exit 1
+          fi
