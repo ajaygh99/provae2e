@@ -1,6 +1,7 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import initSqlJs from 'sql.js';
 import {
   ZapFalsePositiveFilter,
   parseZapFilterRules,
@@ -112,6 +113,38 @@ describe('ZapFalsePositiveFilter', () => {
       expect.objectContaining({ truePositives: 1, falsePositives: 1, truePositiveRate: 50, falsePositiveRate: 50 }),
       expect.objectContaining({ truePositives: 2, falsePositives: 1, truePositiveRate: 66.67, falsePositiveRate: 33.33 })
     ]);
+  });
+
+  it('rejects corrupt and schema-incompatible existing databases', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'prova-zap-integrity-'));
+    const corrupt = path.join(directory, 'corrupt.sqlite');
+    await writeFile(corrupt, 'not a sqlite database');
+    await expect(ZapFalsePositiveFilter.open(corrupt)).rejects.toThrow('failed SQLite integrity validation');
+
+    const SQL = await initSqlJs({ locateFile: file => require.resolve(`sql.js/dist/${file}`) });
+    const database = new SQL.Database();
+    database.run('CREATE TABLE zap_scans (scan_id TEXT PRIMARY KEY)');
+    const incompatible = path.join(directory, 'incompatible.sqlite');
+    await writeFile(incompatible, Buffer.from(database.export()));
+    database.close();
+    await expect(ZapFalsePositiveFilter.open(incompatible)).rejects.toThrow(
+      'incompatible schema: zap_baseline_findings is missing'
+    );
+  });
+
+  it('atomically persists durable state without leaving temporary files', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'prova-zap-atomic-'));
+    const file = path.join(directory, 'zap.sqlite');
+    const engine = await ZapFalsePositiveFilter.open(file);
+    await engine.processScan('prod', [finding()]);
+    await engine.feedback(finding(), 'true-positive', 'alice');
+    expect((await readdir(directory)).filter(name => name.endsWith('.tmp'))).toEqual([]);
+
+    const reopened = await ZapFalsePositiveFilter.open(file);
+    expect(reopened.accuracyHistory()).toEqual([
+      expect.objectContaining({ truePositives: 1, falsePositives: 0 })
+    ]);
+    expect((await reopened.processScan('prod', [finding()])).baselineEstablished).toBe(false);
   });
 
   it('validates findings, review input, target, and clock', async () => {

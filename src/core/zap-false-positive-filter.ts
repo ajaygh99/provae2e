@@ -1,6 +1,7 @@
 /** OWASP ZAP finding baselines, filtering rules, whitelist feedback, and accuracy metrics. */
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
@@ -111,7 +112,8 @@ export function zapFindingKey(finding: ZapFinding): string {
 export class ZapFalsePositiveFilter {
   private constructor(
     private readonly filePath: string,
-    private readonly database: Database,
+    private database: Database,
+    private readonly SQL: SqlJsStatic,
     private readonly now: () => Date
   ) {}
 
@@ -130,7 +132,13 @@ export class ZapFalsePositiveFilter {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
-    const database = bytes ? new SQL.Database(bytes) : new SQL.Database();
+    let database: Database;
+    try {
+      database = bytes ? new SQL.Database(bytes) : new SQL.Database();
+    } catch (error) {
+      throw new Error(`Cannot open ZAP database "${path.resolve(filePath)}": ${errorMessage(error)}`);
+    }
+    if (bytes) validateDatabase(database, path.resolve(filePath));
     database.run(`
       CREATE TABLE IF NOT EXISTS zap_baseline_findings (
         target TEXT NOT NULL, finding_key TEXT NOT NULL, finding_json TEXT NOT NULL,
@@ -149,7 +157,7 @@ export class ZapFalsePositiveFilter {
         visible_count INTEGER NOT NULL, filtered_count INTEGER NOT NULL, new_count INTEGER NOT NULL
       );
     `);
-    const engine = new ZapFalsePositiveFilter(path.resolve(filePath), database, now);
+    const engine = new ZapFalsePositiveFilter(path.resolve(filePath), database, SQL, now);
     await engine.persist();
     return engine;
   }
@@ -165,38 +173,39 @@ export class ZapFalsePositiveFilter {
     required(target, 'target');
     findings.forEach(validateFinding);
     rules.forEach((rule, index) => validateRule(rule, index));
-    const scannedAt = validNow(this.now);
-    const baselineKeys = this.baselineKeys(target);
-    const hasPriorScan = (this.database.exec(
-      'SELECT 1 FROM zap_scans WHERE target=? LIMIT 1',
-      [target]
-    )[0]?.values.length ?? 0) > 0;
-    const baselineEstablished = !hasPriorScan;
-    if (baselineEstablished) {
-      findings.forEach(finding => this.database.run(
-        'INSERT INTO zap_baseline_findings VALUES (?, ?, ?, ?)',
-        [target, zapFindingKey(finding), JSON.stringify(finding), scannedAt]
-      ));
-    }
-    const classified = findings.map(finding => this.classify(finding, baselineKeys, hasPriorScan));
-    const withRules = classified.map(item => applyRules(item, rules));
-    const visible = withRules.filter(item => item.disposition === 'visible');
-    const filtered = withRules.filter(item => item.disposition !== 'visible');
-    const result: ZapScanResult = {
-      scanId: `${slug(target)}-${Date.parse(scannedAt)}`,
-      target,
-      scannedAt,
-      baselineEstablished,
-      visible,
-      filtered,
-      newFindings: visible.filter(item => item.isNew)
-    };
-    this.database.run(
-      'INSERT OR REPLACE INTO zap_scans VALUES (?, ?, ?, ?, ?, ?)',
-      [result.scanId, target, scannedAt, visible.length, filtered.length, result.newFindings.length]
-    );
-    await this.persist();
-    return result;
+    return this.mutate(async () => {
+      const scannedAt = validNow(this.now);
+      const baselineKeys = this.baselineKeys(target);
+      const hasPriorScan = (this.database.exec(
+        'SELECT 1 FROM zap_scans WHERE target=? LIMIT 1',
+        [target]
+      )[0]?.values.length ?? 0) > 0;
+      const baselineEstablished = !hasPriorScan;
+      if (baselineEstablished) {
+        findings.forEach(finding => this.database.run(
+          'INSERT INTO zap_baseline_findings VALUES (?, ?, ?, ?)',
+          [target, zapFindingKey(finding), JSON.stringify(finding), scannedAt]
+        ));
+      }
+      const classified = findings.map(finding => this.classify(finding, baselineKeys, hasPriorScan));
+      const withRules = classified.map(item => applyRules(item, rules));
+      const visible = withRules.filter(item => item.disposition === 'visible');
+      const filtered = withRules.filter(item => item.disposition !== 'visible');
+      const result: ZapScanResult = {
+        scanId: `${slug(target)}-${Date.parse(scannedAt)}`,
+        target,
+        scannedAt,
+        baselineEstablished,
+        visible,
+        filtered,
+        newFindings: visible.filter(item => item.isNew)
+      };
+      this.database.run(
+        'INSERT OR REPLACE INTO zap_scans VALUES (?, ?, ?, ?, ?, ?)',
+        [result.scanId, target, scannedAt, visible.length, filtered.length, result.newFindings.length]
+      );
+      return result;
+    });
   }
 
   /**
@@ -211,14 +220,15 @@ export class ZapFalsePositiveFilter {
     required(reason, 'reason');
     required(approver, 'approver');
     const reviewedAt = validNow(this.now);
-    this.database.run(
-      `INSERT INTO zap_whitelist VALUES (?, ?, ?, ?)
-       ON CONFLICT(finding_key) DO UPDATE SET reason=excluded.reason, approver=excluded.approver, reviewed_at=excluded.reviewed_at`,
-      [findingKey, reason.trim(), approver.trim(), reviewedAt]
-    );
-    await this.recordFeedback(finding, 'false-positive', approver, reason, false);
-    await this.persist();
-    return { findingKey, reason: reason.trim(), approver: approver.trim(), reviewedAt };
+    return this.mutate(async () => {
+      this.database.run(
+        `INSERT INTO zap_whitelist VALUES (?, ?, ?, ?)
+         ON CONFLICT(finding_key) DO UPDATE SET reason=excluded.reason, approver=excluded.approver, reviewed_at=excluded.reviewed_at`,
+        [findingKey, reason.trim(), approver.trim(), reviewedAt]
+      );
+      await this.recordFeedback(finding, 'false-positive', approver, reason);
+      return { findingKey, reason: reason.trim(), approver: approver.trim(), reviewedAt };
+    });
   }
 
   /**
@@ -239,7 +249,9 @@ export class ZapFalsePositiveFilter {
       await this.whitelist(finding, required(reason ?? '', 'reason'), reviewer);
       return;
     }
-    await this.recordFeedback(finding, outcome, reviewer, reason, true);
+    await this.mutate(async () => {
+      await this.recordFeedback(finding, outcome, reviewer, reason);
+    });
   }
 
   /**
@@ -293,21 +305,70 @@ export class ZapFalsePositiveFilter {
     finding: ZapFinding,
     outcome: 'true-positive' | 'false-positive',
     reviewer: string,
-    reason: string | undefined,
-    persist: boolean
+    reason: string | undefined
   ): Promise<void> {
     const recordedAt = validNow(this.now);
     this.database.run(
       'INSERT INTO zap_feedback (finding_key, outcome, recorded_at, reviewer, reason) VALUES (?, ?, ?, ?, ?)',
       [zapFindingKey(finding), outcome, recordedAt, reviewer.trim(), reason?.trim() || null]
     );
-    if (persist) await this.persist();
   }
 
   private async persist(): Promise<void> {
     await mkdir(path.dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, Buffer.from(this.database.export()));
+    const temporaryPath = `${this.filePath}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporaryPath, Buffer.from(this.database.export()), { flag: 'wx' });
+      await rename(temporaryPath, this.filePath);
+    } catch (error) {
+      await unlink(temporaryPath).catch(() => undefined);
+      throw new Error(`Cannot atomically persist ZAP database "${this.filePath}": ${errorMessage(error)}`);
+    }
   }
+
+  private async mutate<T>(operation: () => Promise<T>): Promise<T> {
+    const snapshot = this.database.export();
+    try {
+      const result = await operation();
+      await this.persist();
+      return result;
+    } catch (error) {
+      this.database.close();
+      this.database = new this.SQL.Database(snapshot);
+      throw error;
+    }
+  }
+}
+
+const REQUIRED_SCHEMA: Record<string, string[]> = {
+  zap_baseline_findings: ['target', 'finding_key', 'finding_json', 'established_at'],
+  zap_whitelist: ['finding_key', 'reason', 'approver', 'reviewed_at'],
+  zap_feedback: ['id', 'finding_key', 'outcome', 'recorded_at', 'reviewer', 'reason'],
+  zap_scans: ['scan_id', 'target', 'scanned_at', 'visible_count', 'filtered_count', 'new_count']
+};
+
+function validateDatabase(database: Database, filePath: string): void {
+  let integrity: unknown;
+  try {
+    integrity = database.exec('PRAGMA integrity_check')[0]?.values[0]?.[0];
+  } catch (error) {
+    throw new Error(`ZAP database "${filePath}" failed SQLite integrity validation: ${errorMessage(error)}`);
+  }
+  if (integrity !== 'ok') {
+    throw new Error(`ZAP database "${filePath}" failed SQLite integrity validation: ${String(integrity ?? 'unknown')}`);
+  }
+  for (const [table, expectedColumns] of Object.entries(REQUIRED_SCHEMA)) {
+    const rows = database.exec(`PRAGMA table_info(${table})`)[0]?.values ?? [];
+    const columns = new Set(rows.map(row => row[1] as string));
+    const missing = expectedColumns.filter(column => !columns.has(column));
+    if (missing.length > 0) {
+      throw new Error(`ZAP database "${filePath}" has an incompatible schema: ${table} is missing ${missing.join(', ')}`);
+    }
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function applyRules(item: FilteredZapFinding, rules: ZapFilterRule[]): FilteredZapFinding {

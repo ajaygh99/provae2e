@@ -77,6 +77,7 @@ import {
   reviewSelectorRepairProposal
 } from '../core/selector-repair-proposal.js';
 import { HealingMemoryStore } from '../core/healing-memory.js';
+import { securityCommand } from './security.js';
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -1223,6 +1224,24 @@ export function buildProgram(): Command {
     .option('--path-params <json>', 'Path parameter values as JSON, for example {\"userId\":\"123\"}')
     .option('--generate-tests <directory>', 'Generate readable Playwright API tests without executing requests')
     .action(openApiCommand);
+
+  program.command('security')
+    .description('Process a local OWASP ZAP JSON report and enforce security policy')
+    .requiredOption('--report <file.json>', 'OWASP ZAP traditional JSON report')
+    .requiredOption('--target <name>', 'Stable environment or application baseline identifier')
+    .option('--database <file>', 'Persistent ZAP baseline and feedback database', '.prova/security/zap.sqlite')
+    .option('--rules <file.yaml>', 'Optional false-positive filter rules')
+    .option('--format <format>', 'Report format: json|markdown', 'markdown')
+    .option('--output <file>', 'Report destination; stdout when omitted')
+    .option('--minimum-risk <risk>', 'Minimum policy risk: INFO|LOW|MEDIUM|HIGH|CRITICAL', 'MEDIUM')
+    .option('--maximum-findings <n>', 'Maximum qualifying findings', '0')
+    .option('--maximum-info <n>', 'Maximum INFO findings')
+    .option('--maximum-low <n>', 'Maximum LOW findings')
+    .option('--maximum-medium <n>', 'Maximum MEDIUM findings')
+    .option('--maximum-high <n>', 'Maximum HIGH findings')
+    .option('--maximum-critical <n>', 'Maximum CRITICAL findings')
+    .option('--all-findings', 'Evaluate all visible findings instead of only new findings', false)
+    .action(securityCommand);
 
   program.command('learn-review')
     .description('Review, reject, roll back, or clear local selector-learning proposals')

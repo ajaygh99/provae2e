@@ -387,6 +387,27 @@ export {
 export type { SelectorRepairProposal } from './core/selector-repair-proposal.js';
 export type { GraphCommandOptions } from './cli/graph.js';
 export { buildZapCoverageDashboard, classifyZapFindings } from './core/zap-vulnerability-classifier.js';
+export { parseZapJsonReport } from './core/zap-report-parser.js';
+export type { ZapReportParseResult } from './core/zap-report-parser.js';
+export { evaluateZapScanPolicy } from './core/zap-scan-policy.js';
+export type {
+  ZapPolicyEvaluation,
+  ZapPolicyViolation,
+  ZapScanPolicy
+} from './core/zap-scan-policy.js';
+export {
+  buildZapSecurityReport,
+  createZapJiraSecurityStory,
+  renderZapSecurityJson,
+  renderZapSecurityMarkdown
+} from './reporters/zap-security-reporter.js';
+export type {
+  ZapJiraSecurityStoryDraft,
+  ZapSecurityReport,
+  ZapSecurityReportFinding
+} from './reporters/zap-security-reporter.js';
+export { securityCommand } from './cli/security.js';
+export type { SecurityActionOptions } from './cli/security.js';
 export type {
   OwaspCategory,
   OwaspCategoryCoverage,
