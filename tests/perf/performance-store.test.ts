@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PerformanceStore, type PerformanceRun } from '../../src/perf/performance-store';
@@ -15,6 +15,7 @@ describe('PerformanceStore', () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'prova-sqlite-'));
     const file = path.join(directory, 'performance.sqlite');
     const first = await PerformanceStore.open(file);
+    expect(first.getSchemaVersion()).toBe(1);
     await first.setBaseline(run);
     await first.addRun(run);
     first.close();
@@ -41,6 +42,25 @@ describe('PerformanceStore', () => {
     await expect(store.addRun({ ...run, url: 'bad' })).rejects.toThrow('HTTP(S)');
     await expect(store.addRun({ ...run, errorRate: 2 })).rejects.toThrow('between 0 and 1');
     store.close();
+  });
+
+  it('serializes concurrent atomic writes and rejects corrupt databases', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'prova-sqlite-'));
+    const file = path.join(directory, 'performance.sqlite');
+    const store = await PerformanceStore.open(file);
+    await Promise.all(Array.from({ length: 10 }, (_, index) => store.addRun({
+      ...run,
+      timestamp: `2026-07-21T00:00:${String(index).padStart(2, '0')}.000Z`
+    })));
+    expect(store.listRuns()).toHaveLength(10);
+    store.close();
+    const reopened = await PerformanceStore.open(file);
+    expect(reopened.listRuns()).toHaveLength(10);
+    reopened.close();
+
+    const corrupt = path.join(directory, 'corrupt.sqlite');
+    await writeFile(corrupt, 'not sqlite');
+    await expect(PerformanceStore.open(corrupt)).rejects.toThrow('corrupt');
   });
 });
 

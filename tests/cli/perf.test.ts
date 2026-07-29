@@ -80,7 +80,11 @@ describe('perfCommand', () => {
     mockRunK6.mockResolvedValueOnce({ ok: true, metrics: BASELINE });
     await perfCommand(options({ baseline, updateBaseline: true }));
     expect(process.exitCode).toBeUndefined();
-    expect(JSON.parse(await readFile(baseline, 'utf-8'))).toEqual(BASELINE);
+    expect(JSON.parse(await readFile(baseline, 'utf-8'))).toEqual({
+      schemaVersion: 1,
+      updatedAt: expect.any(String),
+      metrics: BASELINE
+    });
   });
 
   it.each([

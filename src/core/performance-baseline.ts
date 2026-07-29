@@ -1,5 +1,6 @@
 /** Baseline persistence and fixed-threshold regression comparison. */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { K6Metrics } from './k6-runner.js';
 
@@ -20,16 +21,36 @@ function isMetrics(value: unknown): value is K6Metrics {
     && candidate['errorRate'] <= 1
     && typeof candidate['requestsPerSecond'] === 'number'
     && Number.isFinite(candidate['requestsPerSecond'])
-    && candidate['requestsPerSecond'] >= 0;
+    && candidate['requestsPerSecond'] >= 0
+    && optionalNonNegative(candidate['p50ResponseTimeMs'])
+    && optionalNonNegative(candidate['p99ResponseTimeMs']);
+}
+
+function optionalNonNegative(value: unknown): boolean {
+  return value === undefined || (typeof value === 'number' && Number.isFinite(value) && value >= 0);
+}
+
+interface PerformanceBaselineEnvelope {
+  schemaVersion: 1;
+  updatedAt: string;
+  metrics: K6Metrics;
 }
 
 /** Loads and validates a baseline; a missing file is a successful empty result. */
 export async function loadPerformanceBaseline(filePath: string): Promise<BaselineLoadResult> {
   try {
     const parsed = JSON.parse(await readFile(filePath, 'utf-8')) as unknown;
-    return isMetrics(parsed)
-      ? { ok: true, baseline: parsed }
-      : { ok: false, error: `Performance baseline is invalid: ${filePath}` };
+    if (isMetrics(parsed)) return { ok: true, baseline: parsed };
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed) &&
+      (parsed as Record<string, unknown>)['schemaVersion'] === 1 &&
+      isMetrics((parsed as Record<string, unknown>)['metrics'])
+    ) {
+      return { ok: true, baseline: (parsed as unknown as PerformanceBaselineEnvelope).metrics };
+    }
+    return { ok: false, error: `Performance baseline is invalid or uses an unsupported schema: ${filePath}` };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { ok: true };
     if (error instanceof SyntaxError) return { ok: false, error: `Performance baseline is not valid JSON: ${filePath}` };
@@ -39,11 +60,21 @@ export async function loadPerformanceBaseline(filePath: string): Promise<Baselin
 
 /** Writes metrics as a formatted baseline JSON document, creating parent directories. */
 export async function savePerformanceBaseline(filePath: string, metrics: K6Metrics): Promise<{ ok: true } | { ok: false; error: string }> {
+  const absolutePath = path.resolve(filePath);
+  const temporaryPath = `${absolutePath}.${randomUUID()}.tmp`;
   try {
-    await mkdir(path.dirname(path.resolve(filePath)), { recursive: true });
-    await writeFile(filePath, `${JSON.stringify(metrics, null, 2)}\n`, 'utf-8');
+    if (!isMetrics(metrics)) return { ok: false, error: `Performance baseline metrics are invalid: ${filePath}` };
+    await mkdir(path.dirname(absolutePath), { recursive: true });
+    const envelope: PerformanceBaselineEnvelope = {
+      schemaVersion: 1,
+      updatedAt: new Date().toISOString(),
+      metrics
+    };
+    await writeFile(temporaryPath, `${JSON.stringify(envelope, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+    await rename(temporaryPath, absolutePath);
     return { ok: true };
   } catch (error) {
+    await unlink(temporaryPath).catch(() => undefined);
     return { ok: false, error: `Unable to write performance baseline "${filePath}": ${error instanceof Error ? error.message : String(error)}` };
   }
 }

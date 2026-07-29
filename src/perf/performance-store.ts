@@ -1,6 +1,7 @@
 /** Portable SQLite persistence for performance baselines and run history. */
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 /** Complete metrics stored for performance history. */
@@ -23,6 +24,7 @@ export interface PerformanceRun extends StoredPerformanceMetrics {
 }
 
 let sqlitePromise: Promise<SqlJsStatic> | undefined;
+const PERFORMANCE_SCHEMA_VERSION = 1;
 
 function sqlite(): Promise<SqlJsStatic> {
   sqlitePromise ??= initSqlJs({ locateFile: (file) => require.resolve(`sql.js/dist/${file}`) });
@@ -48,6 +50,8 @@ function validateRun(run: PerformanceRun): void {
 
 /** SQLite-backed baseline and historical-run repository. */
 export class PerformanceStore {
+  private persistQueue: Promise<void> = Promise.resolve();
+
   private constructor(private readonly filePath: string, private readonly database: Database) {}
 
   /** Opens or creates a performance database and applies its schema. */
@@ -56,8 +60,27 @@ export class PerformanceStore {
     let bytes: Uint8Array | undefined;
     try { bytes = new Uint8Array(await readFile(filePath)); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    const database = bytes ? new SQL.Database(bytes) : new SQL.Database();
+    let database: Database;
+    try {
+      database = bytes ? new SQL.Database(bytes) : new SQL.Database();
+    } catch {
+      throw new Error('Performance database is corrupt or is not a valid SQLite database');
+    }
+    let integrity: ReturnType<Database['exec']>;
+    try {
+      integrity = database.exec('PRAGMA integrity_check');
+    } catch {
+      database.close();
+      throw new Error('Performance database is corrupt or is not a valid SQLite database');
+    }
+    if (integrity[0]?.values[0]?.[0] !== 'ok') {
+      database.close();
+      throw new Error('Performance database failed SQLite integrity_check');
+    }
     database.run(`
+      CREATE TABLE IF NOT EXISTS performance_metadata (
+        key TEXT PRIMARY KEY, value TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS performance_baselines (
         url TEXT NOT NULL, vus INTEGER NOT NULL, duration_seconds INTEGER NOT NULL,
         p50 REAL NOT NULL, p95 REAL NOT NULL, p99 REAL NOT NULL,
@@ -71,14 +94,42 @@ export class PerformanceStore {
         status TEXT NOT NULL CHECK(status IN ('PASS','FAIL')), timestamp TEXT NOT NULL
       );
     `);
+    const versionStatement = database.prepare("SELECT value FROM performance_metadata WHERE key='schema_version'");
+    const storedVersion = versionStatement.step()
+      ? Number(versionStatement.getAsObject()['value'])
+      : undefined;
+    versionStatement.free();
+    if (storedVersion !== undefined && storedVersion > PERFORMANCE_SCHEMA_VERSION) {
+      database.close();
+      throw new Error(`Performance database schema ${storedVersion} is newer than supported schema ${PERFORMANCE_SCHEMA_VERSION}`);
+    }
+    database.run("INSERT OR REPLACE INTO performance_metadata (key,value) VALUES ('schema_version',?)", [
+      String(PERFORMANCE_SCHEMA_VERSION)
+    ]);
     const store = new PerformanceStore(path.resolve(filePath), database);
     await store.persist();
     return store;
   }
 
   private async persist(): Promise<void> {
-    await mkdir(path.dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, Buffer.from(this.database.export()));
+    const operation = this.persistQueue.then(async () => {
+      await mkdir(path.dirname(this.filePath), { recursive: true });
+      const temporaryPath = `${this.filePath}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(temporaryPath, Buffer.from(this.database.export()), { flag: 'wx' });
+        await rename(temporaryPath, this.filePath);
+      } catch (error) {
+        await unlink(temporaryPath).catch(() => undefined);
+        throw error;
+      }
+    });
+    this.persistQueue = operation.catch(() => undefined);
+    await operation;
+  }
+
+  /** Current on-disk schema version used for release diagnostics. */
+  getSchemaVersion(): number {
+    return PERFORMANCE_SCHEMA_VERSION;
   }
 
   /** Inserts or replaces the baseline for one URL/load profile. */
