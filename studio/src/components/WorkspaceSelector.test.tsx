@@ -21,7 +21,12 @@ describe('WorkspaceSelector', () => {
       name: 'checkout-tests',
       testFileCount: 4
     });
-    renderSelector({ selectWorkspace, listFiles: vi.fn().mockResolvedValue([]) });
+    renderSelector({
+      selectWorkspace,
+      listFiles: vi.fn().mockResolvedValue([]),
+      readDocument: vi.fn(),
+      saveDocument: vi.fn()
+    });
 
     await user.type(screen.getByLabelText('Project directory'), 'C:\\projects\\checkout-tests');
     await user.click(screen.getByRole('button', { name: 'Select workspace' }));
@@ -34,7 +39,12 @@ describe('WorkspaceSelector', () => {
   it('validates blank input without calling the service', async () => {
     const user = userEvent.setup();
     const selectWorkspace = vi.fn();
-    renderSelector({ selectWorkspace, listFiles: vi.fn().mockResolvedValue([]) });
+    renderSelector({
+      selectWorkspace,
+      listFiles: vi.fn().mockResolvedValue([]),
+      readDocument: vi.fn(),
+      saveDocument: vi.fn()
+    });
 
     await user.click(screen.getByRole('button', { name: 'Select workspace' }));
 
@@ -47,7 +57,12 @@ describe('WorkspaceSelector', () => {
     const selectWorkspace = vi.fn()
       .mockRejectedValueOnce(new Error('Workspace directory does not exist.'))
       .mockResolvedValueOnce({ id: 'ws_12345678', name: 'tests', testFileCount: 0 });
-    renderSelector({ selectWorkspace, listFiles: vi.fn().mockResolvedValue([]) });
+    renderSelector({
+      selectWorkspace,
+      listFiles: vi.fn().mockResolvedValue([]),
+      readDocument: vi.fn(),
+      saveDocument: vi.fn()
+    });
 
     const input = screen.getByLabelText('Project directory');
     await user.type(input, 'C:\\missing');

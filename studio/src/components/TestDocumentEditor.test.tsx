@@ -17,7 +17,7 @@ const file = {
 };
 const document: StudioTestDocument = {
   ...file,
-  content: 'name: checkout\n',
+  content: 'name: checkout\nurl: https://example.com\nsteps:\n  - action: navigate\n',
   revision: 'revision-one',
   diagnostics: []
 };
@@ -57,17 +57,17 @@ describe('TestDocumentEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Select workspace' }));
     await user.click(await screen.findByRole('button', { name: /checkout\.prova\.yaml/ }));
     const editor = await screen.findByLabelText('Test definition');
-    expect(editor).toHaveValue('name: checkout\n');
+    expect(editor).toHaveValue(document.content);
 
     await user.clear(editor);
-    await user.type(editor, 'name: updated');
+    await user.type(editor, 'name: updated\nurl: https://example.com\nsteps:\n  - action: wait');
     expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(saveDocument).toHaveBeenCalledWith(
       'ws_checkout123',
       'file_checkout123',
-      'name: updated',
+      'name: updated\nurl: https://example.com\nsteps:\n  - action: wait',
       'revision-one'
     );
     expect(await screen.findByText('Saved')).toBeInTheDocument();
@@ -94,6 +94,33 @@ describe('TestDocumentEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('changed on disk');
-    expect(editor).toHaveValue('name: checkout\n# changed');
+    expect(editor).toHaveValue(`${document.content}# changed`);
+  });
+
+  it('shows actionable validation errors and blocks invalid saves', async () => {
+    const user = userEvent.setup();
+    const saveDocument = vi.fn();
+    renderWorkflow({
+      selectWorkspace: vi.fn().mockResolvedValue({
+        id: 'ws_checkout123',
+        name: 'checkout',
+        testFileCount: 1
+      }),
+      listFiles: vi.fn().mockResolvedValue([file]),
+      readDocument: vi.fn().mockResolvedValue(document),
+      saveDocument
+    });
+
+    await user.type(screen.getByLabelText('Project directory'), 'C:\\checkout');
+    await user.click(screen.getByRole('button', { name: 'Select workspace' }));
+    await user.click(await screen.findByRole('button', { name: /checkout\.prova\.yaml/ }));
+    const editor = await screen.findByLabelText('Test definition');
+    await user.clear(editor);
+    await user.type(editor, 'name: broken\nsteps:\n  - action: click');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('$.url');
+    expect(screen.getByRole('alert')).toHaveTextContent('$.steps[0].selector');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(saveDocument).not.toHaveBeenCalled();
   });
 });

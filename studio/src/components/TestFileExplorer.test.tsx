@@ -36,7 +36,12 @@ function renderExplorer(api: StudioApi): void {
 
 describe('TestFileExplorer', () => {
   it('explains how to start before a workspace is selected', () => {
-    renderExplorer({ selectWorkspace: vi.fn(), listFiles: vi.fn() });
+    renderExplorer({
+      selectWorkspace: vi.fn(),
+      listFiles: vi.fn(),
+      readDocument: vi.fn(),
+      saveDocument: vi.fn()
+    });
     expect(screen.getByText('Select a workspace in Settings to browse test definitions.')).toBeInTheDocument();
   });
 
@@ -49,7 +54,14 @@ describe('TestFileExplorer', () => {
         name: 'checkout',
         testFileCount: 2
       }),
-      listFiles
+      listFiles,
+      readDocument: vi.fn().mockResolvedValue({
+        ...files[0],
+        content: 'name: checkout\n',
+        revision: 'revision',
+        diagnostics: []
+      }),
+      saveDocument: vi.fn()
     });
 
     await user.type(screen.getByLabelText('Project directory'), 'C:\\checkout');
@@ -73,7 +85,9 @@ describe('TestFileExplorer', () => {
         name: 'checkout',
         testFileCount: 0
       }),
-      listFiles: vi.fn().mockRejectedValue(new Error('Test-file discovery failed.'))
+      listFiles: vi.fn().mockRejectedValue(new Error('Test-file discovery failed.')),
+      readDocument: vi.fn(),
+      saveDocument: vi.fn()
     });
 
     await user.type(screen.getByLabelText('Project directory'), 'C:\\checkout');
@@ -81,4 +95,3 @@ describe('TestFileExplorer', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Test-file discovery failed.');
   });
 });
-

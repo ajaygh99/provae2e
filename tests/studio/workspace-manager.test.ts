@@ -67,23 +67,61 @@ describe('StudioWorkspaceManager', () => {
   it('reads and atomically saves a discovered document using its revision', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'prova-studio-workspace-'));
     const definition = path.join(root, 'checkout.prova.yaml');
-    await writeFile(definition, 'name: checkout\n');
+    await writeFile(definition, [
+      'name: checkout',
+      'url: https://example.com',
+      'steps:',
+      '  - action: navigate',
+      ''
+    ].join('\n'));
     const manager = new StudioWorkspaceManager();
     const workspace = await manager.selectWorkspace(root);
     const [file] = await manager.listTestFiles(workspace.id);
 
     const original = await manager.readTestDocument(workspace.id, file!.id);
-    expect(original.content).toBe('name: checkout\n');
+    expect(original.diagnostics).toEqual([]);
     expect(original.revision).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     const saved = await manager.saveTestDocument(
       workspace.id,
       file!.id,
-      'name: checkout-updated\n',
+      [
+        'name: checkout-updated',
+        'url: https://example.com',
+        'steps:',
+        '  - action: navigate',
+        ''
+      ].join('\n'),
       original.revision
     );
-    expect(saved.content).toBe('name: checkout-updated\n');
+    expect(saved.content).toContain('name: checkout-updated');
     expect(saved.revision).not.toBe(original.revision);
+  });
+
+  it('returns diagnostics on read and rejects invalid saves', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'prova-studio-workspace-'));
+    await writeFile(path.join(root, 'broken.prova.json'), '{"name":"","steps":[]}');
+    const manager = new StudioWorkspaceManager();
+    const workspace = await manager.selectWorkspace(root);
+    const [file] = await manager.listTestFiles(workspace.id);
+    const current = await manager.readTestDocument(workspace.id, file!.id);
+
+    expect(current.diagnostics.map(diagnostic => diagnostic.path)).toEqual([
+      '$.name',
+      '$.url',
+      '$.steps'
+    ]);
+    await expect(manager.saveTestDocument(
+      workspace.id,
+      file!.id,
+      '{"name":"still invalid"}',
+      current.revision
+    )).rejects.toMatchObject({
+      name: 'StudioDocumentValidationError',
+      diagnostics: expect.arrayContaining([
+        expect.objectContaining({ path: '$.url' })
+      ])
+    });
   });
 
   it('rejects stale revisions and undiscovered file ids', async () => {

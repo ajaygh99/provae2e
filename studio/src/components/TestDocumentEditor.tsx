@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { StudioTestDocument } from '../api/studio-api';
+import { validateTestDocument } from '../validation/test-document';
 import { useWorkspace } from '../workspace/WorkspaceContext';
 
 /** Plain-text YAML/JSON editor with explicit revision-aware saving. */
@@ -55,6 +56,10 @@ function LoadedDocumentEditor({
 }: LoadedDocumentEditorProps): React.JSX.Element {
   const [content, setContent] = useState(document.content);
   const [saved, setSaved] = useState(false);
+  const diagnostics = useMemo(
+    () => validateTestDocument(content, document.format),
+    [content, document.format]
+  );
 
   return (
     <>
@@ -64,11 +69,26 @@ function LoadedDocumentEditor({
         className="test-editor__input"
         value={content}
         spellCheck={false}
+        aria-invalid={diagnostics.length > 0}
+        aria-describedby={diagnostics.length > 0 ? 'studio-test-diagnostics' : undefined}
         onChange={event => {
           setContent(event.target.value);
           setSaved(false);
         }}
       />
+      {diagnostics.length > 0 && (
+        <div id="studio-test-diagnostics" className="test-editor__diagnostics" role="alert">
+          <strong>Fix {diagnostics.length} validation {diagnostics.length === 1 ? 'error' : 'errors'} before saving:</strong>
+          <ul>
+            {diagnostics.map((diagnostic, index) => (
+              <li key={`${diagnostic.path}-${index}`}>
+                <code>{diagnostic.path}</code>: {diagnostic.message}
+                {diagnostic.line ? ` (line ${diagnostic.line}${diagnostic.column ? `, column ${diagnostic.column}` : ''})` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="test-editor__status" aria-live="polite">
         <span>{content === document.content ? 'No unsaved changes' : 'Unsaved changes'}</span>
         {saved && <strong>Saved</strong>}
@@ -76,7 +96,12 @@ function LoadedDocumentEditor({
       <button
         className="ui-button ui-button--primary"
         type="button"
-        disabled={documentLoading || documentSaving || content === document.content}
+        disabled={
+          documentLoading ||
+          documentSaving ||
+          content === document.content ||
+          diagnostics.length > 0
+        }
         onClick={() => {
           void saveDocument(content).then(setSaved);
         }}

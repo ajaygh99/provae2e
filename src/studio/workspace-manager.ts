@@ -2,11 +2,13 @@ import { createHash, randomUUID } from 'node:crypto';
 import { lstat, readFile, readdir, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type {
+  StudioDiagnostic,
   StudioTestFile,
   StudioTestDocument,
   StudioTestFormat,
   StudioWorkspace
 } from './studio-api-contract.js';
+import { validateStudioDocument } from './studio-document-validator.js';
 
 interface WorkspaceRecord {
   summary: StudioWorkspace;
@@ -119,11 +121,12 @@ export class StudioWorkspaceManager {
     }
     const content = await readFile(filePath, 'utf8');
     const file = this.toTestFile(record, workspaceId, fileId, filePath, metadata.mtime);
+    const validation = validateStudioDocument(content, file.format);
     return {
       ...file,
       content,
       revision: revisionFor(content),
-      diagnostics: []
+      diagnostics: validation.diagnostics
     };
   }
 
@@ -140,6 +143,10 @@ export class StudioWorkspaceManager {
     const current = await this.readTestDocument(workspaceId, fileId);
     if (current.revision !== expectedRevision) {
       throw new Error('The test file changed on disk. Reload it before saving.');
+    }
+    const validation = validateStudioDocument(content, current.format);
+    if (validation.diagnostics.length > 0) {
+      throw new StudioDocumentValidationError(validation.diagnostics);
     }
 
     const record = this.requireRecord(workspaceId);
@@ -205,6 +212,13 @@ export class StudioWorkspaceManager {
 
   private pathKey(canonicalPath: string): string {
     return process.platform === 'win32' ? canonicalPath.toLowerCase() : canonicalPath;
+  }
+}
+
+export class StudioDocumentValidationError extends Error {
+  constructor(readonly diagnostics: readonly StudioDiagnostic[]) {
+    super('Test definition has validation errors.');
+    this.name = 'StudioDocumentValidationError';
   }
 }
 
