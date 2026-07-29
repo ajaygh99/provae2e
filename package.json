@@ -29,6 +29,7 @@
     "test:slice2": "npm run build && node scripts/slice2-failure-runner.js artifacts/slice2 && node scripts/slice2-validate-evidence.js artifacts/slice2",
     "test:slice3": "npm run build && node scripts/slice3-analytics-runner.js artifacts/slice3",
     "test:phase2:e2e": "npm run build && node scripts/phase2-e2e.js",
+    "validate:perf": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-performance.ps1",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
     "typecheck": "tsc --noEmit",
