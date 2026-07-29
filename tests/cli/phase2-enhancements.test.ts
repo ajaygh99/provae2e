@@ -120,4 +120,21 @@ describe('Phase 2 CLI orchestration', () => {
     expect(store.listRuns).toHaveBeenCalled();
     expect(mockRunK6).not.toHaveBeenCalled();
   });
+
+  it('exports JSON reports and can fail CI on a degrading trend', async () => {
+    const runs = [100, 110, 121].map((p95ResponseTimeMs, index) => ({
+      url: 'https://example.com', vus: 1, durationSeconds: 1, p50ResponseTimeMs: 50,
+      p95ResponseTimeMs, p99ResponseTimeMs: 150, errorRate: 0, requestsPerSecond: 10,
+      status: 'PASS' as const, timestamp: `2026-07-2${index + 1}T00:00:00.000Z`
+    }));
+    const store = perfStore({ listRuns: jest.fn(() => runs) });
+    mockPerformanceOpen.mockResolvedValue(store);
+    await perfCommand({
+      vus: '1', duration: '1', updateBaseline: false, action: 'report',
+      database: 'performance.sqlite', days: '7', format: 'json', failOnTrend: true
+    });
+    expect(process.exitCode).toBe(1);
+    expect(mockRunK6).not.toHaveBeenCalled();
+    process.exitCode = undefined;
+  });
 });

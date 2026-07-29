@@ -80,7 +80,11 @@ describe('perfCommand', () => {
     mockRunK6.mockResolvedValueOnce({ ok: true, metrics: BASELINE });
     await perfCommand(options({ baseline, updateBaseline: true }));
     expect(process.exitCode).toBeUndefined();
-    expect(JSON.parse(await readFile(baseline, 'utf-8'))).toEqual(BASELINE);
+    expect(JSON.parse(await readFile(baseline, 'utf-8'))).toEqual({
+      schemaVersion: 1,
+      updatedAt: expect.any(String),
+      metrics: BASELINE
+    });
   });
 
   it.each([
@@ -114,7 +118,7 @@ describe('perf CLI registration', () => {
   it('exposes URL, load, baseline, and update flags', () => {
     const command = buildProgram().commands.find((candidate) => candidate.name() === 'perf');
     expect(command?.options.map((option) => option.long)).toEqual([
-      '--url', '--action', '--database', '--threshold', '--days', '--output', '--method',
+      '--url', '--action', '--database', '--threshold', '--days', '--output', '--format', '--fail-on-trend', '--method',
       '--headers', '--body', '--vus', '--duration', '--baseline', '--update-baseline'
     ]);
     expect(command?.options.filter((option) => option.mandatory).map((option) => option.long)).toEqual([]);

@@ -17,7 +17,14 @@ describe('performance baseline persistence', () => {
     await expect(loadPerformanceBaseline(file)).resolves.toEqual({ ok: true });
     await expect(savePerformanceBaseline(file, BASELINE)).resolves.toEqual({ ok: true });
     await expect(loadPerformanceBaseline(file)).resolves.toEqual({ ok: true, baseline: BASELINE });
-    expect(JSON.parse(await readFile(file, 'utf-8'))).toEqual(BASELINE);
+    expect(JSON.parse(await readFile(file, 'utf-8'))).toEqual({
+      schemaVersion: 1,
+      updatedAt: expect.any(String),
+      metrics: BASELINE
+    });
+    const legacy = path.join(directory, 'legacy.json');
+    await writeFile(legacy, JSON.stringify(BASELINE), 'utf8');
+    await expect(loadPerformanceBaseline(legacy)).resolves.toEqual({ ok: true, baseline: BASELINE });
   });
 
   it('returns clear invalid JSON and invalid metric errors', async () => {
@@ -26,7 +33,15 @@ describe('performance baseline persistence', () => {
     await writeFile(file, '{broken', 'utf-8');
     await expect(loadPerformanceBaseline(file)).resolves.toEqual({ ok: false, error: `Performance baseline is not valid JSON: ${file}` });
     await writeFile(file, JSON.stringify({ p95ResponseTimeMs: -1, errorRate: 4, requestsPerSecond: 'fast' }), 'utf-8');
-    await expect(loadPerformanceBaseline(file)).resolves.toEqual({ ok: false, error: `Performance baseline is invalid: ${file}` });
+    await expect(loadPerformanceBaseline(file)).resolves.toEqual({
+      ok: false,
+      error: `Performance baseline is invalid or uses an unsupported schema: ${file}`
+    });
+    await writeFile(file, JSON.stringify({ schemaVersion: 99, metrics: BASELINE }), 'utf8');
+    await expect(loadPerformanceBaseline(file)).resolves.toEqual({
+      ok: false,
+      error: `Performance baseline is invalid or uses an unsupported schema: ${file}`
+    });
   });
 });
 

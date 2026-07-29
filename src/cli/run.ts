@@ -48,7 +48,13 @@ import { runK6 } from '../core/k6-runner.js';
 import type { K6Metrics } from '../core/k6-runner.js';
 import { PerformanceStore } from '../perf/performance-store.js';
 import type { PerformanceRun } from '../perf/performance-store.js';
-import { detectRegressions, hasDegradingTrend, performanceRunsToCsv } from '../perf/regression-detector.js';
+import {
+  detectRegressions,
+  hasDegradingTrend,
+  performanceRunsToCsv,
+  performanceRunsToJson,
+  performanceRunsToMarkdown
+} from '../perf/regression-detector.js';
 import {
   comparePerformanceMetrics,
   loadPerformanceBaseline,
@@ -354,6 +360,8 @@ export interface PerfActionOptions {
   threshold?: string;
   days?: string;
   output?: string;
+  format?: string;
+  failOnTrend?: boolean;
   method?: string;
   headers?: string;
   body?: string;
@@ -389,10 +397,27 @@ async function perfHistoryCommand(opts: PerfActionOptions, vus: number, duration
     if (action === 'report') {
       const since = new Date(Date.now() - days * 86_400_000).toISOString();
       const runs = store.listRuns({ ...(opts.url ? { url: opts.url } : {}), since });
-      const report = performanceRunsToCsv(runs);
+      const format = opts.format ?? 'csv';
+      if (!['csv', 'json', 'markdown'].includes(format)) {
+        log.error('--format must be one of csv, json, markdown');
+        process.exitCode = 1;
+        return;
+      }
+      const degradingTrend = hasDegradingTrend(runs);
+      const report = format === 'json' ? performanceRunsToJson(runs)
+        : format === 'markdown' ? performanceRunsToMarkdown(runs) : performanceRunsToCsv(runs);
       if (opts.output) await writeFile(opts.output, report, 'utf-8');
       else process.stdout.write(report);
-      log.info('Performance history report complete', { runs: runs.length, degradingTrend: hasDegradingTrend(runs) });
+      log.info('Performance history report complete', {
+        runs: runs.length,
+        failed: runs.filter((run) => run.status === 'FAIL').length,
+        degradingTrend,
+        format
+      });
+      if (opts.failOnTrend && degradingTrend) {
+        log.error('Material p95 degradation detected in the three most recent runs');
+        process.exitCode = 1;
+      }
       return;
     }
     if (!opts.url || !isHttpUrl(opts.url)) {
@@ -1226,6 +1251,8 @@ export function buildProgram(): Command {
     .option('--threshold <percent>', 'Allowed regression percentage', '10')
     .option('--days <n>', 'History days included in reports', '7')
     .option('--output <file.csv>', 'CSV report destination')
+    .option('--format <format>', 'Report format: csv|json|markdown', 'csv')
+    .option('--fail-on-trend', 'Return exit code 1 when report history has a degrading trend', false)
     .option('--method <method>', 'HTTP method: GET|POST|PUT|DELETE', 'GET')
     .option('--headers <json>', 'Request headers as JSON; use environment expansion for secrets')
     .option('--body <json>', 'JSON request payload for POST/PUT')
