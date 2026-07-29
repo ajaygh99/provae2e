@@ -37,6 +37,9 @@ import {
 import type { DataFormat } from '../generators/test-data-factory.js';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { createStudioHttpServer, listenStudioLoopback } from '../studio/studio-http-server.js';
+import { StudioRunService } from '../studio/studio-run-service.js';
+import { StudioWorkspaceManager } from '../studio/workspace-manager.js';
 import { fetchFigmaElements } from '../core/figma-connector.js';
 import type { FigmaElement } from '../core/figma-connector.js';
 import { generateFigmaTests } from '../generators/figma-test-generator.js';
@@ -1320,6 +1323,23 @@ export function buildProgram(): Command {
     .option('--suggestions', 'Suggest tests for uncovered requirements', false)
     .option('--database <file>', 'Knowledge graph JSON dataset', './prova-knowledge-graph.json')
     .action(graphCommand);
+
+  program
+    .command('studio')
+    .description('Start the local-only PROVA Studio API service')
+    .option('--port <port>', 'Loopback API port', '4317')
+    .action(async (options: { port: string }) => {
+      const port = Number(options.port);
+      if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+        throw new Error('--port must be an integer from 0 to 65535');
+      }
+      const workspaces = new StudioWorkspaceManager();
+      const runs = new StudioRunService(workspaces, path.resolve(process.argv[1] ?? 'dist/cli/run.js'));
+      const server = createStudioHttpServer(runs, workspaces);
+      const address = await listenStudioLoopback(server, port);
+      log.success(`PROVA Studio API listening on http://${address.host}:${address.port}`);
+      log.info('The service is loopback-only. Keep this terminal open while using Studio.');
+    });
 
   program
     .command('dashboard')

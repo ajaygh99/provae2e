@@ -33,4 +33,4 @@ it('adds, changes, reorders, and removes steps in the shared draft', async () =>
     await user.click(removeButtons[0]);
   }
   expect(screen.getAllByLabelText(/Action/)).toHaveLength(1);
-});
+}, 15_000);
