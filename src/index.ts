@@ -92,6 +92,8 @@ export { PostgresAnalyticsStore } from './storage/postgres-analytics-store.js';
 export type { PostgresClient } from './storage/postgres-analytics-store.js';
 export { AnalyticsReporter } from './reporters/analytics-reporter.js';
 export type { AnalyticsReport, AnalyticsTrendPoint } from './reporters/analytics-reporter.js';
+export { analyticsReportCommand, redactAnalyticsError, writeAnalyticsReport } from './cli/report.js';
+export type { AnalyticsReportOptions } from './cli/report.js';
 export { PowerBIExporter } from './exporters/powerbi-exporter.js';
 export type { PowerBIConfig, PowerBIExportResult } from './exporters/powerbi-exporter.js';
 export { generateFigmaTests } from './generators/figma-test-generator.js';
