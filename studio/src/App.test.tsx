@@ -3,9 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
 import { RouterProvider } from './router';
+import { WorkspaceProvider } from './workspace/WorkspaceContext';
 
 function renderRoute(route: string): void {
-  render(<RouterProvider initialPath={route}><App /></RouterProvider>);
+  render(
+    <WorkspaceProvider>
+      <RouterProvider initialPath={route}><App /></RouterProvider>
+    </WorkspaceProvider>
+  );
 }
 
 describe('PROVA Studio application shell', () => {

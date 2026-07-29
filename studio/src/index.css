@@ -359,6 +359,20 @@
   cursor: crosshair !important;
 }
 
+.workspace-selector {
+  @apply grid gap-4 mt-6;
+}
+
+.workspace-selector form {
+  @apply grid items-end gap-3;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.workspace-selector__selected {
+  @apply m-0 pl-3;
+  border-left: 3px solid #22c55e;
+}
+
 @media (max-width: 767px) {
   .app-shell {
     @apply grid-cols-app-mobile;
@@ -399,5 +413,9 @@
 
   .selector-toolbar {
     @apply grid items-stretch;
+  }
+
+  .workspace-selector form {
+    @apply grid-cols-1 items-stretch;
   }
 }
