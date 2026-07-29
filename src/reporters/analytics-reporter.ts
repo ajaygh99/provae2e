@@ -3,10 +3,31 @@ import type { AnalyticsStore, Anomaly, FlakyTest, TrendData } from '../storage/a
 export interface AnalyticsReport {
   generatedAt: Date;
   period: { days: number; startDate: Date };
-  summary: { totalTests: number; passed: number; failed: number; skipped: number; passRate: number; averageDuration: number };
-  trends: TrendData[];
+  summary: {
+    totalTests: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+    passRate: number;
+    failureRate: number;
+    skipRate: number;
+    flakeRate: number;
+    averageDuration: number;
+  };
+  quality: {
+    status: 'no-data' | 'healthy' | 'warning' | 'critical';
+    highSeverityAnomalies: number;
+    anomalyCount: number;
+    flakyTestCount: number;
+  };
+  trends: AnalyticsTrendPoint[];
   anomalies: Anomaly[];
   flakyTests: FlakyTest[];
+}
+
+export interface AnalyticsTrendPoint extends TrendData {
+  totalTests: number;
+  passRate: number;
 }
 
 function escapeHtml(value: string): string {
@@ -20,22 +41,42 @@ export class AnalyticsReporter {
     const days = options.days ?? 7;
     if (!Number.isInteger(days) || days < 1 || days > 3650) throw new Error('days must be an integer from 1 to 3650');
     const generatedAt = this.now();
+    if (Number.isNaN(generatedAt.getTime())) throw new Error('report clock must return a valid Date');
     const [trends, anomalies, flakyTests] = await Promise.all([
       this.store.getTrends(days, generatedAt), this.store.detectAnomalies(generatedAt),
-      this.store.getFlakiestTests(10, generatedAt)
+      this.store.getFlakiestTests(50, generatedAt)
     ]);
-    const passed = trends.reduce((sum, trend) => sum + trend.passCount, 0);
-    const failed = trends.reduce((sum, trend) => sum + trend.failCount, 0);
-    const skipped = trends.reduce((sum, trend) => sum + trend.skipCount, 0);
+    trends.forEach(validateTrend);
+    const trendPoints = trends.map(enrichTrend);
+    const orderedAnomalies = [...anomalies].sort(compareAnomalies).slice(0, 100);
+    const orderedFlakyTests = [...flakyTests].sort(compareFlakyTests).slice(0, 50);
+    const passed = trendPoints.reduce((sum, trend) => sum + trend.passCount, 0);
+    const failed = trendPoints.reduce((sum, trend) => sum + trend.failCount, 0);
+    const skipped = trendPoints.reduce((sum, trend) => sum + trend.skipCount, 0);
     const totalTests = passed + failed + skipped;
-    const weightedDuration = trends.reduce((sum, trend) =>
+    const executed = passed + failed;
+    const weightedDuration = trendPoints.reduce((sum, trend) =>
       sum + trend.averageDuration * (trend.passCount + trend.failCount + trend.skipCount), 0);
+    const weightedFlakes = trendPoints.reduce((sum, trend) => sum + trend.flakeRate * trend.totalTests, 0);
+    const passRate = executed ? passed / executed * 100 : 0;
+    const highSeverityAnomalies = orderedAnomalies.filter(item => item.severity === 'high').length;
     return {
       generatedAt, period: { days, startDate: new Date(generatedAt.getTime() - days * 86_400_000) },
       summary: { totalTests, passed, failed, skipped,
-        passRate: passed + failed ? passed / (passed + failed) * 100 : 0,
+        passRate,
+        failureRate: executed ? failed / executed * 100 : 0,
+        skipRate: totalTests ? skipped / totalTests * 100 : 0,
+        flakeRate: totalTests ? weightedFlakes / totalTests * 100 : 0,
         averageDuration: totalTests ? weightedDuration / totalTests : 0 },
-      trends, anomalies, flakyTests
+      quality: {
+        status: qualityStatus(totalTests, passRate, highSeverityAnomalies, orderedAnomalies.length, orderedFlakyTests.length),
+        highSeverityAnomalies,
+        anomalyCount: orderedAnomalies.length,
+        flakyTestCount: orderedFlakyTests.length
+      },
+      trends: trendPoints,
+      anomalies: orderedAnomalies,
+      flakyTests: orderedFlakyTests
     };
   }
 
@@ -59,4 +100,45 @@ table{border-collapse:collapse;width:100%;margin-top:1rem}th,td{padding:.55rem;b
 <th>Duration</th></tr></thead><tbody>${trendRows}</tbody></table>
 <section class="anomalies"><h2>Anomalies</h2><ul>${anomalies}</ul></section></body></html>`;
   }
+}
+
+function enrichTrend(trend: TrendData): AnalyticsTrendPoint {
+  const totalTests = trend.passCount + trend.failCount + trend.skipCount;
+  const executed = trend.passCount + trend.failCount;
+  return { ...trend, totalTests, passRate: executed ? trend.passCount / executed * 100 : 0 };
+}
+
+function validateTrend(trend: TrendData, index: number): void {
+  if (Number.isNaN(trend.date.getTime())) throw new Error(`trend ${index + 1} date must be valid`);
+  const values = [trend.passCount, trend.failCount, trend.skipCount, trend.averageDuration, trend.flakeRate];
+  if (values.some(value => !Number.isFinite(value) || value < 0)) {
+    throw new Error(`trend ${index + 1} metrics must be finite and non-negative`);
+  }
+  if (![trend.passCount, trend.failCount, trend.skipCount].every(Number.isInteger) || trend.flakeRate > 1) {
+    throw new Error(`trend ${index + 1} counts or flake rate are invalid`);
+  }
+}
+
+function compareAnomalies(left: Anomaly, right: Anomaly): number {
+  const rank = { high: 0, medium: 1, low: 2 };
+  return rank[left.severity] - rank[right.severity]
+    || right.detectedAt.getTime() - left.detectedAt.getTime()
+    || left.testName.localeCompare(right.testName);
+}
+
+function compareFlakyTests(left: FlakyTest, right: FlakyTest): number {
+  return right.flakeRate - left.flakeRate || right.runs - left.runs || left.testName.localeCompare(right.testName);
+}
+
+function qualityStatus(
+  totalTests: number,
+  passRate: number,
+  highSeverityAnomalies: number,
+  anomalyCount: number,
+  flakyTestCount: number
+): AnalyticsReport['quality']['status'] {
+  if (totalTests === 0) return 'no-data';
+  if (passRate < 80 || highSeverityAnomalies > 0) return 'critical';
+  if (passRate < 95 || anomalyCount > 0 || flakyTestCount > 0) return 'warning';
+  return 'healthy';
 }
