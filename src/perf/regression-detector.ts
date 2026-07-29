@@ -70,6 +70,34 @@ export function performanceRunsToCsv(runs: readonly PerformanceRun[]): string {
     run.requestsPerSecond, run.status].map(cell).join(',')).join('\n')}\n`;
 }
 
+/** Exports stored runs and an operator summary as deterministic JSON. */
+export function performanceRunsToJson(runs: readonly PerformanceRun[]): string {
+  const failed = runs.filter((run) => run.status === 'FAIL').length;
+  return `${JSON.stringify({
+    summary: {
+      runs: runs.length,
+      passed: runs.length - failed,
+      failed,
+      degradingTrend: hasDegradingTrend(runs),
+      latestTimestamp: runs.at(-1)?.timestamp ?? null
+    },
+    runs
+  }, null, 2)}\n`;
+}
+
+/** Exports an operator-readable Markdown performance report. */
+export function performanceRunsToMarkdown(runs: readonly PerformanceRun[]): string {
+  const failed = runs.filter((run) => run.status === 'FAIL').length;
+  const escape = (value: string): string => value.replaceAll('|', '\\|').replaceAll('\n', ' ');
+  const rows = runs.map((run) => `| ${escape(run.timestamp)} | ${escape(run.url)} | ${run.vus} | `
+    + `${run.p95ResponseTimeMs} | ${run.errorRate} | ${run.requestsPerSecond} | ${run.status} |`).join('\n');
+  return `# Performance history\n\n`
+    + `- Runs: ${runs.length}\n- Passed: ${runs.length - failed}\n- Failed: ${failed}\n`
+    + `- Degrading p95 trend: ${hasDegradingTrend(runs) ? 'yes' : 'no'}\n\n`
+    + `| Timestamp | URL | VUs | p95 ms | Error rate | RPS | Status |\n`
+    + `| --- | --- | ---: | ---: | ---: | ---: | --- |\n${rows}${rows ? '\n' : ''}`;
+}
+
 /** Reports whether the last three runs materially degraded in p95 latency. */
 export function hasDegradingTrend(
   runs: readonly PerformanceRun[],

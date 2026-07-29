@@ -2,7 +2,13 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PerformanceStore, type PerformanceRun } from '../../src/perf/performance-store';
-import { detectRegressions, hasDegradingTrend, performanceRunsToCsv } from '../../src/perf/regression-detector';
+import {
+  detectRegressions,
+  hasDegradingTrend,
+  performanceRunsToCsv,
+  performanceRunsToJson,
+  performanceRunsToMarkdown
+} from '../../src/perf/regression-detector';
 
 const run: PerformanceRun = {
   url: 'https://api.example.com', vus: 10, durationSeconds: 30,
@@ -102,6 +108,10 @@ describe('performance regression reporting', () => {
     const runs = [run, { ...run, p95ResponseTimeMs: 110 }, { ...run, p95ResponseTimeMs: 120 }];
     expect(hasDegradingTrend(runs)).toBe(true);
     expect(performanceRunsToCsv(runs)).toContain('https://api.example.com');
+    expect(JSON.parse(performanceRunsToJson(runs)).summary).toEqual(expect.objectContaining({
+      runs: 3, failed: 0, degradingTrend: true
+    }));
+    expect(performanceRunsToMarkdown(runs)).toContain('| Timestamp | URL | VUs |');
     expect(hasDegradingTrend(runs.slice(0, 2))).toBe(false);
     expect(hasDegradingTrend([run, { ...run, p95ResponseTimeMs: 101 }, { ...run, p95ResponseTimeMs: 102 }])).toBe(false);
   });

@@ -73,7 +73,13 @@ export type { AcceptanceLanguage, ParsedFeature, ParsedScenario, ParsedStep, Ste
 export { stepToPlaywright } from './mappers/step-to-playwright.js';
 export { PerformanceStore } from './perf/performance-store.js';
 export type { PerformanceRun, StoredPerformanceMetrics } from './perf/performance-store.js';
-export { detectRegressions, hasDegradingTrend, performanceRunsToCsv } from './perf/regression-detector.js';
+export {
+  detectRegressions,
+  hasDegradingTrend,
+  performanceRunsToCsv,
+  performanceRunsToJson,
+  performanceRunsToMarkdown
+} from './perf/regression-detector.js';
 export type { PerformanceRegression } from './perf/regression-detector.js';
 export { FigmaCredentialStore } from './storage/figma-credentials.js';
 export type { FigmaCredentials } from './storage/figma-credentials.js';

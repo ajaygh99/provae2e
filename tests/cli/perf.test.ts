@@ -118,7 +118,7 @@ describe('perf CLI registration', () => {
   it('exposes URL, load, baseline, and update flags', () => {
     const command = buildProgram().commands.find((candidate) => candidate.name() === 'perf');
     expect(command?.options.map((option) => option.long)).toEqual([
-      '--url', '--action', '--database', '--threshold', '--days', '--output', '--method',
+      '--url', '--action', '--database', '--threshold', '--days', '--output', '--format', '--fail-on-trend', '--method',
       '--headers', '--body', '--vus', '--duration', '--baseline', '--update-baseline'
     ]);
     expect(command?.options.filter((option) => option.mandatory).map((option) => option.long)).toEqual([]);
