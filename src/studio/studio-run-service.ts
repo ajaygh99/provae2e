@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import type { StudioRunRequest, StudioRunSummary } from './studio-api-contract.js';
+import type { StudioRunEvent, StudioRunRequest, StudioRunSummary } from './studio-api-contract.js';
 import { isStudioRunRequest } from './studio-api-contract.js';
 import { validateStudioDocument } from './studio-document-validator.js';
 import type { StudioWorkspaceManager } from './workspace-manager.js';
@@ -11,6 +11,8 @@ export interface StudioSpawnRequest {
   args: readonly string[];
   cwd: string;
   timeoutMs: number;
+  onStdout?: (text: string) => void;
+  onStderr?: (text: string) => void;
 }
 
 export interface StudioSpawnResult {
@@ -24,6 +26,8 @@ export type StudioCommandRunner = (request: StudioSpawnRequest) => Promise<Studi
 /** Runs only the fixed PROVA `run` command assembled from validated Studio values. */
 export class StudioRunService {
   private readonly runs = new Map<string, StudioRunSummary>();
+  private readonly events = new Map<string, StudioRunEvent[]>();
+  private readonly subscribers = new Map<string, Set<(event: StudioRunEvent) => void>>();
 
   constructor(
     private readonly workspaces: StudioWorkspaceManager,
@@ -50,6 +54,8 @@ export class StudioRunService {
       startedAt: new Date(started).toISOString()
     };
     this.runs.set(id, running);
+    this.events.set(id, []);
+    this.emit(id, { type: 'status', sequence: 0, timestamp: new Date().toISOString(), status: 'running' });
 
     void this.execute(id, request, target.rootPath, validated.definition.url, started);
     return running;
@@ -59,6 +65,19 @@ export class StudioRunService {
     const run = this.runs.get(id);
     if (!run) throw new Error('Studio run was not found.');
     return run;
+  }
+
+  getEvents(id: string, afterSequence = -1): readonly StudioRunEvent[] {
+    this.getRun(id);
+    return (this.events.get(id) ?? []).filter(event => event.sequence > afterSequence);
+  }
+
+  subscribe(id: string, listener: (event: StudioRunEvent) => void): () => void {
+    this.getRun(id);
+    const listeners = this.subscribers.get(id) ?? new Set();
+    listeners.add(listener);
+    this.subscribers.set(id, listeners);
+    return () => listeners.delete(listener);
   }
 
   private async execute(
@@ -80,7 +99,9 @@ export class StudioRunService {
           '--timeout', String(request.timeoutMs)
         ],
         cwd,
-        timeoutMs: request.timeoutMs
+        timeoutMs: request.timeoutMs,
+        onStdout: text => this.emitOutput(id, 'stdout', text),
+        onStderr: text => this.emitOutput(id, 'stderr', text)
       });
       this.finish(id, started, result.exitCode === 0 ? 'passed' : 'failed', result.exitCode,
         result.exitCode === 0 ? undefined : safeFailure(result.stderr));
@@ -107,6 +128,25 @@ export class StudioRunService {
       exitCode,
       failureSummary
     });
+    this.emit(id, {
+      type: 'complete',
+      sequence: 0,
+      timestamp: new Date(finished).toISOString(),
+      summary: this.getRun(id)
+    });
+  }
+
+  private emitOutput(id: string, type: 'stdout' | 'stderr', text: string): void {
+    if (!text) return;
+    this.emit(id, { type, sequence: 0, timestamp: new Date().toISOString(), text });
+  }
+
+  private emit(id: string, event: StudioRunEvent): void {
+    const history = this.events.get(id) ?? [];
+    const sequenced = { ...event, sequence: history.length } as StudioRunEvent;
+    history.push(sequenced);
+    this.events.set(id, history);
+    for (const listener of this.subscribers.get(id) ?? []) listener(sequenced);
   }
 }
 
@@ -120,8 +160,16 @@ function spawnProva(request: StudioSpawnRequest): Promise<StudioSpawnResult> {
     });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
-    child.stdout.on('data', chunk => stdout.push(Buffer.from(chunk)));
-    child.stderr.on('data', chunk => stderr.push(Buffer.from(chunk)));
+    child.stdout.on('data', chunk => {
+      const buffer = Buffer.from(chunk);
+      stdout.push(buffer);
+      request.onStdout?.(buffer.toString('utf8'));
+    });
+    child.stderr.on('data', chunk => {
+      const buffer = Buffer.from(chunk);
+      stderr.push(buffer);
+      request.onStderr?.(buffer.toString('utf8'));
+    });
     child.once('error', reject);
     child.once('close', code => resolve({
       exitCode: code ?? 1,

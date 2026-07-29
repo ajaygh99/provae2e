@@ -51,4 +51,27 @@ describe('Studio loopback HTTP API', () => {
     expect(wrongType.status).toBe(415);
     expect(runs.startRun).not.toHaveBeenCalled();
   });
+
+  it('streams ordered run events as server-sent events', async () => {
+    const events = [
+      { type: 'status', sequence: 0, timestamp: '2026-07-28T00:00:00.000Z', status: 'running' },
+      { type: 'stdout', sequence: 1, timestamp: '2026-07-28T00:00:01.000Z', text: 'hello\n' },
+      { type: 'complete', sequence: 2, timestamp: '2026-07-28T00:00:02.000Z',
+        summary: { id: 'run_1234567890abcdef', workspaceId: 'ws_12345678', fileId: 'file_12345678', status: 'passed' } }
+    ];
+    const runs = {
+      getEvents: jest.fn().mockReturnValue(events),
+      subscribe: jest.fn()
+    } as unknown as StudioRunService;
+    server = createStudioHttpServer(runs);
+    const address = await listenStudioLoopback(server);
+    const response = await fetch(
+      `http://${address.host}:${address.port}/api/studio/v1/runs/run_1234567890abcdef/events`
+    );
+    const body = await response.text();
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+    expect(body).toContain('id: 1\nevent: stdout');
+    expect(body).toContain('"text":"hello\\n"');
+    expect(body).toContain('event: complete');
+  });
 });

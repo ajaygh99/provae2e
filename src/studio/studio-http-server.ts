@@ -59,6 +59,36 @@ async function route(
     }
     return;
   }
+  const eventMatch = new RegExp(`^${STUDIO_API_PREFIX}/runs/(run_[A-Za-z0-9_-]{16,128})/events$`).exec(url.pathname);
+  if (request.method === 'GET' && eventMatch) {
+    try {
+      const runId = eventMatch[1]!;
+      const after = Number(request.headers['last-event-id'] ?? url.searchParams.get('after') ?? -1);
+      response.writeHead(200, {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-store',
+        connection: 'keep-alive',
+        'x-accel-buffering': 'no'
+      });
+      const send = (event: import('./studio-api-contract.js').StudioRunEvent): void => {
+        response.write(`id: ${event.sequence}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+        if (event.type === 'complete') response.end();
+      };
+      const history = runs.getEvents(runId, Number.isFinite(after) ? after : -1);
+      history.forEach(send);
+      if (!history.some(event => event.type === 'complete')) {
+        const unsubscribe = runs.subscribe(runId, send);
+        request.once('close', unsubscribe);
+      }
+    } catch (error) {
+      if (!response.headersSent) {
+        sendJson(response, 404, { error: { code: 'NOT_FOUND', message: safeMessage(error) } });
+      } else {
+        response.end();
+      }
+    }
+    return;
+  }
   sendJson(response, 404, { error: { code: 'NOT_FOUND', message: 'Studio route was not found.' } });
 }
 

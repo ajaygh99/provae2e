@@ -21,6 +21,8 @@ describe('StudioRunService', () => {
     const calls: StudioSpawnRequest[] = [];
     const service = new StudioRunService(manager, 'C:\\trusted\\prova-cli.js', async request => {
       calls.push(request);
+      request.onStdout?.('starting\n');
+      request.onStderr?.('warning\n');
       return { exitCode: 0, stdout: 'ok', stderr: '' };
     });
 
@@ -34,6 +36,9 @@ describe('StudioRunService', () => {
 
     expect(started.status).toBe('running');
     expect(service.getRun(started.id).status).toBe('passed');
+    expect(service.getEvents(started.id).map(event => event.type)).toEqual([
+      'status', 'stdout', 'stderr', 'complete'
+    ]);
     expect(calls[0]).toMatchObject({
       executable: process.execPath,
       cwd: root,
