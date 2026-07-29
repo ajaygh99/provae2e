@@ -4,8 +4,18 @@ export interface StudioWorkspace {
   testFileCount: number;
 }
 
+export interface StudioTestFile {
+  id: string;
+  workspaceId: string;
+  name: string;
+  relativePath: string;
+  format: 'yaml' | 'json';
+  updatedAt: string;
+}
+
 export interface StudioApi {
-  selectWorkspace(path: string): Promise<StudioWorkspace>;
+  selectWorkspace: (path: string) => Promise<StudioWorkspace>;
+  listFiles: (workspaceId: string) => Promise<StudioTestFile[]>;
 }
 
 interface ErrorEnvelope {
@@ -28,5 +38,13 @@ export class HttpStudioApi implements StudioApi {
     }
     return response.json() as Promise<StudioWorkspace>;
   }
-}
 
+  async listFiles(workspaceId: string): Promise<StudioTestFile[]> {
+    const response = await fetch(`${this.baseUrl}/workspaces/${encodeURIComponent(workspaceId)}/files`);
+    if (!response.ok) {
+      const envelope = await response.json().catch(() => ({})) as ErrorEnvelope;
+      throw new Error(envelope.error?.message ?? `Test-file discovery failed (${response.status}).`);
+    }
+    return response.json() as Promise<StudioTestFile[]>;
+  }
+}
