@@ -94,6 +94,17 @@ describe('MobileMenu', () => {
 
     expect(button).toHaveAttribute('aria-expanded');
     expect(button).toHaveAttribute('aria-label');
+    expect(button).toHaveAttribute('aria-controls', 'mobile-navigation-drawer');
+    expect(screen.getByRole('dialog', { hidden: true })).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('moves focus into the drawer and restores it after Escape', () => {
+    render(<MobileMenu><a href="#destination">First destination</a></MobileMenu>);
+    const button = screen.getByRole('button', { name: /open navigation menu/i });
+    fireEvent.click(button);
+    expect(screen.getByRole('link', { name: 'First destination' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(button).toHaveFocus();
   });
 
   it('should handle rapid open/close toggling', () => {

@@ -44,6 +44,22 @@
     font: inherit;
   }
 
+  :focus-visible {
+    outline: 3px solid #7c3aed;
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+
   input,
   textarea,
   select {
@@ -54,6 +70,22 @@
 @layer components {
   .app-shell {
     @apply grid grid-cols-app min-h-screen;
+  }
+
+  .skip-link {
+    position: fixed;
+    z-index: 100;
+    top: 0.5rem;
+    left: 0.5rem;
+    transform: translateY(-160%);
+    border-radius: 0.5rem;
+    background: #ffffff;
+    padding: 0.75rem 1rem;
+    color: #111827;
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
   }
 
   .sidebar {
@@ -444,11 +476,11 @@
 
 @media (max-width: 767px) {
   .app-shell {
-    @apply grid-cols-app-mobile;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sidebar {
-    @apply p-5.5 px-3;
+    @apply hidden;
   }
 
   .brand div,
@@ -473,7 +505,7 @@
   }
 
   .app-content {
-    @apply px-6.5 py-6.5;
+    @apply px-4.5 py-6.5;
   }
 
   .metric-grid {
@@ -490,6 +522,29 @@
 
   .builder-workspace {
     @apply grid-cols-1;
+  }
+
+  .test-editor__heading,
+  .file-explorer__heading {
+    @apply flex-wrap;
+  }
+
+  .test-editor__input {
+    min-height: 18rem;
+  }
+
+  .visual-step {
+    overflow-wrap: anywhere;
+  }
+
+  .run-console__output {
+    max-width: calc(100vw - 2.25rem);
+    overflow: auto;
+  }
+
+  .result-card code,
+  .result-card dd {
+    overflow-wrap: anywhere;
   }
 }
  .connectivity-banner {
