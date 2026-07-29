@@ -387,6 +387,8 @@ export {
 export type { SelectorRepairProposal } from './core/selector-repair-proposal.js';
 export type { GraphCommandOptions } from './cli/graph.js';
 export { buildZapCoverageDashboard, classifyZapFindings } from './core/zap-vulnerability-classifier.js';
+export { parseZapJsonReport } from './core/zap-report-parser.js';
+export type { ZapReportParseResult } from './core/zap-report-parser.js';
 export type {
   OwaspCategory,
   OwaspCategoryCoverage,
