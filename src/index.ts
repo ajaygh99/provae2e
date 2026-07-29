@@ -48,6 +48,8 @@ export type {
   NativeSelectorCandidate,
   NativeSelectorStrategy
 } from './core/native-appium-selector.js';
+export { buildNativeGestureActions, performNativeGesture } from './core/native-appium-gestures.js';
+export type { NativeGesture, Point } from './core/native-appium-gestures.js';
 export {
   parseHeaders,
   validateApiPayload,
