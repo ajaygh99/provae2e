@@ -78,6 +78,12 @@ export type {
   NativeNetworkProfile
 } from './core/native-appium-network.js';
 export {
+  approveNativeScreenshotBaseline,
+  captureNativeScreenshot,
+  compareNativeScreenshot
+} from './core/native-appium-screenshot.js';
+export type { NativeScreenshotEvidence } from './core/native-appium-screenshot.js';
+export {
   parseHeaders,
   validateApiPayload,
   validateDevice,
