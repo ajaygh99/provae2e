@@ -84,6 +84,11 @@ export {
 } from './core/native-appium-screenshot.js';
 export type { NativeScreenshotEvidence } from './core/native-appium-screenshot.js';
 export {
+  buildNativeLifecycleCommands,
+  executeNativeLifecycle
+} from './core/native-appium-lifecycle.js';
+export type { NativeLifecycleAction } from './core/native-appium-lifecycle.js';
+export {
   parseHeaders,
   validateApiPayload,
   validateDevice,
