@@ -70,6 +70,14 @@ export type {
   PermissionAction
 } from './core/native-appium-permissions.js';
 export {
+  createAppiumNetworkController,
+  withNativeNetworkProfile
+} from './core/native-appium-network.js';
+export type {
+  NativeNetworkController,
+  NativeNetworkProfile
+} from './core/native-appium-network.js';
+export {
   parseHeaders,
   validateApiPayload,
   validateDevice,
