@@ -70,6 +70,17 @@ export class StudioWorkspaceManager {
     return this.requireRecord(id).rootPath;
   }
 
+  /** Resolves an allow-listed test id for trusted execution without exposing its path to the browser. */
+  async getRunTarget(workspaceId: string, fileId: string): Promise<{
+    rootPath: string;
+    document: StudioTestDocument;
+  }> {
+    return {
+      rootPath: this.requireRecord(workspaceId).rootPath,
+      document: await this.readTestDocument(workspaceId, fileId)
+    };
+  }
+
   /** Discovers supported YAML/JSON test definitions without following symlinks. */
   async listTestFiles(id: string): Promise<StudioTestFile[]> {
     const record = this.requireRecord(id);
