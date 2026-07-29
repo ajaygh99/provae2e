@@ -7,6 +7,7 @@ on:
       - "src/cli/run.ts"
       - "tests/**/*native*"
       - "docs/NATIVE-MOBILE.md"
+      - "scripts/validate-phase4-native.js"
       - "scripts/validate-phase4-native.ps1"
       - ".github/workflows/native-appium.yml"
   workflow_dispatch:

@@ -12,6 +12,7 @@ describe('native Appium CI workflow', () => {
     expect(workflow).toContain('npm ci');
     expect(workflow).toContain('npm run validate:native');
     expect(workflow).not.toContain('secrets.');
+    expect(require('../../package.json').scripts['validate:native']).toContain('node ');
   });
 
   it('does not claim emulation as a native device proof', () => {

@@ -39,7 +39,7 @@ device provisioning prerequisites are available and validated.
 
 ```powershell
 npm run validate:native
-npm run validate:native -- -Full
+npm run validate:native -- --full
 ```
 
 The default CI job is a credential-free protocol contract gate. It does not

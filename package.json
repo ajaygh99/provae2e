@@ -33,7 +33,7 @@
     "validate:perf": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-performance.ps1",
     "validate:security": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-security.ps1",
     "validate:analytics": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-analytics.ps1",
-    "validate:native": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-native.ps1",
+    "validate:native": "node ./scripts/validate-phase4-native.js",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
     "typecheck": "tsc --noEmit",
