@@ -69,8 +69,9 @@ describe('parseK6Summary', () => {
 describe('runK6', () => {
   it('uses the injected executor and parses its summary without a real k6 binary', async () => {
     const executor: K6CommandExecutor = {
-      async run(scriptPath, summaryPath) {
+      async run(scriptPath, summaryPath, controls) {
         expect(await readFile(scriptPath, 'utf-8')).toContain("duration: '10s'");
+        expect(controls?.timeoutMs).toBe(40_000);
         await writeFile(summaryPath, JSON.stringify(SUMMARY), 'utf-8');
         return { ok: true };
       }
@@ -122,6 +123,27 @@ describe('runK6', () => {
     await expect(runK6({ url: 'https://example.com', vus: 1, durationSeconds: 1, executor }))
       .resolves.toEqual({ ok: false, error: 'Unable to run k6: adapter crashed' });
   });
+
+  it('rejects unsafe limits before creating a process and supports cancellation', async () => {
+    const executor: K6CommandExecutor = { run: jest.fn() };
+    await expect(runK6({ url: 'file:///tmp/a', vus: 1, durationSeconds: 1, executor }))
+      .resolves.toEqual({ ok: false, error: 'k6 URL must be an absolute http:// or https:// URL' });
+    await expect(runK6({ url: 'https://example.com', vus: 1001, durationSeconds: 1, executor }))
+      .resolves.toEqual({ ok: false, error: 'k6 vus must be an integer from 1 to 1000' });
+    await expect(runK6({ url: 'https://example.com', vus: 1, durationSeconds: 3601, executor }))
+      .resolves.toEqual({ ok: false, error: 'k6 durationSeconds must be an integer from 1 to 3600' });
+    await expect(runK6({
+      url: 'https://example.com', vus: 1, durationSeconds: 1,
+      body: 'x'.repeat((1024 * 1024) + 1), executor
+    })).resolves.toEqual({ ok: false, error: 'k6 request body cannot exceed 1 MB' });
+    const controller = new AbortController();
+    controller.abort();
+    await expect(runK6({
+      url: 'https://example.com', vus: 1, durationSeconds: 1,
+      signal: controller.signal, executor
+    })).resolves.toEqual({ ok: false, error: 'k6 execution was cancelled' });
+    expect(executor.run).not.toHaveBeenCalled();
+  });
 });
 
 describe('systemK6Executor', () => {
@@ -135,7 +157,10 @@ describe('systemK6Executor', () => {
   it('invokes k6 with summary export and resolves successful completion', async () => {
     const pending = systemK6Executor.run('test.js', 'summary.json');
     expect(mockExecFile).toHaveBeenCalledWith(
-      'k6', ['run', '--summary-export', 'summary.json', 'test.js'], { windowsHide: true }, expect.any(Function)
+      'k6',
+      ['run', '--summary-export', 'summary.json', 'test.js'],
+      { windowsHide: true, timeout: 120_000, maxBuffer: 1024 * 1024 },
+      expect.any(Function)
     );
     callback()(null, '', '');
     await expect(pending).resolves.toEqual({ ok: true });
@@ -149,5 +174,16 @@ describe('systemK6Executor', () => {
     const failed = systemK6Executor.run('test.js', 'summary.json');
     callback()(Object.assign(new Error('exit 1'), { code: '1' }), '', 'threshold failed');
     await expect(failed).resolves.toEqual({ ok: false, error: 'k6 execution failed: threshold failed' });
+  });
+
+  it('reports timeout and cancellation distinctly', async () => {
+    const timedOut = systemK6Executor.run('test.js', 'summary.json', { timeoutMs: 1_000 });
+    callback()(Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' }), '', '');
+    await expect(timedOut).resolves.toEqual({
+      ok: false, error: 'k6 execution exceeded 1000ms timeout'
+    });
+    const cancelled = systemK6Executor.run('test.js', 'summary.json', { timeoutMs: 1_000 });
+    callback()(Object.assign(new Error('aborted'), { name: 'AbortError' }), '', '');
+    await expect(cancelled).resolves.toEqual({ ok: false, error: 'k6 execution was cancelled' });
   });
 });

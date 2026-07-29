@@ -27,6 +27,10 @@ export interface K6RunOptions {
   headers?: Record<string, string>;
   body?: unknown;
   executor?: K6CommandExecutor;
+  /** Hard wall-clock limit for the k6 process. */
+  executionTimeoutMs?: number;
+  /** Optional caller cancellation signal. */
+  signal?: AbortSignal;
 }
 
 /** Safe k6 execution outcome. */
@@ -42,7 +46,11 @@ export type K6CommandResult =
 /** Injectable boundary around the external k6 executable. */
 export interface K6CommandExecutor {
   /** Runs k6 with a generated script and summary destination. */
-  run(scriptPath: string, summaryPath: string): Promise<K6CommandResult>;
+  run(
+    scriptPath: string,
+    summaryPath: string,
+    controls?: { timeoutMs: number; signal?: AbortSignal }
+  ): Promise<K6CommandResult>;
 }
 
 interface K6SummaryMetric {
@@ -137,12 +145,21 @@ export function createK6Script(
 
 /** Default executor that invokes the user-installed `k6` executable. */
 export const systemK6Executor: K6CommandExecutor = {
-  run(scriptPath: string, summaryPath: string): Promise<K6CommandResult> {
+  run(
+    scriptPath: string,
+    summaryPath: string,
+    controls = { timeoutMs: 120_000 }
+  ): Promise<K6CommandResult> {
     return new Promise((resolve) => {
       execFile(
         'k6',
         ['run', '--summary-export', summaryPath, scriptPath],
-        { windowsHide: true },
+        {
+          windowsHide: true,
+          timeout: controls.timeoutMs,
+          maxBuffer: 1024 * 1024,
+          ...(controls.signal ? { signal: controls.signal } : {})
+        },
         (error, stdout, stderr) => {
           if (!error) {
             resolve({ ok: true });
@@ -151,6 +168,15 @@ export const systemK6Executor: K6CommandExecutor = {
           const code = (error as NodeJS.ErrnoException).code;
           if (code === 'ENOENT') {
             resolve({ ok: false, notFound: true, error: 'k6 executable was not found' });
+            return;
+          }
+          if (code === 'ETIMEDOUT' || (error as Error).name === 'AbortError') {
+            resolve({
+              ok: false,
+              error: (error as Error).name === 'AbortError'
+                ? 'k6 execution was cancelled'
+                : `k6 execution exceeded ${controls.timeoutMs}ms timeout`
+            });
             return;
           }
           const detail = stderr.trim() || stdout.trim() || error.message;
@@ -171,11 +197,20 @@ export const systemK6Executor: K6CommandExecutor = {
 export async function runK6(options: K6RunOptions): Promise<K6RunResult> {
   let temporaryDirectory: string | undefined;
   try {
+    const validationError = validateK6Options(options);
+    if (validationError) return { ok: false, error: validationError };
+    if (options.signal?.aborted) return { ok: false, error: 'k6 execution was cancelled' };
     temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'prova-k6-'));
     const scriptPath = path.join(temporaryDirectory, 'baseline.js');
     const summaryPath = path.join(temporaryDirectory, 'summary.json');
     await writeFile(scriptPath, createK6Script(options.url, options.vus, options.durationSeconds, options), 'utf-8');
-    const commandResult = await (options.executor ?? systemK6Executor).run(scriptPath, summaryPath);
+    const executionTimeoutMs = options.executionTimeoutMs
+      ?? Math.min((options.durationSeconds * 1000) + 30_000, 3_630_000);
+    const commandResult = await (options.executor ?? systemK6Executor).run(
+      scriptPath,
+      summaryPath,
+      { timeoutMs: executionTimeoutMs, ...(options.signal ? { signal: options.signal } : {}) }
+    );
     if (!commandResult.ok) {
       return commandResult.notFound
         ? { ok: false, error: 'k6 not found — install from https://k6.io/docs/get-started/installation/' }
@@ -195,4 +230,53 @@ export async function runK6(options: K6RunOptions): Promise<K6RunResult> {
       await rm(temporaryDirectory, { recursive: true, force: true }).catch(() => undefined);
     }
   }
+}
+
+function validateK6Options(options: K6RunOptions): string | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(options.url);
+  } catch {
+    return 'k6 URL must be an absolute http:// or https:// URL';
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return 'k6 URL must be an absolute http:// or https:// URL';
+  }
+  if (!Number.isInteger(options.vus) || options.vus < 1 || options.vus > 1000) {
+    return 'k6 vus must be an integer from 1 to 1000';
+  }
+  if (
+    !Number.isInteger(options.durationSeconds) ||
+    options.durationSeconds < 1 ||
+    options.durationSeconds > 3600
+  ) {
+    return 'k6 durationSeconds must be an integer from 1 to 3600';
+  }
+  if (
+    options.executionTimeoutMs !== undefined &&
+    (!Number.isInteger(options.executionTimeoutMs) ||
+      options.executionTimeoutMs < 1000 ||
+      options.executionTimeoutMs > 3_630_000)
+  ) {
+    return 'k6 executionTimeoutMs must be an integer from 1000 to 3630000';
+  }
+  if (options.headers && Object.values(options.headers).some(value => typeof value !== 'string')) {
+    return 'k6 headers must contain string values';
+  }
+  if (options.method && !['GET', 'POST', 'PUT', 'DELETE'].includes(options.method)) {
+    return 'k6 method must be GET, POST, PUT, or DELETE';
+  }
+  if (options.body !== undefined) {
+    let serialized: string | undefined;
+    try {
+      serialized = JSON.stringify(options.body);
+    } catch {
+      return 'k6 request body must be JSON-serializable';
+    }
+    if (serialized === undefined) return 'k6 request body must be JSON-serializable';
+    if (Buffer.byteLength(serialized, 'utf8') > 1024 * 1024) {
+      return 'k6 request body cannot exceed 1 MB';
+    }
+  }
+  return undefined;
 }
