@@ -395,6 +395,17 @@ export type {
   ZapPolicyViolation,
   ZapScanPolicy
 } from './core/zap-scan-policy.js';
+export {
+  buildZapSecurityReport,
+  createZapJiraSecurityStory,
+  renderZapSecurityJson,
+  renderZapSecurityMarkdown
+} from './reporters/zap-security-reporter.js';
+export type {
+  ZapJiraSecurityStoryDraft,
+  ZapSecurityReport,
+  ZapSecurityReportFinding
+} from './reporters/zap-security-reporter.js';
 export type {
   OwaspCategory,
   OwaspCategoryCoverage,
