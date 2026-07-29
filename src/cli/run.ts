@@ -11,6 +11,7 @@ import { runApiTest } from '../runners/api-runner.js';
 import type { HttpMethod } from '../runners/api-runner.js';
 import { runMobileTest } from '../runners/mobile-runner.js';
 import type { MobileRunResult } from '../runners/mobile-runner.js';
+import { runNativeAppiumSession } from '../core/native-appium-runner.js';
 import { parseDevices } from '../core/input-validator.js';
 import { mapWithConcurrency } from '../core/concurrency.js';
 import {
@@ -1205,6 +1206,37 @@ export function buildProgram(): Command {
     .option('--timeout <ms>', 'Positive request timeout in milliseconds')
     .option('--headers <json>', 'Custom API headers as a JSON object')
     .action(runCommand);
+
+  program.command('native')
+    .description('Run a genuine Android APK through Appium (not browser mobile emulation)')
+    .requiredOption('--app <file-or-url>', 'Local .apk path or approved remote app reference')
+    .requiredOption('--device <name>', 'Android emulator or device name')
+    .option('--appium-url <url>', 'Appium server URL', 'http://127.0.0.1:4723')
+    .option('--platform-version <version>', 'Android platform version')
+    .action(async (options: {
+      app: string;
+      device: string;
+      appiumUrl: string;
+      platformVersion?: string;
+    }) => {
+      const result = await runNativeAppiumSession({
+        app: options.app,
+        deviceName: options.device,
+        appiumUrl: options.appiumUrl,
+        ...(options.platformVersion ? { platformVersion: options.platformVersion } : {})
+      });
+      if (result.status === 'FAIL') {
+        log.error(`Native Appium run failed: ${result.error ?? 'unknown error'}`);
+        process.exitCode = 1;
+        return;
+      }
+      log.success('Native Appium session proof passed', {
+        platform: result.platform,
+        deviceName: result.deviceName,
+        sessionId: result.sessionId,
+        durationMs: result.durationMs
+      });
+    });
 
   program.command('report')
     .description('Generate reports from persisted test analytics')

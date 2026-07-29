@@ -264,6 +264,18 @@ See [`docs/ANALYTICS.md`](docs/ANALYTICS.md) for metric interpretation,
 retention, CI artifacts, operational guidance, and
 `npm run validate:analytics`.
 
+## Native Android Appium Proof
+
+Run a genuine Android `.apk` through Appium:
+
+```bash
+qe-tool native --app ./app-debug.apk --device Pixel_7_API_35 --platform-version 15
+```
+
+This is distinct from Playwright mobile-browser emulation. See
+[`docs/NATIVE-MOBILE.md`](docs/NATIVE-MOBILE.md) for emulator, device-farm,
+credential, evidence, and validation requirements.
+
 ## OWASP ZAP Security Policy
 
 Process an OWASP ZAP traditional JSON report through persistent baselines,

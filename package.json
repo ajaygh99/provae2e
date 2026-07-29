@@ -16,7 +16,8 @@
     "CHANGELOG.md",
     "LICENSE",
     "SECURITY.md",
-    "docs/BETA-LAUNCH-SECURITY.md"
+    "docs/BETA-LAUNCH-SECURITY.md",
+    "docs/NATIVE-MOBILE.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -32,6 +33,7 @@
     "validate:perf": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-performance.ps1",
     "validate:security": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-security.ps1",
     "validate:analytics": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-analytics.ps1",
+    "validate:native": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-native.ps1",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
     "typecheck": "tsc --noEmit",

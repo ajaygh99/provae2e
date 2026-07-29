@@ -1,0 +1,35 @@
+name: Native Appium contract
+
+on:
+  pull_request:
+    paths:
+      - "src/core/native-*"
+      - "src/cli/run.ts"
+      - "tests/**/*native*"
+      - "docs/NATIVE-MOBILE.md"
+      - "scripts/validate-phase4-native.ps1"
+      - ".github/workflows/native-appium.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-appium-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  contract:
+    name: Android Appium contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run validate:native
+      - name: Scope statement
+        run: echo "No emulator or real-device claim is made by this contract-only job"
