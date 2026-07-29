@@ -231,6 +231,9 @@ export async function openApiCommand(opts: OpenApiActionOptions): Promise<void> 
 export interface FigmaActionOptions {
   auth: boolean;
   sync?: string;
+  logout?: boolean;
+  listProfiles?: boolean;
+  profile?: string;
   node?: string;
   output: string;
   database: string;
@@ -238,10 +241,39 @@ export interface FigmaActionOptions {
 
 /** Stores encrypted OAuth credentials or creates tests from a Figma frame. */
 export async function figmaCommand(opts: FigmaActionOptions): Promise<void> {
-  if (opts.auth === Boolean(opts.sync)) {
-    log.error('Choose exactly one Figma action: --auth or --sync <file-key>'); process.exitCode = 1; return;
+  const actionCount = [opts.auth, Boolean(opts.sync), Boolean(opts.logout), Boolean(opts.listProfiles)]
+    .filter(Boolean).length;
+  if (actionCount !== 1) {
+    log.error('Choose exactly one Figma action: --auth, --sync, --logout, or --list-profiles');
+    process.exitCode = 1;
+    return;
   }
   const secret = process.env['PROVA_CREDENTIAL_KEY'];
+  const profile = opts.profile ?? 'default';
+  if (opts.logout || opts.listProfiles) {
+    if (!secret) {
+      log.error('PROVA_CREDENTIAL_KEY is required to manage Figma profiles');
+      process.exitCode = 1;
+      return;
+    }
+    const store = await FigmaCredentialStore.open(opts.database, secret);
+    try {
+      if (opts.logout) {
+        const removed = await store.delete(profile);
+        if (!removed) {
+          log.error(`Figma credential profile "${profile}" was not found`);
+          process.exitCode = 1;
+          return;
+        }
+        log.success(`Figma credential profile "${profile}" removed`);
+      } else {
+        log.info('Figma credential profiles', { profiles: store.listProfiles() });
+      }
+    } finally {
+      store.close();
+    }
+    return;
+  }
   if (opts.auth) {
     const accessToken = process.env['FIGMA_OAUTH_ACCESS_TOKEN'];
     if (!secret || !accessToken) {
@@ -253,9 +285,9 @@ export async function figmaCommand(opts: FigmaActionOptions): Promise<void> {
         accessToken,
         ...(process.env['FIGMA_OAUTH_REFRESH_TOKEN'] ? { refreshToken: process.env['FIGMA_OAUTH_REFRESH_TOKEN'] } : {}),
         ...(process.env['FIGMA_OAUTH_EXPIRES_AT'] ? { expiresAt: process.env['FIGMA_OAUTH_EXPIRES_AT'] } : {})
-      });
+      }, profile);
     } finally { store.close(); }
-    log.success('Encrypted Figma OAuth credentials saved');
+    log.success(`Encrypted Figma OAuth credentials saved for profile "${profile}"`);
     return;
   }
   if (!opts.sync || !opts.node) {
@@ -264,7 +296,7 @@ export async function figmaCommand(opts: FigmaActionOptions): Promise<void> {
   let accessToken: string | undefined;
   if (secret) {
     const store = await FigmaCredentialStore.open(opts.database, secret);
-    try { accessToken = store.load()?.accessToken; } finally { store.close(); }
+    try { accessToken = store.loadValid(profile)?.accessToken; } finally { store.close(); }
   }
   const apiToken = process.env['FIGMA_API_TOKEN'];
   const fetched = await fetchFigmaElements({
@@ -1242,6 +1274,9 @@ export function buildProgram(): Command {
     .description('Store encrypted Figma OAuth credentials or generate component test stubs')
     .option('--auth', 'Encrypt FIGMA_OAUTH_ACCESS_TOKEN into SQLite', false)
     .option('--sync <file-key>', 'Figma file key to synchronize')
+    .option('--logout', 'Remove one encrypted credential profile', false)
+    .option('--list-profiles', 'List credential profile names without token material', false)
+    .option('--profile <name>', 'Credential profile used by auth, sync, or logout', 'default')
     .option('--node <node-id>', 'Frame/node ID used with --sync')
     .option('--output <dir>', 'Generated Figma test directory', './generated-tests/figma')
     .option('--database <file>', 'Encrypted credential SQLite database', './prova-credentials.sqlite')

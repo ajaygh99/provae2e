@@ -26,6 +26,8 @@ describe('Phase 2 CLI orchestration', () => {
     process.exitCode = undefined;
     delete process.env['PROVA_CREDENTIAL_KEY'];
     delete process.env['FIGMA_OAUTH_ACCESS_TOKEN'];
+    delete process.env['FIGMA_OAUTH_REFRESH_TOKEN'];
+    delete process.env['FIGMA_OAUTH_EXPIRES_AT'];
   });
 
   it('runs deterministic AI generation and validates language', async () => {
@@ -38,17 +40,21 @@ describe('Phase 2 CLI orchestration', () => {
   });
 
   it('stores encrypted Figma OAuth credentials', async () => {
-    const store = { save: jest.fn().mockResolvedValue(undefined), load: jest.fn(), close: jest.fn() };
+    const store = { save: jest.fn().mockResolvedValue(undefined), close: jest.fn() };
     mockFigmaOpen.mockResolvedValue(store);
     process.env['PROVA_CREDENTIAL_KEY'] = 'long-enough-secret-key';
     process.env['FIGMA_OAUTH_ACCESS_TOKEN'] = 'oauth-token';
     await figmaCommand({ auth: true, output: 'out', database: 'credentials.sqlite' });
-    expect(store.save).toHaveBeenCalledWith({ accessToken: 'oauth-token' });
+    expect(store.save).toHaveBeenCalledWith({ accessToken: 'oauth-token' }, 'default');
     expect(store.close).toHaveBeenCalled();
   });
 
   it('loads OAuth credentials, fetches Figma elements, and generates stubs', async () => {
-    const store = { save: jest.fn(), load: jest.fn(() => ({ accessToken: 'stored-oauth' })), close: jest.fn() };
+    const store = {
+      save: jest.fn(),
+      loadValid: jest.fn(() => ({ accessToken: 'stored-oauth' })),
+      close: jest.fn()
+    };
     mockFigmaOpen.mockResolvedValue(store);
     mockFetch.mockResolvedValue({ ok: true, fileKey: 'File1', nodeId: '1:2', elements: [{ name: 'Button', type: 'INSTANCE' }] });
     mockGenerateFigma.mockResolvedValue(['button.spec.ts']);
@@ -56,6 +62,27 @@ describe('Phase 2 CLI orchestration', () => {
     await figmaCommand({ auth: false, sync: 'File1', node: '1:2', output: 'out', database: 'credentials.sqlite' });
     expect(mockFetch).toHaveBeenCalledWith(expect.objectContaining({ accessToken: 'stored-oauth' }));
     expect(mockGenerateFigma).toHaveBeenCalled();
+  });
+
+  it('lists and removes named Figma credential profiles without exposing tokens', async () => {
+    const store = {
+      listProfiles: jest.fn(() => ['default', 'team-a']),
+      delete: jest.fn().mockResolvedValue(true),
+      close: jest.fn()
+    };
+    mockFigmaOpen.mockResolvedValue(store);
+    process.env['PROVA_CREDENTIAL_KEY'] = 'long-enough-secret-key';
+    await figmaCommand({
+      auth: false, listProfiles: true, profile: 'default',
+      output: 'out', database: 'credentials.sqlite'
+    });
+    expect(store.listProfiles).toHaveBeenCalled();
+    await figmaCommand({
+      auth: false, logout: true, profile: 'team-a',
+      output: 'out', database: 'credentials.sqlite'
+    });
+    expect(store.delete).toHaveBeenCalledWith('team-a');
+    expect(store.close).toHaveBeenCalledTimes(2);
   });
 
   function perfStore(overrides: Record<string, unknown> = {}): Record<string, unknown> {
