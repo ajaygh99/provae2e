@@ -36,6 +36,12 @@ export type {
   DeviceSessionArtifacts,
   MobileOperatingSystem
 } from './core/device-cloud-provider.js';
+export { resolveAndroidApp, runNativeAppiumSession } from './core/native-appium-runner.js';
+export type {
+  AppiumFetch,
+  NativeAppiumOptions,
+  NativeAppiumResult
+} from './core/native-appium-runner.js';
 export {
   parseHeaders,
   validateApiPayload,
