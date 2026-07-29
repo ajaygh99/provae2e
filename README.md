@@ -244,6 +244,26 @@ qe-tool perf --action check --url https://api.example.com --threshold 10 --vus 1
 qe-tool perf --action report --days 7 --output ./performance-history.csv
 ```
 
+## Analytics Dashboard
+
+Persist run outcomes, then generate a self-contained HTML dashboard or
+machine-readable JSON:
+
+```bash
+qe-tool run --url https://yourapp.com --type all --persist-analytics
+qe-tool report --analytics --days 30 --format html --output ./artifacts/analytics.html
+qe-tool report --analytics --days 30 --format json --output ./artifacts/analytics.json
+```
+
+The dashboard includes pass/failure/skip/flake rates, daily trends, quality
+status, anomalies, and flaky-test rankings. SQLite is the local default;
+setting `DATABASE_URL` selects PostgreSQL. Report writes are atomic and
+database credentials are redacted from errors.
+
+See [`docs/ANALYTICS.md`](docs/ANALYTICS.md) for metric interpretation,
+retention, CI artifacts, operational guidance, and
+`npm run validate:analytics`.
+
 ## OWASP ZAP Security Policy
 
 Process an OWASP ZAP traditional JSON report through persistent baselines,
