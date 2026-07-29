@@ -24,7 +24,8 @@ it('renders ordered stdout and stderr events until completion', async () => {
       onEvent({ type: 'stderr', sequence: 2, text: 'warning\n' });
       onEvent({ type: 'complete', sequence: 3, summary: { id: 'run_1234567890abcdef', workspaceId: file.workspaceId, fileId: file.id, status: 'passed' } });
       return vi.fn();
-    })
+    }),
+    cancelRun: vi.fn()
   };
   render(<WorkspaceProvider api={workspaceApi}><WorkspaceSelector /><TestFileExplorer /><StudioRunConsole api={runApi} /></WorkspaceProvider>);
   await user.type(screen.getByLabelText('Project directory'), 'C:\\x');

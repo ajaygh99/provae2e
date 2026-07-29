@@ -7,6 +7,7 @@ export function StudioRunConsole({ api }: { api?: StudioRunApi }): React.JSX.Ele
   const { workspace, selectedFile } = useWorkspace();
   const [browser, setBrowser] = useState('chromium');
   const [status, setStatus] = useState<StudioRunStatus>();
+  const [runId, setRunId] = useState('');
   const [lines, setLines] = useState<{ type: 'stdout' | 'stderr'; text: string }[]>([]);
   const [error, setError] = useState('');
 
@@ -16,6 +17,7 @@ export function StudioRunConsole({ api }: { api?: StudioRunApi }): React.JSX.Ele
     setError('');
     try {
       const summary = await resolvedApi.startRun(workspace.id, selectedFile.id, browser, 120_000);
+      setRunId(summary.id);
       setStatus(summary.status);
       resolvedApi.streamEvents(summary.id, event => {
         if (event.type === 'stdout' || event.type === 'stderr') {
@@ -39,9 +41,16 @@ export function StudioRunConsole({ api }: { api?: StudioRunApi }): React.JSX.Ele
           <option value="chromium">Chromium</option><option value="firefox">Firefox</option>
           <option value="webkit">WebKit</option><option value="all">All browsers</option>
         </select></label>
-        <button className="ui-button ui-button--primary" type="button" disabled={!selectedFile || status === 'running'} onClick={() => void run()}>
-          {status === 'running' ? 'Running…' : 'Run test'}
+        <button className="ui-button ui-button--primary" type="button" disabled={!selectedFile || status === 'running' || status === 'queued'} onClick={() => void run()}>
+          {status === 'running' || status === 'queued' ? 'Running…' : 'Run test'}
         </button>
+        {(status === 'running' || status === 'queued') && (
+          <button className="ui-button" type="button" onClick={() => {
+            void resolvedApi.cancelRun(runId).then(summary => setStatus(summary.status)).catch(cancelError => {
+              setError(cancelError instanceof Error ? cancelError.message : 'Run could not be cancelled.');
+            });
+          }}>Cancel run</button>
+        )}
       </div>
       {status && <p role="status">Run status: <strong>{status}</strong></p>}
       {error && <p role="alert" className="ui-field__error">{error}</p>}

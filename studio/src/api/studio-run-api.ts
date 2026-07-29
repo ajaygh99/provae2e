@@ -1,4 +1,4 @@
-export type StudioRunStatus = 'running' | 'passed' | 'failed' | 'cancelled' | 'timed-out';
+export type StudioRunStatus = 'queued' | 'running' | 'passed' | 'failed' | 'cancelled' | 'timed-out';
 
 export interface StudioRunSummary {
   id: string;
@@ -21,6 +21,7 @@ export interface StudioRunApi {
     onEvent: (event: StudioRunEvent) => void,
     onError: () => void
   ) => () => void;
+  cancelRun: (runId: string) => Promise<StudioRunSummary>;
 }
 
 export class HttpStudioRunApi implements StudioRunApi {
@@ -46,5 +47,11 @@ export class HttpStudioRunApi implements StudioRunApi {
     }
     source.onerror = onError;
     return () => source.close();
+  }
+
+  async cancelRun(runId: string): Promise<StudioRunSummary> {
+    const response = await fetch(`${this.baseUrl}/runs/${encodeURIComponent(runId)}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error(`Run could not be cancelled (${response.status}).`);
+    return response.json() as Promise<StudioRunSummary>;
   }
 }

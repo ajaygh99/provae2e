@@ -74,4 +74,20 @@ describe('Studio loopback HTTP API', () => {
     expect(body).toContain('"text":"hello\\n"');
     expect(body).toContain('event: complete');
   });
+
+  it('cancels a queued or running job through DELETE', async () => {
+    const summary = {
+      id: 'run_1234567890abcdef', workspaceId: 'ws_12345678',
+      fileId: 'file_12345678', status: 'cancelled' as const
+    };
+    const runs = { cancelRun: jest.fn().mockReturnValue(summary) } as unknown as StudioRunService;
+    server = createStudioHttpServer(runs);
+    const address = await listenStudioLoopback(server);
+    const response = await fetch(
+      `http://${address.host}:${address.port}/api/studio/v1/runs/${summary.id}`,
+      { method: 'DELETE' }
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(summary);
+  });
 });

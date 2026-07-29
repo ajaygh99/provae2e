@@ -59,6 +59,14 @@ async function route(
     }
     return;
   }
+  if (request.method === 'DELETE' && match) {
+    try {
+      sendJson(response, 200, runs.cancelRun(match[1]!));
+    } catch (error) {
+      sendJson(response, 404, { error: { code: 'NOT_FOUND', message: safeMessage(error) } });
+    }
+    return;
+  }
   const eventMatch = new RegExp(`^${STUDIO_API_PREFIX}/runs/(run_[A-Za-z0-9_-]{16,128})/events$`).exec(url.pathname);
   if (request.method === 'GET' && eventMatch) {
     try {

@@ -11,6 +11,7 @@ export interface StudioSpawnRequest {
   args: readonly string[];
   cwd: string;
   timeoutMs: number;
+  signal: AbortSignal;
   onStdout?: (text: string) => void;
   onStderr?: (text: string) => void;
 }
@@ -23,17 +24,32 @@ export interface StudioSpawnResult {
 
 export type StudioCommandRunner = (request: StudioSpawnRequest) => Promise<StudioSpawnResult>;
 
+interface QueuedRun {
+  id: string;
+  request: StudioRunRequest;
+  cwd: string;
+  url: string;
+}
+
 /** Runs only the fixed PROVA `run` command assembled from validated Studio values. */
 export class StudioRunService {
   private readonly runs = new Map<string, StudioRunSummary>();
   private readonly events = new Map<string, StudioRunEvent[]>();
   private readonly subscribers = new Map<string, Set<(event: StudioRunEvent) => void>>();
+  private readonly queue: QueuedRun[] = [];
+  private readonly controllers = new Map<string, AbortController>();
+  private activeCount = 0;
 
   constructor(
     private readonly workspaces: StudioWorkspaceManager,
     private readonly cliEntry = path.resolve('dist/cli/run.js'),
-    private readonly runner: StudioCommandRunner = spawnProva
-  ) {}
+    private readonly runner: StudioCommandRunner = spawnProva,
+    private readonly maxConcurrency = 2
+  ) {
+    if (!Number.isInteger(maxConcurrency) || maxConcurrency < 1 || maxConcurrency > 8) {
+      throw new Error('Studio concurrency must be an integer from 1 to 8.');
+    }
+  }
 
   async startRun(value: unknown): Promise<StudioRunSummary> {
     if (!isStudioRunRequest(value)) throw new Error('Invalid Studio run request.');
@@ -45,20 +61,18 @@ export class StudioRunService {
     }
 
     const id = `run_${randomUUID().replaceAll('-', '')}`;
-    const started = Date.now();
-    const running: StudioRunSummary = {
+    const queued: StudioRunSummary = {
       id,
       workspaceId: request.workspaceId,
       fileId: request.fileId,
-      status: 'running',
-      startedAt: new Date(started).toISOString()
+      status: 'queued'
     };
-    this.runs.set(id, running);
+    this.runs.set(id, queued);
     this.events.set(id, []);
-    this.emit(id, { type: 'status', sequence: 0, timestamp: new Date().toISOString(), status: 'running' });
-
-    void this.execute(id, request, target.rootPath, validated.definition.url, started);
-    return running;
+    this.emit(id, { type: 'status', sequence: 0, timestamp: new Date().toISOString(), status: 'queued' });
+    this.queue.push({ id, request, cwd: target.rootPath, url: validated.definition.url });
+    this.pump();
+    return this.getRun(id);
   }
 
   getRun(id: string): StudioRunSummary {
@@ -80,15 +94,46 @@ export class StudioRunService {
     return () => listeners.delete(listener);
   }
 
+  cancelRun(id: string): StudioRunSummary {
+    const current = this.getRun(id);
+    if (isTerminal(current.status)) return current;
+    const queuedIndex = this.queue.findIndex(item => item.id === id);
+    if (queuedIndex >= 0) this.queue.splice(queuedIndex, 1);
+    this.controllers.get(id)?.abort();
+    this.complete(id, 'cancelled', undefined, 'Run cancelled by user.');
+    return this.getRun(id);
+  }
+
+  private pump(): void {
+    while (this.activeCount < this.maxConcurrency && this.queue.length > 0) {
+      const next = this.queue.shift()!;
+      if (this.getRun(next.id).status !== 'queued') continue;
+      this.activeCount += 1;
+      const started = Date.now();
+      this.runs.set(next.id, {
+        ...this.getRun(next.id),
+        status: 'running',
+        startedAt: new Date(started).toISOString()
+      });
+      this.emit(next.id, {
+        type: 'status', sequence: 0, timestamp: new Date(started).toISOString(), status: 'running'
+      });
+      void this.execute(next).finally(() => {
+        this.activeCount -= 1;
+        this.pump();
+      });
+    }
+  }
+
   private async execute(
-    id: string,
-    request: StudioRunRequest,
-    cwd: string,
-    url: string,
-    started: number
+    queued: QueuedRun
   ): Promise<void> {
+    const { id, request, cwd, url } = queued;
+    const controller = new AbortController();
+    this.controllers.set(id, controller);
+    let timer: NodeJS.Timeout | undefined;
     try {
-      const result = await this.runner({
+      const execution = this.runner({
         executable: process.execPath,
         args: [
           this.cliEntry,
@@ -100,26 +145,44 @@ export class StudioRunService {
         ],
         cwd,
         timeoutMs: request.timeoutMs,
+        signal: controller.signal,
         onStdout: text => this.emitOutput(id, 'stdout', text),
         onStderr: text => this.emitOutput(id, 'stderr', text)
       });
-      this.finish(id, started, result.exitCode === 0 ? 'passed' : 'failed', result.exitCode,
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new StudioTimeoutError());
+        }, request.timeoutMs);
+        timer.unref();
+      });
+      const result = await Promise.race([execution, timeout]);
+      if (isTerminal(this.getRun(id).status)) return;
+      this.complete(id, result.exitCode === 0 ? 'passed' : 'failed', result.exitCode,
         result.exitCode === 0 ? undefined : safeFailure(result.stderr));
     } catch (error) {
-      this.finish(id, started, 'failed', undefined,
-        safeFailure(error instanceof Error ? error.message : 'CLI execution failed.'));
+      if (isTerminal(this.getRun(id).status)) return;
+      if (error instanceof StudioTimeoutError) {
+        this.complete(id, 'timed-out', undefined, `Run exceeded ${request.timeoutMs}ms timeout.`);
+      } else {
+        this.complete(id, 'failed', undefined,
+          safeFailure(error instanceof Error ? error.message : 'CLI execution failed.'));
+      }
+    } finally {
+      if (timer) clearTimeout(timer);
+      this.controllers.delete(id);
     }
   }
 
-  private finish(
+  private complete(
     id: string,
-    started: number,
-    status: 'passed' | 'failed',
+    status: 'passed' | 'failed' | 'cancelled' | 'timed-out',
     exitCode?: number,
     failureSummary?: string
   ): void {
     const current = this.getRun(id);
     const finished = Date.now();
+    const started = current.startedAt ? Date.parse(current.startedAt) : finished;
     this.runs.set(id, {
       ...current,
       status,
@@ -160,6 +223,13 @@ function spawnProva(request: StudioSpawnRequest): Promise<StudioSpawnResult> {
     });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
+    const abort = (): void => {
+      child.kill('SIGTERM');
+      setTimeout(() => {
+        if (!child.killed) child.kill('SIGKILL');
+      }, 2_000).unref();
+    };
+    request.signal.addEventListener('abort', abort, { once: true });
     child.stdout.on('data', chunk => {
       const buffer = Buffer.from(chunk);
       stdout.push(buffer);
@@ -171,12 +241,21 @@ function spawnProva(request: StudioSpawnRequest): Promise<StudioSpawnResult> {
       request.onStderr?.(buffer.toString('utf8'));
     });
     child.once('error', reject);
-    child.once('close', code => resolve({
-      exitCode: code ?? 1,
-      stdout: Buffer.concat(stdout).toString('utf8'),
-      stderr: Buffer.concat(stderr).toString('utf8')
-    }));
+    child.once('close', code => {
+      request.signal.removeEventListener('abort', abort);
+      resolve({
+        exitCode: code ?? 1,
+        stdout: Buffer.concat(stdout).toString('utf8'),
+        stderr: Buffer.concat(stderr).toString('utf8')
+      });
+    });
   });
+}
+
+class StudioTimeoutError extends Error {}
+
+function isTerminal(status: StudioRunSummary['status']): boolean {
+  return ['passed', 'failed', 'cancelled', 'timed-out'].includes(status);
 }
 
 function safeFailure(value: string): string {

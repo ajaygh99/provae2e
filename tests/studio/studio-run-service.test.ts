@@ -37,7 +37,7 @@ describe('StudioRunService', () => {
     expect(started.status).toBe('running');
     expect(service.getRun(started.id).status).toBe('passed');
     expect(service.getEvents(started.id).map(event => event.type)).toEqual([
-      'status', 'stdout', 'stderr', 'complete'
+      'status', 'status', 'stdout', 'stderr', 'complete'
     ]);
     expect(calls[0]).toMatchObject({
       executable: process.execPath,
@@ -61,5 +61,56 @@ describe('StudioRunService', () => {
     const service = new StudioRunService(manager, 'cli.js', runner);
     await expect(service.startRun(request)).rejects.toThrow('Invalid Studio run request');
     expect(runner).not.toHaveBeenCalled();
+  });
+
+  it('queues above the concurrency limit and starts the next run after cancellation', async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), 'studio-run-'));
+    await writeFile(path.join(root, 'safe.prova.yaml'),
+      'name: safe\nurl: https://example.com\nsteps:\n  - action: navigate\n');
+    const manager = new StudioWorkspaceManager();
+    const workspace = await manager.selectWorkspace(root);
+    const [file] = await manager.listTestFiles(workspace.id);
+    const pending: { request: StudioSpawnRequest; resolve: (value: { exitCode: number; stdout: string; stderr: string }) => void }[] = [];
+    const runner = jest.fn((request: StudioSpawnRequest) => new Promise<{ exitCode: number; stdout: string; stderr: string }>(resolve => {
+      pending.push({ request, resolve });
+    }));
+    const service = new StudioRunService(manager, 'cli.js', runner, 1);
+    const input = { workspaceId: workspace.id, fileId: file!.id, browser: 'chromium', timeoutMs: 5_000 };
+    const first = await service.startRun(input);
+    const second = await service.startRun(input);
+
+    expect(first.status).toBe('running');
+    expect(second.status).toBe('queued');
+    expect(runner).toHaveBeenCalledTimes(1);
+    expect(service.cancelRun(first.id).status).toBe('cancelled');
+    pending[0]!.resolve({ exitCode: 1, stdout: '', stderr: '' });
+    await new Promise(resolve => setImmediate(resolve));
+    expect(service.getRun(second.id).status).toBe('running');
+    expect(runner).toHaveBeenCalledTimes(2);
+    service.cancelRun(second.id);
+    pending[1]!.resolve({ exitCode: 1, stdout: '', stderr: '' });
+  });
+
+  it('enforces timeout even when a runner does not cooperate', async () => {
+    jest.useFakeTimers();
+    try {
+      root = await mkdtemp(path.join(os.tmpdir(), 'studio-run-'));
+      await writeFile(path.join(root, 'safe.prova.yaml'),
+        'name: safe\nurl: https://example.com\nsteps:\n  - action: navigate\n');
+      const manager = new StudioWorkspaceManager();
+      const workspace = await manager.selectWorkspace(root);
+      const [file] = await manager.listTestFiles(workspace.id);
+      const service = new StudioRunService(manager, 'cli.js', () => new Promise(() => undefined));
+      const run = await service.startRun({
+        workspaceId: workspace.id, fileId: file!.id, browser: 'chromium', timeoutMs: 1_000
+      });
+      await jest.advanceTimersByTimeAsync(1_001);
+      expect(service.getRun(run.id)).toMatchObject({
+        status: 'timed-out',
+        failureSummary: 'Run exceeded 1000ms timeout.'
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
