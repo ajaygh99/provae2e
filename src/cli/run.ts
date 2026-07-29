@@ -234,6 +234,8 @@ export interface FigmaActionOptions {
   logout?: boolean;
   listProfiles?: boolean;
   profile?: string;
+  url?: string;
+  overwrite?: boolean;
   node?: string;
   output: string;
   database: string;
@@ -305,7 +307,10 @@ export async function figmaCommand(opts: FigmaActionOptions): Promise<void> {
   });
   if (!fetched.ok) { log.error(fetched.error); process.exitCode = 1; return; }
   try {
-    const files = await generateFigmaTests(fetched.elements, opts.output);
+    const files = await generateFigmaTests(fetched.elements, opts.output, {
+      ...(opts.url ? { baseUrl: opts.url } : {}),
+      overwrite: opts.overwrite ?? false
+    });
     log.success('Figma component tests generated', { files });
   } catch (error) {
     log.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1;
@@ -1277,6 +1282,8 @@ export function buildProgram(): Command {
     .option('--logout', 'Remove one encrypted credential profile', false)
     .option('--list-profiles', 'List credential profile names without token material', false)
     .option('--profile <name>', 'Credential profile used by auth, sync, or logout', 'default')
+    .option('--url <url>', 'Application URL embedded in generated tests')
+    .option('--overwrite', 'Replace changed generated tests explicitly', false)
     .option('--node <node-id>', 'Frame/node ID used with --sync')
     .option('--output <dir>', 'Generated Figma test directory', './generated-tests/figma')
     .option('--database <file>', 'Encrypted credential SQLite database', './prova-credentials.sqlite')

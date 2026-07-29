@@ -89,6 +89,7 @@ export type { AnalyticsReport } from './reporters/analytics-reporter.js';
 export { PowerBIExporter } from './exporters/powerbi-exporter.js';
 export type { PowerBIConfig, PowerBIExportResult } from './exporters/powerbi-exporter.js';
 export { generateFigmaTests } from './generators/figma-test-generator.js';
+export type { FigmaTestGenerationOptions } from './generators/figma-test-generator.js';
 export { SpecLinkStore } from './core/spec-link-store.js';
 export type { Requirement, RequirementTest, RequirementCoverage } from './core/spec-link-store.js';
 export {
