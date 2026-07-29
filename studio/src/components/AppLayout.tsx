@@ -10,6 +10,7 @@ export function AppLayout({ children }: { children: React.ReactNode }): React.JS
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       <Sidebar />
       <MobileMenu onToggle={setMobileMenuOpen}>
         <div className="brand">

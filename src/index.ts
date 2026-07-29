@@ -412,3 +412,13 @@ export type {
   KnowledgeGraphInsight,
   KnowledgeSubgraph
 } from './core/knowledge-graph-insights.js';
+export { StudioRunService } from './studio/studio-run-service.js';
+export type {
+  StudioCommandRunner,
+  StudioSpawnRequest,
+  StudioSpawnResult
+} from './studio/studio-run-service.js';
+export {
+  createStudioHttpServer,
+  listenStudioLoopback
+} from './studio/studio-http-server.js';

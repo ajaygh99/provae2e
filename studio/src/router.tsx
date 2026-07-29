@@ -43,6 +43,8 @@ export function RouterProvider({ children, initialPath }: RouterProviderProps): 
 }
 
 /** Returns the current internal pathname and navigation function. */
+// The provider and its companion hook intentionally share this small module.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useRouter(): RouterValue {
   const value = useContext(RouterContext);
   if (!value) throw new Error('RouterProvider is required.');

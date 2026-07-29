@@ -21,6 +21,7 @@ export function MobileMenu({ children, onToggle }: MobileMenuProps): React.JSX.E
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsOpen(false);
+        menuButtonRef.current?.focus();
       }
     };
 
@@ -38,6 +39,7 @@ export function MobileMenu({ children, onToggle }: MobileMenuProps): React.JSX.E
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.addEventListener('click', handleClickOutside);
+      menuDrawerRef.current?.querySelector<HTMLElement>('a, button')?.focus();
     }
 
     return () => {
@@ -59,6 +61,7 @@ export function MobileMenu({ children, onToggle }: MobileMenuProps): React.JSX.E
         className="md:hidden fixed top-4 left-4 z-40 flex flex-col gap-1.5 bg-transparent border-0 cursor-pointer p-2"
         aria-label={isOpen ? 'Close navigation menu' : 'Open navigation menu'}
         aria-expanded={isOpen}
+        aria-controls="mobile-navigation-drawer"
       >
         <span
           className={`w-6 h-0.5 bg-prova-text transition-all duration-300 ${
@@ -84,7 +87,13 @@ export function MobileMenu({ children, onToggle }: MobileMenuProps): React.JSX.E
 
       {/* Menu drawer — slides in on mobile when open */}
       <div
+        id="mobile-navigation-drawer"
         ref={menuDrawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Mobile navigation"
+        aria-hidden={!isOpen}
+        inert={!isOpen}
         className={`md:hidden fixed top-0 left-0 h-screen w-64 bg-prova-sidebar text-prova-sidebar-text p-7 flex flex-col gap-10.5 z-40 transform transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}

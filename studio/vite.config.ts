@@ -4,7 +4,10 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 4173
+    port: 4173,
+    proxy: {
+      '/api/studio': 'http://127.0.0.1:4317'
+    }
   },
   test: {
     environment: 'jsdom',

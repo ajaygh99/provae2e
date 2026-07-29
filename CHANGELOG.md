@@ -2,6 +2,17 @@
 
 ## 0.3.5-beta.1 — 2026-07-28
 
+### Phase 4.1 Studio MVP
+
+- Added local-first workspace discovery, source and visual test editing, schema
+  validation, and browser execution.
+- Added a loopback-only Studio API with shell-free CLI invocation, live output,
+  cancellation, enforced timeouts, and bounded concurrency.
+- Added recent results and contained evidence viewing for logs, screenshots,
+  traces, and reports.
+- Added complete UI states, keyboard focus management, reduced-motion support,
+  responsive layouts, integration coverage, and a fast validation script.
+
 ### Phase 4 foundation readiness
 
 - Added multi-OS Chromium, Firefox, and WebKit execution.

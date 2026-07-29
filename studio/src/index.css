@@ -44,6 +44,22 @@
     font: inherit;
   }
 
+  :focus-visible {
+    outline: 3px solid #7c3aed;
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+
   input,
   textarea,
   select {
@@ -54,6 +70,22 @@
 @layer components {
   .app-shell {
     @apply grid grid-cols-app min-h-screen;
+  }
+
+  .skip-link {
+    position: fixed;
+    z-index: 100;
+    top: 0.5rem;
+    left: 0.5rem;
+    transform: translateY(-160%);
+    border-radius: 0.5rem;
+    background: #ffffff;
+    padding: 0.75rem 1rem;
+    color: #111827;
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
   }
 
   .sidebar {
@@ -359,13 +391,96 @@
   cursor: crosshair !important;
 }
 
+.workspace-selector {
+  @apply grid gap-4 mt-6;
+}
+
+.workspace-selector form {
+  @apply grid items-end gap-3;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.workspace-selector__selected {
+  @apply m-0 pl-3;
+  border-left: 3px solid #22c55e;
+}
+
+.file-explorer {
+  @apply my-6;
+}
+
+.file-explorer__heading {
+  @apply flex items-start justify-between gap-3;
+}
+
+.file-explorer__list {
+  @apply grid gap-2 list-none m-0 p-0;
+}
+
+.file-item {
+  @apply grid w-full gap-1 rounded-xl border border-prova-border bg-transparent px-3 py-2.5 text-left text-prova-text transition;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.file-item:hover,
+.file-item:focus-visible,
+.file-item--selected {
+  @apply border-prova-primary bg-prova-bg-elevated outline-none;
+}
+
+.file-item span {
+  @apply col-span-2 truncate text-sm text-prova-text-muted;
+}
+
+.file-item small {
+  @apply row-start-1 col-start-2 text-xs font-bold text-prova-text-muted;
+}
+
+.builder-workspace {
+  @apply grid gap-4;
+  grid-template-columns: minmax(240px, 0.36fr) minmax(0, 1fr);
+}
+
+.builder-workspace .file-explorer {
+  @apply my-0;
+}
+
+.test-editor {
+  @apply grid gap-3;
+}
+
+.test-editor__heading {
+  @apply flex items-start justify-between gap-3;
+}
+
+.test-editor__heading p {
+  @apply m-0 text-sm text-prova-text-muted;
+}
+
+.test-editor__input {
+  @apply min-h-96 w-full resize-y rounded-xl border border-prova-border-lighter bg-prova-sidebar p-4 font-mono text-sm text-prova-sidebar-text outline-none;
+  tab-size: 2;
+}
+
+.test-editor__input:focus {
+  @apply border-prova-primary ring-3 ring-prova-primary-disabled;
+}
+
+.test-editor__status {
+  @apply flex items-center justify-between text-sm text-prova-text-muted;
+}
+
+.test-editor__status strong {
+  @apply text-prova-success;
+}
+
 @media (max-width: 767px) {
   .app-shell {
-    @apply grid-cols-app-mobile;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .sidebar {
-    @apply p-5.5 px-3;
+    @apply hidden;
   }
 
   .brand div,
@@ -390,7 +505,7 @@
   }
 
   .app-content {
-    @apply px-6.5 py-6.5;
+    @apply px-4.5 py-6.5;
   }
 
   .metric-grid {
@@ -400,4 +515,43 @@
   .selector-toolbar {
     @apply grid items-stretch;
   }
+
+  .workspace-selector form {
+    @apply grid-cols-1 items-stretch;
+  }
+
+  .builder-workspace {
+    @apply grid-cols-1;
+  }
+
+  .test-editor__heading,
+  .file-explorer__heading {
+    @apply flex-wrap;
+  }
+
+  .test-editor__input {
+    min-height: 18rem;
+  }
+
+  .visual-step {
+    overflow-wrap: anywhere;
+  }
+
+  .run-console__output {
+    max-width: calc(100vw - 2.25rem);
+    overflow: auto;
+  }
+
+  .result-card code,
+  .result-card dd {
+    overflow-wrap: anywhere;
+  }
+}
+ .connectivity-banner {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #f59e0b;
+  border-radius: 0.75rem;
+  background: #451a03;
+  color: #fef3c7;
 }
