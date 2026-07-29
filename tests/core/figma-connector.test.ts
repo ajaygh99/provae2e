@@ -4,8 +4,14 @@ import { extractFigmaElements, fetchFigmaElements } from '../../src/core/figma-c
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-function axiosFailure(status: number): Error & { isAxiosError: boolean; response: { status: number } } {
-  return Object.assign(new Error(`Request failed with status ${status}`), { isAxiosError: true, response: { status } });
+function axiosFailure(
+  status: number,
+  headers: Record<string, string> = {}
+): Error & { isAxiosError: boolean; response: { status: number; headers: Record<string, string> } } {
+  return Object.assign(new Error(`Request failed with status ${status}`), {
+    isAxiosError: true,
+    response: { status, headers }
+  });
 }
 
 describe('extractFigmaElements', () => {
@@ -124,6 +130,59 @@ describe('fetchFigmaElements', () => {
     const result = await fetchFigmaElements({ fileKey: 'file123', nodeId: '1:2', apiToken: 'unit-test-token' });
     expect(!result.ok && result.error).toContain('[REDACTED]');
     expect(!result.ok && result.error).not.toContain('unit-test-token');
+  });
+
+  it('retries rate limits and 5xx responses with bounded attempts', async () => {
+    mockedAxios.get
+      .mockRejectedValueOnce(axiosFailure(429, { 'retry-after': '0' }))
+      .mockRejectedValueOnce(axiosFailure(503))
+      .mockResolvedValueOnce({
+        data: { nodes: { '1:2': { document: { type: 'TEXT', name: 'Title', characters: 'Ready' } } } }
+      });
+    const result = await fetchFigmaElements({
+      fileKey: 'file123', nodeId: '1:2', apiToken: 'token',
+      maxRetries: 2, retryDelayMs: 0
+    });
+    expect(result.ok).toBe(true);
+    expect(mockedAxios.get).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops after the configured retry limit and does not retry authentication failures', async () => {
+    mockedAxios.get.mockRejectedValue(axiosFailure(500));
+    const exhausted = await fetchFigmaElements({
+      fileKey: 'file123', nodeId: '1:2', apiToken: 'token',
+      maxRetries: 2, retryDelayMs: 0
+    });
+    expect(!exhausted.ok && exhausted.error).toContain('after 3 attempts');
+    expect(mockedAxios.get).toHaveBeenCalledTimes(3);
+
+    mockedAxios.get.mockClear().mockRejectedValueOnce(axiosFailure(401));
+    await fetchFigmaElements({
+      fileKey: 'file123', nodeId: '1:2', apiToken: 'token',
+      maxRetries: 5, retryDelayMs: 0
+    });
+    expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('supports cancellation and validates transport limits before requesting', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    mockedAxios.get.mockRejectedValueOnce(new Error('cancelled with token'));
+    const cancelled = await fetchFigmaElements({
+      fileKey: 'file123', nodeId: '1:2', apiToken: 'token', signal: controller.signal
+    });
+    expect(!cancelled.ok && cancelled.error).toContain('cancelled');
+
+    mockedAxios.get.mockClear();
+    const timeout = await fetchFigmaElements({
+      fileKey: 'file123', nodeId: '1:2', apiToken: 'token', timeoutMs: 999
+    });
+    const retries = await fetchFigmaElements({
+      fileKey: 'file123', nodeId: '1:2', apiToken: 'token', maxRetries: 6
+    });
+    expect(!timeout.ok && timeout.error).toContain('timeoutMs');
+    expect(!retries.ok && retries.error).toContain('maxRetries');
+    expect(mockedAxios.get).not.toHaveBeenCalled();
   });
 
   it('rejects invalid file keys, node IDs, and blank tokens before any request', async () => {
