@@ -1,5 +1,6 @@
 /** Figma REST connector for browser-test generation context. */
 import axios from 'axios';
+import { parseFigmaReference } from './figma-reference.js';
 
 /** A meaningful named element extracted from a Figma node tree. */
 export interface FigmaElement {
@@ -86,14 +87,9 @@ function redactToken(message: string, token: string): string {
  * @returns Extracted elements or a safe, actionable failure.
  */
 export async function fetchFigmaElements(options: FigmaConnectorOptions): Promise<FigmaElementsResult> {
-  const fileKey = options.fileKey.trim();
-  const nodeId = options.nodeId.trim();
-  if (!/^[A-Za-z0-9_-]+$/.test(fileKey)) {
-    return { ok: false, error: `Invalid Figma file key "${options.fileKey}"` };
-  }
-  if (!nodeId || !/^[A-Za-z0-9:_-]+$/.test(nodeId)) {
-    return { ok: false, error: `Invalid Figma node ID "${options.nodeId}"` };
-  }
+  const reference = parseFigmaReference(options.fileKey, options.nodeId);
+  if (!reference.ok) return reference;
+  const { fileKey, nodeId } = reference.reference;
   const token = options.accessToken?.trim() || options.apiToken?.trim();
   if (!token) {
     return { ok: false, error: 'A Figma OAuth access token or FIGMA_API_TOKEN is required' };

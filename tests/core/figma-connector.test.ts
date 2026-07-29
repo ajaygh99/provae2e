@@ -81,6 +81,21 @@ describe('fetchFigmaElements', () => {
     );
   });
 
+  it('accepts a copied Figma URL and canonicalizes its node id', async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      data: { nodes: { '12:34': { document: { type: 'TEXT', name: 'Title', characters: 'Hello' } } } }
+    });
+    const result = await fetchFigmaElements({
+      fileKey: 'https://www.figma.com/design/AbC_123-key/App?node-id=12-34',
+      nodeId: '',
+      apiToken: 'unit-test-token'
+    });
+    expect(result).toEqual({
+      ok: true, fileKey: 'AbC_123-key', nodeId: '12:34',
+      elements: [{ name: 'Title', type: 'TEXT', text: 'Hello' }]
+    });
+  });
+
   it('returns a clear failure for an empty frame or missing node document', async () => {
     mockedAxios.get.mockResolvedValueOnce({ data: { nodes: { '1:2': { document: { type: 'FRAME', name: 'Blank' } } } } });
     await expect(fetchFigmaElements({ fileKey: 'file123', nodeId: '1:2', apiToken: 'token' }))
