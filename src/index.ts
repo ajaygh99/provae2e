@@ -99,6 +99,18 @@ export type {
   NativeSeedValue
 } from './core/native-test-data-seeder.js';
 export {
+  sanitizeIntegrationResult,
+  validateIntegrationInput,
+  validateIntegrationManifest
+} from './integrations/integration-contract.js';
+export type {
+  ApprovedIntegrationId,
+  IntegrationAction,
+  IntegrationExecutionResult,
+  IntegrationHealth,
+  IntegrationManifest
+} from './integrations/integration-contract.js';
+export {
   parseHeaders,
   validateApiPayload,
   validateDevice,
