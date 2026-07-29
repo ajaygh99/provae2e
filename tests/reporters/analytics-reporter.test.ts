@@ -79,3 +79,42 @@ test('rejects invalid clock and trend metrics before rendering', async () => {
     'report clock must return a valid Date'
   );
 });
+
+test('renders a self-contained accessible responsive dashboard with safe insights', async () => {
+  const dashboardStore = {
+    getTrends: jest.fn().mockResolvedValue([
+      { date: new Date('2026-01-01'), passCount: 8, failCount: 1, skipCount: 1, averageDuration: 120, flakeRate: 0.2 }
+    ]),
+    detectAnomalies: jest.fn().mockResolvedValue([{
+      testName: '<checkout>', type: 'failure_rate', severity: 'medium',
+      description: '<img src=x onerror=alert(1)>', detectedAt: new Date('2026-01-02')
+    }]),
+    getFlakiestTests: jest.fn().mockResolvedValue([{
+      testName: '<script>alert(1)</script>', runs: 5, transitions: 3, flakeRate: 0.75
+    }])
+  } as unknown as AnalyticsStore;
+  const html = await new AnalyticsReporter(dashboardStore, () => new Date('2026-01-08')).renderHTML();
+  expect(html).toContain('<meta name="viewport"');
+  expect(html).toContain('<main class="shell">');
+  expect(html).toContain('aria-label="Quality status:');
+  expect(html).toContain('<caption>Daily test outcomes and performance</caption>');
+  expect(html).toContain('role="img" aria-label="8 passed, 1 failed, 1 skipped"');
+  expect(html).toContain('@media(max-width:780px)');
+  expect(html).toContain('@media(prefers-reduced-motion:reduce)');
+  expect(html).not.toContain('<script');
+  expect(html).not.toContain('<img src=x');
+  expect(html).not.toMatch(/NaN|Infinity/);
+  expect(html).not.toMatch(/https?:\/\/|<link\b/);
+});
+
+test('renders explicit dashboard empty states', async () => {
+  const empty = {
+    getTrends: jest.fn().mockResolvedValue([]),
+    detectAnomalies: jest.fn().mockResolvedValue([]),
+    getFlakiestTests: jest.fn().mockResolvedValue([])
+  } as unknown as AnalyticsStore;
+  const html = await new AnalyticsReporter(empty).renderHTML();
+  expect(html).toContain('No trend data yet');
+  expect(html).toContain('No anomalies detected');
+  expect(html).toContain('No flaky tests detected');
+});
