@@ -89,6 +89,16 @@ export {
 } from './core/native-appium-lifecycle.js';
 export type { NativeLifecycleAction } from './core/native-appium-lifecycle.js';
 export {
+  validateNativeSeedFixture,
+  withNativeSeedData
+} from './core/native-test-data-seeder.js';
+export type {
+  NativeSeedAdapter,
+  NativeSeedFixture,
+  NativeSeedRecord,
+  NativeSeedValue
+} from './core/native-test-data-seeder.js';
+export {
   parseHeaders,
   validateApiPayload,
   validateDevice,
