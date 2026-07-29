@@ -51,6 +51,16 @@ export type {
 export { buildNativeGestureActions, performNativeGesture } from './core/native-appium-gestures.js';
 export type { NativeGesture, Point } from './core/native-appium-gestures.js';
 export {
+  prepareNativeDeviceFarm,
+  redactNativeDeviceFarmRuntime
+} from './core/native-device-farm.js';
+export type {
+  NativeDeviceFarmOptions,
+  NativeDeviceFarmProvider,
+  NativeDeviceFarmRuntime,
+  SauceRegion
+} from './core/native-device-farm.js';
+export {
   parseHeaders,
   validateApiPayload,
   validateDevice,
