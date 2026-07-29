@@ -4,6 +4,7 @@ import { TestFileExplorer } from '../components/TestFileExplorer';
 import { TestDocumentEditor } from '../components/TestDocumentEditor';
 import { VisualStepBuilder } from '../components/VisualStepBuilder';
 import { StudioRunConsole } from '../components/StudioRunConsole';
+import { StudioResultsViewer } from '../components/StudioResultsViewer';
 
 /** Displays graph-informed coverage and interactive selector tools while building a test. */
 export function BuilderPage(): React.JSX.Element {
@@ -17,6 +18,7 @@ export function BuilderPage(): React.JSX.Element {
       </div>
       <VisualStepBuilder />
       <StudioRunConsole />
+      <StudioResultsViewer />
       <KnowledgeGraphPanel
         title="Coverage gaps"
         rootId=""

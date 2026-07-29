@@ -81,6 +81,11 @@ export class StudioRunService {
     return run;
   }
 
+  listRuns(limit = 50): readonly StudioRunSummary[] {
+    const bounded = Math.max(1, Math.min(100, Math.trunc(limit)));
+    return [...this.runs.values()].reverse().slice(0, bounded);
+  }
+
   getEvents(id: string, afterSequence = -1): readonly StudioRunEvent[] {
     this.getRun(id);
     return (this.events.get(id) ?? []).filter(event => event.sequence > afterSequence);

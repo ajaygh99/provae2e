@@ -26,6 +26,7 @@ it('renders ordered stdout and stderr events until completion', async () => {
       return vi.fn();
     }),
     cancelRun: vi.fn()
+    ,listRuns: vi.fn().mockResolvedValue([])
   };
   render(<WorkspaceProvider api={workspaceApi}><WorkspaceSelector /><TestFileExplorer /><StudioRunConsole api={runApi} /></WorkspaceProvider>);
   await user.type(screen.getByLabelText('Project directory'), 'C:\\x');

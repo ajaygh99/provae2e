@@ -37,6 +37,11 @@ async function route(
     return;
   }
   const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+  if (request.method === 'GET' && url.pathname === `${STUDIO_API_PREFIX}/runs`) {
+    const requestedLimit = Number(url.searchParams.get('limit') ?? 50);
+    sendJson(response, 200, runs.listRuns(Number.isFinite(requestedLimit) ? requestedLimit : 50));
+    return;
+  }
   if (request.method === 'POST' && url.pathname === `${STUDIO_API_PREFIX}/runs`) {
     if (!request.headers['content-type']?.toLowerCase().startsWith('application/json')) {
       sendJson(response, 415, { error: { code: 'BAD_REQUEST', message: 'application/json is required.' } });

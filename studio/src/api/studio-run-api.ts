@@ -22,6 +22,7 @@ export interface StudioRunApi {
     onError: () => void
   ) => () => void;
   cancelRun: (runId: string) => Promise<StudioRunSummary>;
+  listRuns: () => Promise<readonly StudioRunSummary[]>;
 }
 
 export class HttpStudioRunApi implements StudioRunApi {
@@ -53,5 +54,11 @@ export class HttpStudioRunApi implements StudioRunApi {
     const response = await fetch(`${this.baseUrl}/runs/${encodeURIComponent(runId)}`, { method: 'DELETE' });
     if (!response.ok) throw new Error(`Run could not be cancelled (${response.status}).`);
     return response.json() as Promise<StudioRunSummary>;
+  }
+
+  async listRuns(): Promise<readonly StudioRunSummary[]> {
+    const response = await fetch(`${this.baseUrl}/runs?limit=50`);
+    if (!response.ok) throw new Error(`Run history could not be loaded (${response.status}).`);
+    return response.json() as Promise<readonly StudioRunSummary[]>;
   }
 }

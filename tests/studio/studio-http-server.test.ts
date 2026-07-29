@@ -90,4 +90,15 @@ describe('Studio loopback HTTP API', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(summary);
   });
+
+  it('lists recent run summaries for the results viewer', async () => {
+    const summaries = [{ id: 'run_1234567890abcdef', workspaceId: 'ws_12345678', fileId: 'file_12345678', status: 'passed' }];
+    const runs = { listRuns: jest.fn().mockReturnValue(summaries) } as unknown as StudioRunService;
+    server = createStudioHttpServer(runs);
+    const address = await listenStudioLoopback(server);
+    const response = await fetch(`http://${address.host}:${address.port}/api/studio/v1/runs?limit=25`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(summaries);
+    expect(runs.listRuns).toHaveBeenCalledWith(25);
+  });
 });
