@@ -1,7 +1,9 @@
 # Studio Phase 4.1 verification record
 
-Date: 2026-07-28  
-Branch: `feature/phase4-1-studio-core`  
+Date: 2026-07-28
+
+Branch: `feature/phase4-1-studio-core`
+
 Base: `release/v0.3.5-phase4`
 
 ## Delivered issues
