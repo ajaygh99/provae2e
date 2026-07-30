@@ -18,7 +18,8 @@
     "SECURITY.md",
     "docs/BETA-LAUNCH-SECURITY.md",
     "docs/NATIVE-MOBILE.md",
-    "docs/INTEGRATIONS.md"
+    "docs/INTEGRATIONS.md",
+    "docs/PHASE4-BETA-GUIDE.md"
   ],
   "scripts": {
     "build": "tsc",

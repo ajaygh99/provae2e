@@ -286,6 +286,12 @@ See [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) for authentication, minimum
 permissions, secret handling, troubleshooting, cleanup, and live-validation
 status.
 
+## Phase 4 Beta Operations
+
+Use [`docs/PHASE4-BETA-GUIDE.md`](docs/PHASE4-BETA-GUIDE.md) as the single
+operator entry point for prerequisites, implemented surfaces, deterministic
+validation, evidence boundaries, limitations, and publishing readiness.
+
 ## OWASP ZAP Security Policy
 
 Process an OWASP ZAP traditional JSON report through persistent baselines,
