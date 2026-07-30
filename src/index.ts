@@ -36,6 +36,68 @@ export type {
   DeviceSessionArtifacts,
   MobileOperatingSystem
 } from './core/device-cloud-provider.js';
+export { resolveAndroidApp, runNativeAppiumSession } from './core/native-appium-runner.js';
+export type {
+  AppiumFetch,
+  NativeAppiumOptions,
+  NativeAppiumResult
+} from './core/native-appium-runner.js';
+export { findNativeElement, validateNativeSelectors } from './core/native-appium-selector.js';
+export type {
+  NativeElementMatch,
+  NativeSelectorCandidate,
+  NativeSelectorStrategy
+} from './core/native-appium-selector.js';
+export { buildNativeGestureActions, performNativeGesture } from './core/native-appium-gestures.js';
+export type { NativeGesture, Point } from './core/native-appium-gestures.js';
+export {
+  prepareNativeDeviceFarm,
+  redactNativeDeviceFarmRuntime
+} from './core/native-device-farm.js';
+export type {
+  NativeDeviceFarmOptions,
+  NativeDeviceFarmProvider,
+  NativeDeviceFarmRuntime,
+  SauceRegion
+} from './core/native-device-farm.js';
+export {
+  changeNativePermissions,
+  nativeConsentCapabilities,
+  validateNativePermissionRequest
+} from './core/native-appium-permissions.js';
+export type {
+  NativePermissionRequest,
+  PermissionAction
+} from './core/native-appium-permissions.js';
+export {
+  createAppiumNetworkController,
+  withNativeNetworkProfile
+} from './core/native-appium-network.js';
+export type {
+  NativeNetworkController,
+  NativeNetworkProfile
+} from './core/native-appium-network.js';
+export {
+  approveNativeScreenshotBaseline,
+  captureNativeScreenshot,
+  compareNativeScreenshot
+} from './core/native-appium-screenshot.js';
+export type { NativeScreenshotEvidence } from './core/native-appium-screenshot.js';
+export {
+  buildNativeLifecycleCommands,
+  executeNativeLifecycle
+} from './core/native-appium-lifecycle.js';
+export type { NativeLifecycleAction } from './core/native-appium-lifecycle.js';
+export {
+  validateNativeSeedFixture,
+  withNativeSeedData
+} from './core/native-test-data-seeder.js';
+export type {
+  NativeSeedAdapter,
+  NativeSeedFixture,
+  NativeSeedRecord,
+  NativeSeedValue
+} from './core/native-test-data-seeder.js';
 export {
   parseHeaders,
   validateApiPayload,
