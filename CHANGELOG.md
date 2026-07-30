@@ -21,10 +21,27 @@
 - Added human approval, rejection, rollback, listing, and clear workflows for selector repairs.
 - Preserved Chromium defaults, deterministic fallback, and human control over permanent changes.
 
+### Phase 4 productization
+
+- Hardened Figma/Studio ingestion and performance validation with bounded,
+  deterministic workflows.
+- Added bounded ZAP JSON ingestion, enforceable risk policy, atomic security
+  persistence, reporting, CLI integration, and CI-ready validation.
+- Completed analytics dashboards, exports, integrity checks, and deterministic
+  operator validation.
+- Added a local Appium/native-mobile proof with bounded device-cloud adapters;
+  credentialed cloud execution remains a separate opt-in proof.
+- Hardened GitHub, Jira, Slack, and Figma integration contracts with safe
+  retries, redaction, and token-free validation.
+- Added a consolidated Phase 4 beta operator guide and release-readiness
+  automation.
+
 ### Quality
 
 - Added representative five-endpoint OpenAPI and selector-learning security evidence.
 - Verified failure-evidence safety, analytics integrity, packaging, and production dependency security.
+- Added token-free contract tests for every Phase 4 product surface without
+  claiming live provider validation.
 
 ## 0.3.4-beta.1 — 2026-07-27
 
