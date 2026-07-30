@@ -17,7 +17,8 @@
     "LICENSE",
     "SECURITY.md",
     "docs/BETA-LAUNCH-SECURITY.md",
-    "docs/NATIVE-MOBILE.md"
+    "docs/NATIVE-MOBILE.md",
+    "docs/INTEGRATIONS.md"
   ],
   "scripts": {
     "build": "tsc",

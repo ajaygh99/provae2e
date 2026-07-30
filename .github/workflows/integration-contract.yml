@@ -6,6 +6,8 @@ on:
       - "src/integrations/**"
       - "tests/integrations/**"
       - "tests/scripts/integration-workflow.test.ts"
+      - "tests/scripts/integration-docs.test.ts"
+      - "docs/INTEGRATIONS.md"
       - "scripts/validate-phase4-integrations.js"
       - "scripts/verify-integration-exports.js"
       - ".github/workflows/integration-contract.yml"

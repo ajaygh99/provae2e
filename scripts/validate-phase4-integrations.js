@@ -14,7 +14,7 @@ function run(command, args) {
 }
 
 const runNpm = (args) => run(process.execPath, [npmCli, ...args]);
-runNpm(['test', '--', '--runInBand', '--testPathPatterns=tests/integrations|integration-workflow']);
+runNpm(['test', '--', '--runInBand', '--testPathPatterns=tests/integrations|integration-(workflow|docs)']);
 runNpm(['run', 'typecheck']);
 runNpm(['run', 'lint', '--', '--quiet']);
 run(process.execPath, [
@@ -22,6 +22,7 @@ run(process.execPath, [
   'src/integrations',
   'tests/integrations',
   'tests/scripts/integration-workflow.test.ts',
+  'tests/scripts/integration-docs.test.ts',
   '--max-warnings',
   '0'
 ]);
