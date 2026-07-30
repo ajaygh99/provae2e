@@ -110,6 +110,11 @@ export type {
   IntegrationHealth,
   IntegrationManifest
 } from './integrations/integration-contract.js';
+export { IntegrationRegistry } from './integrations/integration-registry.js';
+export type {
+  IntegrationAdapter,
+  IntegrationExecutionContext
+} from './integrations/integration-registry.js';
 export {
   parseHeaders,
   validateApiPayload,
