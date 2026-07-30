@@ -1,0 +1,35 @@
+name: Integration contract
+
+on:
+  pull_request:
+    paths:
+      - "src/integrations/**"
+      - "tests/integrations/**"
+      - "tests/scripts/integration-workflow.test.ts"
+      - "scripts/validate-phase4-integrations.js"
+      - "scripts/verify-integration-exports.js"
+      - ".github/workflows/integration-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  contract:
+    name: Bounded integration contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run validate:integrations
+      - name: Scope statement
+        run: echo "Credential-free contract validation only; no live provider claim"
