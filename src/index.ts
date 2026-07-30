@@ -115,6 +115,8 @@ export type {
   IntegrationAdapter,
   IntegrationExecutionContext
 } from './integrations/integration-registry.js';
+export { GitHubChecksIntegration } from './integrations/github-checks.js';
+export type { IntegrationFetch } from './integrations/github-checks.js';
 export {
   parseHeaders,
   validateApiPayload,
