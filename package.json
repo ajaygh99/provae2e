@@ -20,6 +20,7 @@
     "docs/NATIVE-MOBILE.md",
     "docs/INTEGRATIONS.md",
     "docs/PHASE4-BETA-GUIDE.md",
+    "docs/PHASE4-BETA-ROLLBACK.md",
     "releases/v0.3.5-beta.1.md"
   ],
   "scripts": {

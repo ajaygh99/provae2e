@@ -82,3 +82,6 @@ for secrets before sharing.
   recorded.
 - Publishing remains a separate, explicitly approved operation after the
   release approval and package-integrity gates pass.
+
+See `docs/PHASE4-BETA-ROLLBACK.md` for the approval boundary, bottom-up merge
+order, registry rollback, and emergency Git bundle recovery procedure.
