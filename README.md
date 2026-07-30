@@ -276,6 +276,16 @@ This is distinct from Playwright mobile-browser emulation. See
 [`docs/NATIVE-MOBILE.md`](docs/NATIVE-MOBILE.md) for emulator, device-farm,
 credential, evidence, and validation requirements.
 
+## Bounded Integrations
+
+PROVA provides experimental, in-process contracts for GitHub check evidence,
+Jira requirement/result traceability, and Slack release notifications. Remote
+plugin installation and marketplace execution are not supported.
+
+See [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) for authentication, minimum
+permissions, secret handling, troubleshooting, cleanup, and live-validation
+status.
+
 ## OWASP ZAP Security Policy
 
 Process an OWASP ZAP traditional JSON report through persistent baselines,

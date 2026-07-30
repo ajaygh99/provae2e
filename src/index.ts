@@ -99,6 +99,27 @@ export type {
   NativeSeedValue
 } from './core/native-test-data-seeder.js';
 export {
+  sanitizeIntegrationResult,
+  validateIntegrationInput,
+  validateIntegrationManifest
+} from './integrations/integration-contract.js';
+export type {
+  ApprovedIntegrationId,
+  IntegrationAction,
+  IntegrationExecutionResult,
+  IntegrationHealth,
+  IntegrationManifest
+} from './integrations/integration-contract.js';
+export { IntegrationRegistry } from './integrations/integration-registry.js';
+export type {
+  IntegrationAdapter,
+  IntegrationExecutionContext
+} from './integrations/integration-registry.js';
+export { GitHubChecksIntegration } from './integrations/github-checks.js';
+export type { IntegrationFetch } from './integrations/github-checks.js';
+export { JiraTraceabilityIntegration } from './integrations/jira-traceability.js';
+export { SlackReleaseIntegration } from './integrations/slack-release.js';
+export {
   parseHeaders,
   validateApiPayload,
   validateDevice,
