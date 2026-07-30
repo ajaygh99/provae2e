@@ -46,6 +46,10 @@ Run the complete token-free PowerShell gate from the repository root:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-beta.ps1
 ```
 
+The orchestrator suppresses known provider and LLM credentials in its child
+processes, runs every deterministic Phase 4 validator, and writes token-free
+logs and a JSON manifest under `artifacts/phase4-beta-validation/`.
+
 Focused gates remain available:
 
 ```powershell
