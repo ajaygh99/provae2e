@@ -51,4 +51,9 @@ describe('Phase 4 beta PowerShell orchestrator', () => {
     );
     expect(script).toContain('$savedVitestMaxThreads');
   });
+
+  it('supports resuming release gates after externally interrupted surface validation', () => {
+    expect(script).toContain('[switch]$SkipSurfaceGates');
+    expect(script).toContain('surfaceGatesSkipped = [bool]$SkipSurfaceGates');
+  });
 });

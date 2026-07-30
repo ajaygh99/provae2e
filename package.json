@@ -21,7 +21,8 @@
     "docs/INTEGRATIONS.md",
     "docs/PHASE4-BETA-GUIDE.md",
     "docs/PHASE4-BETA-ROLLBACK.md",
-    "releases/v0.3.5-beta.1.md"
+    "releases/v0.3.5-beta.1.md",
+    "releases/v0.3.5-beta.1-phase4-candidate.json"
   ],
   "scripts": {
     "build": "tsc",

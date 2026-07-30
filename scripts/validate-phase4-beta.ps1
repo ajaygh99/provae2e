@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param([switch]$FocusedOnly)
+param(
+    [switch]$FocusedOnly,
+    [switch]$SkipSurfaceGates
+)
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -59,29 +62,31 @@ Push-Location $repo
 try {
     "PROVA Phase 4 beta token-free validation`nRepository: $repo`nStarted: $(Get-Date -Format o)" |
         Tee-Object -FilePath $log
-    Invoke-Step 'Studio workflow validation' {
-        powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-studio.ps1
-    }
-    Invoke-Step 'Figma workflow validation' {
-        powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-figma.ps1
-    }
-    Invoke-Step 'Performance workflow validation' {
-        powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-performance.ps1
-    }
-    Invoke-Step 'Security workflow validation' {
-        powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-security.ps1
-    }
-    Invoke-Step 'Analytics workflow validation' {
-        powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-analytics.ps1
-    }
-    Invoke-Step 'Native mobile validation' {
-        powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-native.ps1
-    }
-    Invoke-Step 'Integration validation' {
-        npm run validate:integrations
+    if (-not $SkipSurfaceGates) {
+        Invoke-Step 'Studio workflow validation' {
+            powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-studio.ps1
+        }
+        Invoke-Step 'Figma workflow validation' {
+            powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-figma.ps1
+        }
+        Invoke-Step 'Performance workflow validation' {
+            powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-performance.ps1
+        }
+        Invoke-Step 'Security workflow validation' {
+            powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-security.ps1
+        }
+        Invoke-Step 'Analytics workflow validation' {
+            powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-analytics.ps1
+        }
+        Invoke-Step 'Native mobile validation' {
+            powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-phase4-native.ps1
+        }
+        Invoke-Step 'Integration validation' {
+            npm run validate:integrations
+        }
     }
     if (-not $FocusedOnly) {
-        Invoke-Step 'Complete Jest regression suite' { npm test -- --runInBand --forceExit }
+        Invoke-Step 'Complete Jest regression suite' { npm run test:ci }
         Invoke-Step 'TypeScript typecheck' { npm run typecheck }
         Invoke-Step 'Zero-error lint' { npm run lint -- --quiet }
         Invoke-Step 'Production build' { npm run build }
@@ -99,6 +104,7 @@ $summary = [ordered]@{
     release = '0.3.5-beta.1'
     tokenFree = $true
     focusedOnly = [bool]$FocusedOnly
+    surfaceGatesSkipped = [bool]$SkipSurfaceGates
     completedAt = (Get-Date -Format o)
     passed = $script:Failures -eq 0
     credentialVariablesSuppressed = $credentialVariables
