@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "name": "@provae2e/cli",
+  "version": "0.3.5-beta.1",
+  "releaseBranch": "release/v0.3.5-phase4",
+  "phase4Items": {
+    "first": 1,
+    "last": 45,
+    "total": 45
+  },
+  "surfaces": [
+    "studio-figma",
+    "performance",
+    "security",
+    "analytics",
+    "native-mobile-appium",
+    "plugins-integrations",
+    "documentation-release"
+  ],
+  "mergeOrder": [
+    304,
+    312,
+    "release-preparation"
+  ],
+  "requiredGates": [
+    "scripts/validate-phase4-beta.ps1",
+    "scripts/verify-phase4-package.ps1"
+  ],
+  "checkpointTag": "phase4-beta-checkpoint-45-of-45",
+  "publishing": {
+    "prepared": true,
+    "performed": false,
+    "requiresExplicitFinalApproval": true,
+    "npmDistTag": "beta"
+  }
+}

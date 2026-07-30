@@ -18,7 +18,11 @@
     "SECURITY.md",
     "docs/BETA-LAUNCH-SECURITY.md",
     "docs/NATIVE-MOBILE.md",
-    "docs/INTEGRATIONS.md"
+    "docs/INTEGRATIONS.md",
+    "docs/PHASE4-BETA-GUIDE.md",
+    "docs/PHASE4-BETA-ROLLBACK.md",
+    "releases/v0.3.5-beta.1.md",
+    "releases/v0.3.5-beta.1-phase4-candidate.json"
   ],
   "scripts": {
     "build": "tsc",
@@ -36,6 +40,8 @@
     "validate:analytics": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-analytics.ps1",
     "validate:native": "node ./scripts/validate-phase4-native.js",
     "validate:integrations": "node ./scripts/validate-phase4-integrations.js",
+    "validate:phase4-beta": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase4-beta.ps1",
+    "verify:phase4-package": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-phase4-package.ps1",
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
     "typecheck": "tsc --noEmit",
