@@ -60,6 +60,16 @@ npm run validate:native
 npm run validate:integrations
 ```
 
+Build and inspect the local beta tarball without publishing it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-phase4-package.ps1
+```
+
+The package gate rejects tests, artifacts, environment files, databases, and
+logs, then records the tarball SHA-256 in
+`artifacts/phase4-package/package-integrity.json`.
+
 Release artifacts are written below `artifacts/phase4-beta-validation`.
 Private provider evidence must be stored outside the npm package and reviewed
 for secrets before sharing.
