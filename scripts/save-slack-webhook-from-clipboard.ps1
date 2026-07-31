@@ -13,7 +13,8 @@ if ($webhook -notmatch '^https://hooks\.slack\.com/services/[A-Za-z0-9/_-]+$') {
     ForEach-Object { [Environment]::SetEnvironmentVariable([string]$_, $null, 'User') }
 
 [Environment]::SetEnvironmentVariable('SLACK_RELEASE_WEBHOOK_URL', $webhook, 'User')
-Set-Clipboard -Value ''
+# Windows PowerShell 5.1 rejects an empty string for Set-Clipboard.
+Set-Clipboard -Value '[cleared by ProvaE2E]'
 $webhook = $null
 
 Write-Host ''
