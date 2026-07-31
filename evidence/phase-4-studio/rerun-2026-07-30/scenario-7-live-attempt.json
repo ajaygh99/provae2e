@@ -1,0 +1,22 @@
+{
+  "scenario": 7,
+  "attemptedAt": "2026-07-30",
+  "releaseCommit": "67d6512c1fe3430455f8f010220abb98c9460228",
+  "automatedContracts": "PASS",
+  "providers": {
+    "github": {
+      "status": "BLOCKED",
+      "result": "HTTP 403",
+      "reason": "The current GitHub CLI OAuth credential cannot create check-runs. A GitHub App installation token or fine-grained token with repository metadata read and Checks read/write is required."
+    },
+    "jira": {
+      "status": "BLOCKED",
+      "reason": "JIRA_ACCESS_TOKEN and Jira Cloud site/project configuration are unavailable."
+    },
+    "slack": {
+      "status": "BLOCKED",
+      "reason": "SLACK_RELEASE_WEBHOOK_URL is unavailable."
+    }
+  },
+  "secretsRecorded": false
+}

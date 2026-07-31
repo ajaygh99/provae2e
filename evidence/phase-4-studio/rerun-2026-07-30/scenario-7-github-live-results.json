@@ -1,0 +1,15 @@
+﻿{
+  "provider": "github",
+  "status": "PASS",
+  "testedAt": "2026-07-31T11:52:34.537Z",
+  "appId": "4445152",
+  "installationId": 150293857,
+  "repository": "ajaygh99/provae2e",
+  "result": {
+    "status": "success",
+    "action": "publish-check",
+    "externalId": "91137172069",
+    "url": "https://github.com/ajaygh99/provae2e/runs/91137172069",
+    "message": "GitHub check created"
+  }
+}
