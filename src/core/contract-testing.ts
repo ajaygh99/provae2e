@@ -214,7 +214,7 @@ export function generateComplianceReport(registry: ContractRegistry, exchanges: 
     summary: `${percentage}% of requests comply with published contract`, results };
 }
 
-function validateJsonSchema(value: unknown, schema: JsonSchema, path: string): string[] {
+export function validateJsonSchema(value: unknown, schema: JsonSchema, path = 'value'): string[] {
   if (value === null && schema.nullable) return [];
   const actual = Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value;
   const expected = schema.type === 'integer' ? 'number' : schema.type;

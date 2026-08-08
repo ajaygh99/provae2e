@@ -1,62 +1,58 @@
 # PROVA Product Roadmap
-# Approved: June 2026
 
-## v0.3.3 BETA — Analytics Core
+Updated: July 28, 2026
 
-- Complete: SQLite and PostgreSQL persistence
-- Complete: 90-day retention
-- Complete: 7/30/90-day trends, anomaly detection, and flaky-test analysis
-- Complete: HTML and JSON analytics reports
-- Deferred: Power BI export is feature-flagged off until the credentialed v0.3.3.1 Phase 2 release
+## Shipped beta foundation
 
-## v0.3.4 BETA — Plugin Ecosystem
+- `v0.3.3-beta.1`: persistent analytics, retention, trends, anomaly detection, and reports.
+- `v0.3.4-beta.1`: clean-install reliability, failure evidence, secret scanning, and zero-loss analytics migration.
+- `v0.3.5-beta.1`: multi-browser execution, safe OpenAPI generation/execution, and approved learning-based selector repair.
 
-- In progress: plugin lifecycle, loader, and registry
-- Planned: built-in integrations, reporters, exporters, notifications, and custom plugins
-- Planned: plugin discovery and marketplace metadata
+## Phase 4 readiness gate
 
-## Phase 1 — MVP (Weeks 1-10, $21.25/month)
-**Goal: First 3 paying customers**
-- Browser testing (Playwright headless Chromium/WebKit/Firefox)
-- Mobile browser emulation (30+ devices via Playwright)
-- API testing (REST + GraphQL via Playwright network)
-- CLI: qe-tool run with --url --type --device --workers --report
-- Self-healing selectors (5-tier fallback hierarchy)
-- HTML reports (Allure)
-- Ollama AI summaries (--ai flag, local, $0)
-- GitHub Actions drop-in config
-- npm publish @provae2e/cli
-- Target: AI startups (YC batches, Product Hunt, X/Twitter)
-- Pricing: Free (100 runs/mo) | Starter $29 | Team $79
+Phase 4 starts only after `v0.3.5-beta.1` is published and independently
+validated. Required gates are:
 
-## Phase 2 — Intelligence (Month 3-6)
-**Goal: 20 paying customers, product-market fit**
-- JIRA connector + AC extraction
-- Basic AI test generation from specs
-- Test data factory (self-service, schema-aware)
-- Figma screen ingestion (basic)
-- Multi-environment gates (dev→qe→staging)
-- Performance baseline monitoring (K6 integration)
+- Chromium, Firefox, and WebKit on Windows, Ubuntu, and macOS.
+- OpenAPI 3.x generation and execution with writes disabled by default.
+- Selector reuse at 95% minimum confidence.
+- Human review, approval, rejection, rollback, and clear controls.
+- Zero credentials or PII in learning/model artifacts.
+- Full test, coverage, build, package, audit, and release evidence.
 
-## Phase 3 — Platform (Month 6-12)
-**Goal: $5k MRR, first enterprise customer**
-- PROVA Studio (codeless web UI for POs and BAs)
-- Full Golden Thread traceability (7-stage chain)
-- Production monitoring (PROVA Sentinel, 5 layers)
-- Mobile native testing (Appium)
-- Security testing (OWASP ZAP)
-- Full knowledge graph (4-source: GitHub + JIRA + Design + DB)
+## Phase 4 — Enterprise
 
-## Phase 4 — Enterprise (Month 12-24)
-**Goal: $10k MRR, Series A readiness**
-- LLM/AI feature testing (hallucination detection)
-- Compliance automation (GDPR/HIPAA/PCI)
-- PROVA Chat (conversational QE in Slack/Teams)
-- ERP/mainframe connectors
-- Advanced multi-environment orchestration
-- White-label offering for resellers
+1. LLM/AI feature testing, including hallucination and policy evaluation.
+2. Advanced multi-environment orchestration and production quality gates.
+3. Compliance evidence automation for GDPR, HIPAA, and PCI.
+4. PROVA Chat integrations for Slack and Teams.
+5. Enterprise connectors selected from validated customer demand.
 
-## Competitor Benchmark
-- ACCELQ: PROVA wins 34/37 features (0 ACCELQ wins)
-- Selenium: PROVA wins 38/40 features (tie: license cost)
-- Score: 9.5/10 current → 10/10 at Month 24
+Marketplace breadth, white-label delivery, and ERP/mainframe integrations remain
+post-readiness initiatives and require customer evidence before prioritization.
+
+## Quality principles for every future release
+
+Every release must assess and improve these areas wherever they apply:
+
+1. Compatibility with widely used industry applications and platforms.
+2. Maintainability across many projects and long-term upgrades.
+3. Adaptability through secure connectors for systems such as Jira, ALM,
+   GitHub, cloud platforms, Slack, and Teams.
+4. Security against misuse, dependency attacks, data leakage, and unauthorized
+   modification. Open-source code cannot be made impossible to copy.
+5. User experience that novice professionals can understand and operate without
+   specialist assistance.
+6. Performance measured against an established baseline.
+7. Scalable workload distribution, including queueing, worker balancing,
+   autoscaling, and recovery where the release scope requires them.
+
+Release plans and evidence must state which principles are applicable, what was
+improved, what was tested, and what remains deferred. These principles guide
+every release but do not justify shallow integrations or unsupported claims.
+
+## Success metrics
+
+- Reliability, evidence completeness, diagnostic time, and CI cost.
+- Adoption, retained users, paying customers, and verified customer outcomes.
+- No internally invented competitor score is used as a release gate.

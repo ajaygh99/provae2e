@@ -16,6 +16,9 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+permissions:
+  contents: read
+
 jobs:
   deterministic-gate:
     name: Deterministic gate before paid review

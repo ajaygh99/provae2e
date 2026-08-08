@@ -12,6 +12,9 @@ on:
         required: true
         default: iPhone 14
 
+permissions:
+  contents: read
+
 jobs:
   real-device:
     runs-on: ubuntu-latest

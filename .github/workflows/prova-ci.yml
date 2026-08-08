@@ -9,6 +9,13 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # ── TypeScript + Lint check ─────────────────────────────────────
   typecheck:
@@ -114,6 +121,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -138,8 +146,8 @@ jobs:
       - name: Check for release approval
         run: node scripts/check-release-approval.js
 
-      - name: Install Playwright browser for prepublish checks
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers for prepublish checks
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Publish approved package version
         run: |
@@ -152,14 +160,32 @@ jobs:
           else
             NPM_TAG="latest"
           fi
-          npm publish --tag "${NPM_TAG}"
-          git tag "v${VERSION}"
-          git push origin "v${VERSION}"
+          if npm view "@provae2e/cli@${VERSION}" version >/dev/null 2>&1; then
+            echo "@provae2e/cli@${VERSION} is already published; skipping npm publish."
+          else
+            npm publish --tag "${NPM_TAG}" --provenance
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists; skipping tag creation."
+          else
+            git tag "v${VERSION}"
+            git push origin "v${VERSION}"
+          fi
           RELEASE_FLAGS=()
           if [[ "${VERSION}" == *-* ]]; then
             RELEASE_FLAGS+=(--prerelease)
           fi
-          gh release create "v${VERSION}" --title "PROVA v${VERSION}" --notes-file "releases/v${VERSION}.md" "${RELEASE_FLAGS[@]}"
+          NOTES_FILE="releases/v${VERSION}.md"
+          if [[ ! -f "${NOTES_FILE}" && -f "releases/v${VERSION}-foundation-evidence.md" ]]; then
+            NOTES_FILE="releases/v${VERSION}-foundation-evidence.md"
+          fi
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "GitHub release v${VERSION} already exists; skipping release creation."
+          elif [[ -f "${NOTES_FILE}" ]]; then
+            gh release create "v${VERSION}" --title "PROVA v${VERSION}" --notes-file "${NOTES_FILE}" "${RELEASE_FLAGS[@]}"
+          else
+            gh release create "v${VERSION}" --title "PROVA v${VERSION}" --generate-notes "${RELEASE_FLAGS[@]}"
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

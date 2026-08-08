@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/ajaygh99/provae2e/security/advisories/new
+    about: Never disclose credentials, customer data, or exploit details publicly.
+  - name: Beta security and operating guidance
+    url: https://github.com/ajaygh99/provae2e/blob/main/docs/BETA-LAUNCH-SECURITY.md
+    about: Review supported usage and security boundaries before filing an issue.

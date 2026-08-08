@@ -1,0 +1,9 @@
+# Security-sensitive and release files require owner review.
+* @ajaygh99
+/.github/ @ajaygh99
+/scripts/ @ajaygh99
+/src/core/ @ajaygh99
+/src/storage/ @ajaygh99
+/package.json @ajaygh99
+/package-lock.json @ajaygh99
+/SECURITY.md @ajaygh99
