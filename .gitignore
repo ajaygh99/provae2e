@@ -16,6 +16,7 @@ allure-results/
 allure-report/
 reports/
 artifacts/
+evidence/
 tests/**/.tmp-*/
 
 # Local operational preflight reports (machine/date-specific)
