@@ -13,12 +13,14 @@ export interface CapturedSelector {
 interface ElementSelectorToolProps {
   targetDocument?: Document;
   onCapture?: (selector: CapturedSelector) => void;
+  onUrlChange?: (url: string) => void;
 }
 
 /** Interactive Studio element selector for embedded, same-origin application previews. */
 export function ElementSelectorTool({
   targetDocument,
-  onCapture
+  onCapture,
+  onUrlChange
 }: ElementSelectorToolProps): React.JSX.Element {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url, setUrl] = useState('');
@@ -145,7 +147,10 @@ export function ElementSelectorTool({
             type="url"
             placeholder="http://localhost:3000"
             value={url}
-            onChange={event => setUrl(event.target.value)}
+            onChange={event => {
+              setUrl(event.target.value);
+              onUrlChange?.(event.target.value);
+            }}
           />
         </label>
         <label className="ui-field">
