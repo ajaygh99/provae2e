@@ -1,16 +1,22 @@
 const fs = require('fs');
 const path = require('path');
-const { chromium } = require('@playwright/test');
+const { chromium, firefox, webkit } = require('@playwright/test');
 
 async function main() {
   const baseUrl = process.argv[2] || 'http://127.0.0.1:4173';
   const evidenceDir = path.resolve(process.argv[3] || './evidence/phase-4-scenario1');
+  const browserName = (process.argv[4] || 'Chromium').toLowerCase();
+  const browserLabel = browserName === 'webkit' ? 'WebKit' : browserName[0].toUpperCase() + browserName.slice(1);
   fs.mkdirSync(evidenceDir, { recursive: true });
   const startedAt = new Date();
   const consoleErrors = [];
   let browser;
   try {
-    browser = await chromium.launch({ headless: true });
+    if (browserName === 'chromium') browser = await chromium.launch({ headless: true });
+    else if (browserName === 'firefox') browser = await firefox.launch({ headless: true });
+    else if (browserName === 'webkit') browser = await webkit.launch({ headless: true });
+    else if (browserName === 'edge') browser = await chromium.launch({ headless: true, channel: 'msedge' });
+    else throw new Error(`Unsupported browser: ${browserName}`);
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     page.on('console', message => {
       if (message.type() === 'error') consoleErrors.push(message.text());
@@ -31,33 +37,34 @@ async function main() {
     if (!selector || selector.includes('prova-selector-highlight')) throw new Error(`Captured selector is not stable: ${selector}`);
     await page.getByRole('button', { name: 'Save test' }).click();
     await page.getByText('Browser test saved successfully.').waitFor();
-    await page.screenshot({ path: path.join(evidenceDir, 'scenario-1-test-saved.png'), fullPage: true });
-    await page.getByRole('button', { name: 'Run in Chromium' }).click();
+    await page.screenshot({ path: path.join(evidenceDir, `scenario-1-${browserName}-test-saved.png`), fullPage: true });
+    await page.getByRole('button', { name: 'Run browser test' }).click();
     await page.getByRole('heading', { name: 'Executions' }).waitFor();
     await page.getByText('PASS', { exact: true }).waitFor();
-    await page.screenshot({ path: path.join(evidenceDir, 'scenario-1-chromium-pass.png'), fullPage: true });
+    await page.screenshot({ path: path.join(evidenceDir, `scenario-1-${browserName}-pass.png`), fullPage: true });
     const result = {
       scenario: 1,
       result: 'PASS',
       testName: 'Scenario 1 automated browser proof',
       selector,
-      browser: 'Chromium',
+      browser: browserLabel,
       consoleErrors,
       startedAt: startedAt.toISOString(),
       endedAt: new Date().toISOString(),
       details: 'Studio created, saved, and executed a browser test successfully in Chromium.'
     };
-    fs.writeFileSync(path.join(evidenceDir, 'scenario-1-result.json'), JSON.stringify(result, null, 2));
+    fs.writeFileSync(path.join(evidenceDir, `scenario-1-${browserName}-result.json`), JSON.stringify(result, null, 2));
   } catch (error) {
     const result = {
       scenario: 1,
       result: 'FAILED',
+      browser: browserLabel,
       consoleErrors,
       startedAt: startedAt.toISOString(),
       endedAt: new Date().toISOString(),
       details: error instanceof Error ? error.message : String(error)
     };
-    fs.writeFileSync(path.join(evidenceDir, 'scenario-1-result.json'), JSON.stringify(result, null, 2));
+    fs.writeFileSync(path.join(evidenceDir, `scenario-1-${browserName}-result.json`), JSON.stringify(result, null, 2));
     throw error;
   } finally {
     if (browser) await browser.close();

@@ -3,6 +3,7 @@ param(
     [switch]$Configure,
     [switch]$OpenReport,
     [ValidateNotNullOrEmpty()][int[]]$Scenarios = @(1, 2, 3, 4, 5, 6, 7, 8),
+    [ValidateSet("Chromium", "Firefox", "Edge", "WebKit")][string[]]$Browser = @("Chromium"),
     [string]$AvdName = "Pixel_5",
     [int]$AppiumPort = 4723,
     [string]$EvidenceRoot = ".\evidence\phase-4-automated"
@@ -153,14 +154,12 @@ try {
         Write-Host "Running Phase 4 Scenario $Number..." -ForegroundColor Cyan
         if ($Number -eq 1) {
             $ScenarioOneRoot = Join-Path $RunDir "scenario-1"
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run-phase4-scenario1.ps1") -EvidenceRoot $ScenarioOneRoot
-            $ScenarioOneExitCode = $LASTEXITCODE
+            & (Join-Path $PSScriptRoot "run-phase4-scenario1.ps1") -EvidenceRoot $ScenarioOneRoot -Browser $Browser -ReturnToOrchestrator
             $Evidence = Get-ChildItem $ScenarioOneRoot -Filter "scenario-1-result.json" -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
             if (-not $Evidence) { throw "Scenario 1 did not produce evidence JSON." }
             $Result = Get-Content $Evidence.FullName -Raw | ConvertFrom-Json
             $RelativeEvidence = $Evidence.FullName.Substring($RunDir.Length + 1).Replace('\', '/')
             $Results += [pscustomobject]@{ Scenario = 1; Result = [string]$Result.result; Details = [string]$Result.details; Evidence = $RelativeEvidence }
-            if ($ScenarioOneExitCode -ne 0 -and $Result.result -eq "PASS") { throw "Scenario 1 returned exit code $ScenarioOneExitCode despite PASS evidence." }
             continue
         }
         $Before = @(Get-ChildItem $RunDir -Filter "scenario-$Number-*.json" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })

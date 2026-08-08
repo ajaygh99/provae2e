@@ -43,7 +43,7 @@ export function BuilderPage(): React.JSX.Element {
       testId: savedTest.id,
       testName: savedTest.name,
       status: matched ? 'PASS' : 'FAIL',
-      details: matched ? `Chromium located ${savedTest.selector.value}` : `Selector not found: ${savedTest.selector.value}`,
+      details: matched ? `Browser located ${savedTest.selector.value}` : `Selector not found: ${savedTest.selector.value}`,
       executedAt: new Date().toISOString()
     });
     navigate('/execution');
@@ -66,7 +66,7 @@ export function BuilderPage(): React.JSX.Element {
       <ElementSelectorTool onCapture={setSelector} onUrlChange={setTargetUrl} />
       <div className="browser-test-actions">
         <button className="ui-button ui-button--secondary" type="button" onClick={save}>Save test</button>
-        <button className="ui-button ui-button--primary" type="button" disabled={!savedTest} onClick={run}>Run in Chromium</button>
+        <button className="ui-button ui-button--primary" type="button" disabled={!savedTest} onClick={run}>Run browser test</button>
       </div>
       {message && <p className={savedTest ? 'save-status save-status--success' : 'ui-field__error'} role="status">{message}</p>}
     </section>

@@ -2,6 +2,8 @@
 param(
     [int]$Port = 4173,
     [string]$EvidenceRoot = ".\evidence\phase-4-scenario1",
+    [ValidateSet("Chromium", "Firefox", "Edge", "WebKit")][string[]]$Browser = @("Chromium"),
+    [switch]$ReturnToOrchestrator,
     [switch]$OpenReport
 )
 
@@ -16,6 +18,7 @@ $RunDir = (Resolve-Path $RunDir).Path
 $BaseUrl = "http://127.0.0.1:$Port"
 $StudioProcess = $null
 $Result = $null
+$BrowserResults = @()
 
 function Wait-Studio([string]$Uri, [int]$Seconds) {
     $Deadline = (Get-Date).AddSeconds($Seconds)
@@ -45,11 +48,23 @@ try {
         if (-not (Wait-Studio "$BaseUrl/dashboard" 45)) { throw "Studio did not become ready at $BaseUrl." }
     }
 
-    Write-Host "Running Scenario 1 in Chromium..." -ForegroundColor Cyan
-    & node .\scripts\scenario1-browser-proof.js $BaseUrl $RunDir 2>&1 | Tee-Object -FilePath (Join-Path $RunDir "scenario-1-browser.log")
-    if ($LASTEXITCODE -ne 0) { throw "Scenario 1 Chromium automation failed." }
-    $Result = Get-Content (Join-Path $RunDir "scenario-1-result.json") -Raw | ConvertFrom-Json
-    if ($Result.result -ne "PASS") { throw $Result.details }
+    foreach ($BrowserName in @($Browser | Sort-Object -Unique)) {
+        $BrowserKey = $BrowserName.ToLowerInvariant()
+        Write-Host "Running Phase 4 Scenario 1 in $BrowserName..." -ForegroundColor Cyan
+        & node .\scripts\scenario1-browser-proof.js $BaseUrl $RunDir $BrowserName 2>&1 | Tee-Object -FilePath (Join-Path $RunDir "scenario-1-$BrowserKey-browser.log")
+        $BrowserResult = Get-Content (Join-Path $RunDir "scenario-1-$BrowserKey-result.json") -Raw | ConvertFrom-Json
+        $BrowserResults += $BrowserResult
+        if ($LASTEXITCODE -ne 0 -or $BrowserResult.result -ne "PASS") { throw "Scenario 1 $BrowserName automation failed: $($BrowserResult.details)" }
+    }
+    $Result = [pscustomobject]@{
+        scenario = 1
+        result = "PASS"
+        details = "Studio created, saved, and executed a browser test successfully in: $($BrowserResults.browser -join ', ')."
+        browser = $BrowserResults.browser -join ", "
+        selector = $BrowserResults[0].selector
+        browsers = $BrowserResults
+    }
+    $Result | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $RunDir "scenario-1-result.json") -Encoding UTF8
 }
 catch {
     if (-not $Result) {
@@ -64,12 +79,17 @@ finally {
 $StatusClass = if ($Result.result -eq "PASS") { "pass" } else { "fail" }
 $Details = [Net.WebUtility]::HtmlEncode([string]$Result.details)
 $Selector = if ($Result.PSObject.Properties.Name -contains "selector") { [Net.WebUtility]::HtmlEncode([string]$Result.selector) } else { "-" }
+$BrowserRows = foreach ($BrowserResult in $BrowserResults) {
+    $Key = ([string]$BrowserResult.browser).ToLowerInvariant()
+    $RowClass = if ($BrowserResult.result -eq "PASS") { "pass" } else { "fail" }
+    "<tr><td>$($BrowserResult.browser)</td><td class='$RowClass'>$($BrowserResult.result)</td><td><a href='./scenario-1-$Key-result.json'>JSON</a></td><td><a href='./scenario-1-$Key-test-saved.png'>Saved</a> | <a href='./scenario-1-$Key-pass.png'>Execution</a></td></tr>"
+}
 $Html = @"
-<!doctype html><html><head><meta charset="utf-8"><title>ProvaE2E Scenario 1 Report</title><style>body{font-family:Segoe UI,Arial;margin:36px;color:#14213d}.card{padding:22px;border:1px solid #dbe2ef;border-radius:12px}.pass{color:#087f23}.fail{color:#c1121f}img{max-width:100%;margin-top:20px;border:1px solid #ddd}</style></head><body><h1>ProvaE2E Phase 4 - Scenario 1</h1><div class="card"><h2 class="$StatusClass">$($Result.result)</h2><p>$Details</p><p><b>Browser:</b> Chromium</p><p><b>Selector:</b> <code>$Selector</code></p><p><a href="./scenario-1-result.json">JSON evidence</a></p></div><img src="./scenario-1-test-saved.png" alt="Saved browser test evidence"><img src="./scenario-1-chromium-pass.png" alt="Chromium PASS evidence"></body></html>
+<!doctype html><html><head><meta charset="utf-8"><title>ProvaE2E Scenario 1 Report</title><style>body{font-family:Segoe UI,Arial;margin:36px;color:#14213d}.card{padding:22px;border:1px solid #dbe2ef;border-radius:12px}.pass{color:#087f23}.fail{color:#c1121f}table{border-collapse:collapse;width:100%;margin-top:20px}th,td{padding:10px;border:1px solid #dbe2ef;text-align:left}</style></head><body><h1>ProvaE2E Phase 4 - Scenario 1</h1><div class="card"><h2 class="$StatusClass">$($Result.result)</h2><p>$Details</p><p><b>Browsers:</b> $($Result.browser)</p><p><b>Selector:</b> <code>$Selector</code></p><p><a href="./scenario-1-result.json">Combined JSON evidence</a></p></div><table><thead><tr><th>Browser</th><th>Status</th><th>Result</th><th>Screenshots</th></tr></thead><tbody>$($BrowserRows -join "`n")</tbody></table></body></html>
 "@
 $ReportPath = Join-Path $RunDir "scenario-1-report.html"
 Set-Content -Path $ReportPath -Value $Html -Encoding UTF8
 Write-Host "Scenario 1 result: $($Result.result)" -ForegroundColor $(if ($Result.result -eq "PASS") { "Green" } else { "Red" })
 Write-Host "HTML report: $ReportPath"
 if ($OpenReport) { Start-Process $ReportPath }
-if ($Result.result -ne "PASS") { exit 1 }
+if ($Result.result -ne "PASS" -and -not $ReturnToOrchestrator) { exit 1 }
