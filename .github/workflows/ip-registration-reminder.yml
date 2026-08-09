@@ -1,0 +1,49 @@
+name: IP registration reminder
+
+on:
+  schedule:
+    - cron: '17 14 9 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open the one-year registration review issue
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $targetDate = [DateTimeOffset]::Parse('2027-08-09T00:00:00Z')
+          if ([DateTimeOffset]::UtcNow -lt $targetDate) {
+            Write-Host "Registration review is not due until $($targetDate.ToString('yyyy-MM-dd'))."
+            exit 0
+          }
+
+          $title = 'Review federal trademark and copyright registration'
+          $issues = gh issue list --repo $env:GH_REPO --state all --limit 100 `
+            --search "`"$title`" in:title" --json title | ConvertFrom-Json
+          if ($issues.title -contains $title) {
+            Write-Host 'The registration review reminder already exists.'
+            exit 0
+          }
+
+          $body = @'
+          One-year zero-cost IP protection review:
+
+          - [ ] Run trademark clearance for PROVAE2E and PROVA Growth OS.
+          - [ ] Decide whether revenue supports a Class 9 word-mark filing.
+          - [ ] Assess adding Class 42 for SaaS services.
+          - [ ] Decide whether to file the logo separately.
+          - [ ] Consider registering the latest major human-authored software release with the U.S. Copyright Office.
+          - [ ] Review ownership, contractor assignments, licensing, and specimens with an IP attorney if affordable.
+
+          Budget reference: USPTO fees and legal requirements can change; verify the current official fee schedule before filing.
+          '@
+
+          gh issue create --repo $env:GH_REPO --title $title --body $body
