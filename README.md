@@ -1,4 +1,4 @@
-# PROVA — AI QE Automation Platform
+# PROVAE2E™ — AI QE Automation Platform
 > **Website:** provae2e.com
 
 > **Public beta:** `v0.3.5-beta.1` is intended for controlled testing in
@@ -508,7 +508,9 @@ See `docs/ARCHITECTURE.md` for the full system design.
 
 ## License
 
-MIT © PROVA
+MIT © 2026 Ajay. PROVAE2E™ is claimed as a trademark for the software and
+related services described in this repository. The ™ symbol indicates a
+trademark claim, not a federal registration.
 
 
 ---
