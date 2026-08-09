@@ -4,6 +4,7 @@
  * Usage: qe-tool run --url <url> [options]
  */
 import { Command } from 'commander';
+import { readFileSync } from 'node:fs';
 import { log } from '../core/logger.js';
 import { runBrowserTest } from '../runners/browser-runner.js';
 import type { BrowserName } from '../runners/browser-runner.js';
@@ -68,6 +69,14 @@ import {
   reviewSelectorRepairProposal
 } from '../core/selector-repair-proposal.js';
 import { HealingMemoryStore } from '../core/healing-memory.js';
+
+const packageMetadata = JSON.parse(
+  readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')
+) as { version?: unknown };
+if (typeof packageMetadata.version !== 'string') {
+  throw new Error('Package version is missing or invalid.');
+}
+const cliVersion = packageMetadata.version;
 
 /** Raw CLI option values Commander hands to the `run` action. */
 export interface RunActionOptions extends RunOptionsInput {
@@ -1107,7 +1116,7 @@ export function buildProgram(): Command {
   program
     .name('qe-tool')
     .description('PROVA — AI-native QE automation platform | provae2e.com')
-    .version('0.3.5-beta.1');
+    .version(cliVersion);
 
   program
     .command('run')
