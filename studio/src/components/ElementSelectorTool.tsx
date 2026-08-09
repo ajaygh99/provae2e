@@ -16,6 +16,18 @@ interface ElementSelectorToolProps {
   onUrlChange?: (url: string) => void;
 }
 
+const safePreviewUrl = (value: string): string => {
+  if (!value) return 'about:blank';
+  try {
+    const parsedUrl = new URL(value);
+    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:'
+      ? parsedUrl.href
+      : 'about:blank';
+  } catch {
+    return 'about:blank';
+  }
+};
+
 /** Interactive Studio element selector for embedded, same-origin application previews. */
 export function ElementSelectorTool({
   targetDocument,
@@ -172,7 +184,7 @@ export function ElementSelectorTool({
           ref={iframeRef}
           className="selector-preview"
           title="Application preview"
-          src={url || 'about:blank'}
+          src={safePreviewUrl(url)}
           onLoad={() => setError('')}
         />
       )}
