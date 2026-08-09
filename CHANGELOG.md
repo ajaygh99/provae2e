@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.5-beta.2 — 2026-08-09
+
+- Added one-command automated validation for all eight Phase 4 beta scenarios.
+- Added Chromium, Firefox, Edge, and Playwright WebKit coverage for the Studio browser workflow.
+- Added deterministic OpenAPI, performance, ZAP security, analytics, Android/Appium, integration, and stale-selector repair evidence flows.
+- Hardened Studio preview URLs against executable and malformed URL schemes.
+- Preserved encrypted local credential reuse while excluding credentials and generated evidence from Git.
+
 ## 0.3.5-beta.1 — 2026-07-28
 
 ### Phase 4 foundation readiness
