@@ -86,6 +86,16 @@ export { AnalyticsReporter } from './reporters/analytics-reporter.js';
 export type { AnalyticsReport } from './reporters/analytics-reporter.js';
 export { PowerBIExporter } from './exporters/powerbi-exporter.js';
 export type { PowerBIConfig, PowerBIExportResult } from './exporters/powerbi-exporter.js';
+export { PluginRegistry } from './plugins/registry.js';
+export type { PluginRegistryOptions } from './plugins/registry.js';
+export { pluginKey, validatePluginShape } from './plugins/types/plugin.js';
+export type {
+  Plugin, PluginConfig, PluginDevice, PluginDeviceSession, PluginMetadata, PluginReport,
+  PluginState, PluginTestCase, PluginType, TestFailure, TestResult
+} from './plugins/types/plugin.js';
+export type { IntegrationPlugin, NotificationPlugin } from './plugins/types/integration-plugin.js';
+export type { ReportingPlugin } from './plugins/types/reporting-plugin.js';
+export type { AnyPlugin, DeviceCloudPlugin } from './plugins/types/device-cloud-plugin.js';
 export { generateFigmaTests } from './generators/figma-test-generator.js';
 export { SpecLinkStore } from './core/spec-link-store.js';
 export type { Requirement, RequirementTest, RequirementCoverage } from './core/spec-link-store.js';
