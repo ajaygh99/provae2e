@@ -1,0 +1,33 @@
+{
+  "@version": "2.15.0",
+  "@generated": "2026-08-07T00:00:00Z",
+  "site": [
+    {
+      "@name": "http://phase4.test",
+      "alerts": [
+        {
+          "pluginid": "40012",
+          "alert": "Cross Site Scripting (Reflected)",
+          "riskcode": "3",
+          "riskdesc": "High (High)",
+          "confidence": "3",
+          "desc": "Deterministic Phase 4 fixture used to verify that HIGH findings block promotion.",
+          "instances": [
+            { "uri": "http://phase4.test/search?q=fixture", "method": "GET", "param": "q" }
+          ]
+        },
+        {
+          "pluginid": "10021",
+          "alert": "X-Content-Type-Options Header Missing",
+          "riskcode": "1",
+          "riskdesc": "Low (Medium)",
+          "confidence": "2",
+          "desc": "Low-risk control finding.",
+          "instances": [
+            { "uri": "http://phase4.test/", "method": "GET", "param": "" }
+          ]
+        }
+      ]
+    }
+  ]
+}

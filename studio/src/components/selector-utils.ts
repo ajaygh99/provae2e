@@ -10,7 +10,9 @@ export function createCssSelector(element: Element): string {
   let current: Element | null = element;
   while (current && current.tagName.toLowerCase() !== 'html') {
     let segment = current.tagName.toLowerCase();
-    const classes = [...current.classList].filter(value => /^[a-zA-Z_-][\w-]*$/.test(value)).slice(0, 2);
+    const classes = [...current.classList]
+      .filter(value => value !== 'prova-selector-highlight' && /^[a-zA-Z_-][\w-]*$/.test(value))
+      .slice(0, 2);
     if (classes.length > 0) segment += classes.map(value => `.${escapeCss(value)}`).join('');
     const parent: Element | null = current.parentElement;
     if (parent) {

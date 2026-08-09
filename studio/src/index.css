@@ -351,6 +351,38 @@
   .selector-result small {
     @apply truncate text-prova-text-tertiary;
   }
+
+  .browser-test-form {
+    @apply mt-7 grid gap-3;
+  }
+
+  .browser-test-actions {
+    @apply mt-4 flex justify-end gap-3;
+  }
+
+  .save-status--success {
+    @apply text-prova-success font-bold text-sm;
+  }
+
+  .execution-result {
+    @apply mt-7 grid gap-3;
+  }
+
+  .execution-result > div {
+    @apply flex items-center justify-between;
+  }
+
+  .execution-status {
+    @apply rounded-full px-3 py-1 text-xs font-bold;
+  }
+
+  .execution-status--pass {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .execution-status--fail {
+    @apply bg-red-100 text-red-800;
+  }
 }
 
 .prova-selector-highlight {

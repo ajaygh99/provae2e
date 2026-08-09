@@ -1,0 +1,58 @@
+﻿[
+    {
+        "scenario":  "1",
+        "name":  "Studio workflow validation",
+        "status":  "PASS",
+        "exitCode":  0,
+        "durationSeconds":  58.5,
+        "log":  "scenario-1.log"
+    },
+    {
+        "scenario":  "2",
+        "name":  "OpenAPI generation and execution tests",
+        "status":  "PASS",
+        "exitCode":  0,
+        "durationSeconds":  3.9,
+        "log":  "scenario-2.log"
+    },
+    {
+        "scenario":  "3",
+        "name":  "Performance workflow validation",
+        "status":  "PASS",
+        "exitCode":  0,
+        "durationSeconds":  4.3,
+        "log":  "scenario-3.log"
+    },
+    {
+        "scenario":  "4",
+        "name":  "Security workflow validation",
+        "status":  "PASS",
+        "exitCode":  0,
+        "durationSeconds":  20.9,
+        "log":  "scenario-4.log"
+    },
+    {
+        "scenario":  "5",
+        "name":  "Analytics workflow validation",
+        "status":  "PASS",
+        "exitCode":  0,
+        "durationSeconds":  22.2,
+        "log":  "scenario-5.log"
+    },
+    {
+        "scenario":  "7",
+        "name":  "Integration full validation",
+        "status":  "PASS",
+        "exitCode":  0,
+        "durationSeconds":  230.2,
+        "log":  "scenario-7.log"
+    },
+    {
+        "scenario":  "8",
+        "name":  "Selector repair and healing tests",
+        "status":  "PASS",
+        "exitCode":  0,
+        "durationSeconds":  34.7,
+        "log":  "scenario-8.log"
+    }
+]

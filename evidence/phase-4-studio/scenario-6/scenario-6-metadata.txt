@@ -1,0 +1,14 @@
+capturedAt=2026-07-30T14:45:18-05:00
+device=emulator-5554
+avd=Pixel_5
+platformVersion=14
+model=Android SDK built for x86_64
+package=com.provae2e.sample
+apkSha256=de5790c1e5ef2785f5bc23142697c89651c6ee8b6c92f1d316c52a821db35176
+appiumVersion=3.6.0
+uiautomator2Version=8.2.2
+sessionId=9d5fe363-0fe7-474d-922e-4e433b0cc5a8
+appiumUrl=http://127.0.0.1:4723
+durationMs=5663
+provae2eReleaseCommit=67d6512c1fe3430455f8f010220abb98c9460228
+result=PASS

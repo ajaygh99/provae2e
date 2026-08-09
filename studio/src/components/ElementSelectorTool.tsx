@@ -13,12 +13,26 @@ export interface CapturedSelector {
 interface ElementSelectorToolProps {
   targetDocument?: Document;
   onCapture?: (selector: CapturedSelector) => void;
+  onUrlChange?: (url: string) => void;
 }
+
+const safePreviewUrl = (value: string): string => {
+  if (!value) return 'about:blank';
+  try {
+    const parsedUrl = new URL(value);
+    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:'
+      ? parsedUrl.href
+      : 'about:blank';
+  } catch {
+    return 'about:blank';
+  }
+};
 
 /** Interactive Studio element selector for embedded, same-origin application previews. */
 export function ElementSelectorTool({
   targetDocument,
-  onCapture
+  onCapture,
+  onUrlChange
 }: ElementSelectorToolProps): React.JSX.Element {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [url, setUrl] = useState('');
@@ -145,7 +159,10 @@ export function ElementSelectorTool({
             type="url"
             placeholder="http://localhost:3000"
             value={url}
-            onChange={event => setUrl(event.target.value)}
+            onChange={event => {
+              setUrl(event.target.value);
+              onUrlChange?.(event.target.value);
+            }}
           />
         </label>
         <label className="ui-field">
@@ -167,7 +184,7 @@ export function ElementSelectorTool({
           ref={iframeRef}
           className="selector-preview"
           title="Application preview"
-          src={url || 'about:blank'}
+          src={safePreviewUrl(url)}
           onLoad={() => setError('')}
         />
       )}

@@ -118,6 +118,16 @@ describe('ElementSelectorTool', () => {
   it('renders an iframe preview and URL control by default', () => {
     render(<ElementSelectorTool />);
     fireEvent.change(screen.getByLabelText('Preview URL'), { target: { value: 'http://localhost:3000' } });
-    expect(screen.getByTitle('Application preview')).toHaveAttribute('src', 'http://localhost:3000');
+    expect(screen.getByTitle('Application preview')).toHaveAttribute('src', 'http://localhost:3000/');
+  });
+
+  it.each([
+    'javascript:alert(document.domain)',
+    'data:text/html,<script>alert(document.domain)</script>',
+    'not a URL'
+  ])('does not load an unsafe preview URL: %s', unsafeUrl => {
+    render(<ElementSelectorTool />);
+    fireEvent.change(screen.getByLabelText('Preview URL'), { target: { value: unsafeUrl } });
+    expect(screen.getByTitle('Application preview')).toHaveAttribute('src', 'about:blank');
   });
 });
