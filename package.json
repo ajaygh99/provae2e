@@ -65,7 +65,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.0",
+    "@anthropic-ai/sdk": "^0.117.1",
     "@faker-js/faker": "^9.9.0",
     "@playwright/test": "^1.44.0",
     "allure-playwright": "^2.14.0",
