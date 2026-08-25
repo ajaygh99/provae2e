@@ -34,7 +34,7 @@ jobs:
       DATABASE_URL: postgresql://prova:prova-ci@127.0.0.1:5432/prova_analytics
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: npm
