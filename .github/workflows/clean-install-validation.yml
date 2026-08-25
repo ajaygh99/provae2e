@@ -1,4 +1,4 @@
-﻿name: Slice 1 - Clean Install Validation (Multi-OS)
+name: Slice 1 - Clean Install Validation (Multi-OS)
 
 on:
   workflow_dispatch:
@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
