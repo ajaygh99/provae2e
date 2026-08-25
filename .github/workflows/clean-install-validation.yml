@@ -1,4 +1,4 @@
-﻿name: Slice 1 - Clean Install Validation (Multi-OS)
+name: Slice 1 - Clean Install Validation (Multi-OS)
 
 on:
   workflow_dispatch:
@@ -109,7 +109,7 @@ jobs:
 
       - name: Upload Coverage Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.os }}
           path: coverage/
@@ -117,7 +117,7 @@ jobs:
 
       - name: Upload Packed CLI
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: packed-cli-${{ matrix.os }}
           path: package-artifacts/*.tgz
